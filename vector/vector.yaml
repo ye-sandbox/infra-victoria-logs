@@ -1,0 +1,128 @@
+# ==============================================================================
+# Vector Configuration for VictoriaLogs Integration
+# ==============================================================================
+# Minimalist, high-performance log collector and router for Homelab
+# ==============================================================================
+
+data_dir: /var/lib/vector
+
+# ------------------------------------------------------------------------------
+# SOURCES (Entradas de Logs)
+# ------------------------------------------------------------------------------
+sources:
+  # Captura logs de todos os containers locais via socket do Docker
+  docker_logs:
+    type: docker_logs
+    exclude_containers:
+      - vector
+    auto_partial_merge: true
+
+  # Recepção de logs externos (Syslog UDP) de hosts Proxmox ou LXCs
+  syslog_udp:
+    type: syslog
+    mode: udp
+    address: 0.0.0.0:5140
+
+  # Recepção de logs via HTTP POST em JSON para aplicações diretas
+  http_logs:
+    type: http_server
+    address: 0.0.0.0:8686
+    path: /logs
+    encoding: json
+
+# ------------------------------------------------------------------------------
+# TRANSFORMS (Normalização e Enriquecimento via VRL)
+# ------------------------------------------------------------------------------
+transforms:
+  remap_docker:
+    type: remap
+    inputs:
+      - docker_logs
+    source: |
+      .timestamp = .timestamp || now()
+      .host = get_env_var("HOST_IDENTIFIER") ?? "unknown-host"
+      .container_name = .container_name || "unknown"
+      .stream = .stream || "stdout"
+
+      msg = string(.message) ?? ""
+      
+      # Tenta decodificar JSON caso a aplicação emita logs estruturados
+      parsed, err = parse_json(msg)
+      if err == null {
+        if exists(parsed.level) {
+          .level = downcase(string(parsed.level) ?? "info")
+        }
+        if exists(parsed.message) {
+          .message = string(parsed.message) ?? msg
+        } else if exists(parsed.msg) {
+          .message = string(parsed.msg) ?? msg
+        }
+        .structured = parsed
+      } else {
+        # Heurística de identificação de nível para logs de texto puro
+        if match(msg, r'(?i)\b(fatal|panic|error|exception)\b') {
+          .level = "error"
+        } else if match(msg, r'(?i)\b(warn|warning)\b') {
+          .level = "warn"
+        } else if match(msg, r'(?i)\b(debug|trace)\b') {
+          .level = "debug"
+        } else {
+          .level = "info"
+        }
+      }
+
+      .service = .container_name
+
+  remap_syslog:
+    type: remap
+    inputs:
+      - syslog_udp
+    source: |
+      .timestamp = .timestamp || now()
+      .host = .host || get_env_var("HOST_IDENTIFIER") ?? "syslog-host"
+      .service = .appname || "syslog"
+      .container_name = "syslog"
+      .stream = "syslog"
+      .level = downcase(string(.severity) ?? "info")
+
+  remap_http:
+    type: remap
+    inputs:
+      - http_logs
+    source: |
+      .timestamp = .timestamp || now()
+      .host = .host || get_env_var("HOST_IDENTIFIER") ?? "http-client"
+      .service = .service || "http-source"
+      .container_name = .container_name || .service
+      .stream = .stream || "http"
+      .level = downcase(string(.level) ?? "info")
+      .message = string(.message) ?? encode_json(.)
+
+# ------------------------------------------------------------------------------
+# SINKS (Destinos - VictoriaLogs)
+# ------------------------------------------------------------------------------
+sinks:
+  victorialogs:
+    type: http
+    inputs:
+      - remap_docker
+      - remap_syslog
+      - remap_http
+    uri: "http://victorialogs:9428/insert/jsonline"
+    compression: gzip
+    encoding:
+      codec: json
+      framing:
+        method: newline_delimited
+    healthcheck:
+      enabled: false
+    request:
+      headers:
+        VL-Stream-Fields: "host,container_name,service,stream"
+        VL-Time-Field: "timestamp"
+        VL-Msg-Field: "message"
+        AccountID: "0"
+        ProjectID: "0"
+    buffer:
+      type: disk
+      max_size: 104857600

@@ -59,6 +59,9 @@ pnpm-debug.log*
 
 # Docker / local storage
 docker/data/
+victorialogs_data/
+vector_data/
+victoria-logs-data/
 *.pid
 *.seed
 

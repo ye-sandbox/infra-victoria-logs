@@ -12,21 +12,23 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa [XX.Y]: [Título curto e descritivo]
+### 📌 Tarefa 01.0: Setup da Stack de Observabilidade Minimalista (VictoriaLogs + Vector)
 
-- **Descrição:** [O que precisa ser implementado, em 2-4 linhas. Detalhe o suficiente
-  para o agente montar um plano, sem reescrever a especificação inteira aqui.]
-- **Sistema(s) Envolvido(s):** [ex: `servico-api`, `servico-worker`, `frontend`]
+- **Descrição:** Criação da estrutura completa pronta para produção de uma stack leve de centralização de logs para homelabs (Mini PC no Proxmox com Docker). Composta por VictoriaLogs e Vector, com foco em footprint mínimo (< 150 MB RAM total) e facilidade de consulta para desenvolvedores e agentes de IA via LogsQL.
+- **Sistema(s) Envolvido(s):** `docker-compose`, `vector`, `documentação / .agent`
 - **Tipo de Ação:**
-  - [ ] Somente leitura / Documentação
-  - [ ] Escrita de código-fonte
-- **Status:** [PRONTO PARA PLANEJAMENTO / EM PLANEJAMENTO / APROVADO / EM EXECUÇÃO]
+  - [x] Somente leitura / Documentação
+  - [x] Escrita de código-fonte
+- **Status:** EM EXECUÇÃO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] [Critério objetivo e verificável 1]
-- [ ] [Critério objetivo e verificável 2]
-- [ ] [Critério objetivo e verificável 3]
+- [x] `docker-compose.yml` funcional com VictoriaLogs e Vector configurados com limits rígidos de memória (< 150 MB somados).
+- [x] `vector/vector.yaml` configurado para capturar logs do Docker via socket, enriquecer metadados, tratar loops e enviar via HTTP/jsonline para o VictoriaLogs com `VL-Stream-Fields`.
+- [x] `.env.example` com todas as variáveis (portas, retenção, limites de memória, tags de imagem).
+- [x] `.gitignore` atualizado para ignorar dados locais e volumes de desenvolvimento.
+- [x] `README.md` completo com guia de deploy, arquitetura, consultas LogsQL (exemplos para agentes de IA) e integração com Proxmox.
+- [x] `AGENTS.md` e `.agent/NOTES.md` devidamente preenchidos com o contexto real de DevOps e decisões de arquitetura da stack.
 
 ---
 

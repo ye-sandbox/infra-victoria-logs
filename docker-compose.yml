@@ -1,0 +1,67 @@
+services:
+  victorialogs:
+    image: victoriametrics/victoria-logs:${VICTORIALOGS_VERSION:-v1.23.0}
+    container_name: victorialogs
+    restart: unless-stopped
+    command:
+      - "-storageDataPath=/victoria-logs-data"
+      - "-retentionPeriod=${RETENTION_PERIOD:-30d}"
+      - "-httpListenAddr=:${VICTORIALOGS_HTTP_PORT:-9428}"
+      - "-memory.allowedPercent=${VICTORIALOGS_MEMORY_ALLOWED_PERCENT:-60}"
+    ports:
+      - "${VICTORIALOGS_HTTP_PORT:-9428}:9428"
+    volumes:
+      - victorialogs_data:/victoria-logs-data
+    networks:
+      - logging-network
+    deploy:
+      resources:
+        limits:
+          memory: 80M
+          cpus: "0.50"
+        reservations:
+          memory: 30M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9428/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  vector:
+    image: timberio/vector:${VECTOR_VERSION:-0.45.0-alpine}
+    container_name: vector
+    restart: unless-stopped
+    environment:
+      VECTOR_LOG: ${VECTOR_LOG_LEVEL:-warn}
+      HOST_IDENTIFIER: ${HOST_IDENTIFIER:-proxmox-homelab}
+    ports:
+      - "${VECTOR_SYSLOG_PORT:-5140}:5140/udp"
+      - "${VECTOR_HTTP_PORT:-8686}:8686"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
+      - vector_data:/var/lib/vector
+    networks:
+      - logging-network
+    depends_on:
+      victorialogs:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 60M
+          cpus: "0.50"
+        reservations:
+          memory: 20M
+
+networks:
+  logging-network:
+    name: logging-network
+    driver: bridge
+
+volumes:
+  victorialogs_data:
+    name: victorialogs_data
+  vector_data:
+    name: vector_data
