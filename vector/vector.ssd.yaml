@@ -18,6 +18,11 @@ sources:
     exclude_containers:
       - vector
     auto_partial_merge: true
+    multiline:
+      start_pattern: '^[\S]'
+      condition_pattern: '^[\s]'
+      mode: halt_before
+      timeout_ms: 1000
 
   syslog_udp:
     type: syslog
@@ -107,7 +112,7 @@ sinks:
       - remap_docker
       - remap_syslog
       - remap_http
-    uri: "http://victorialogs:9428/insert/jsonline"
+    uri: "http://${VICTORIALOGS_AUTH_USERPASS:-}victorialogs:9428/insert/jsonline"
     compression: zstd
     encoding:
       codec: json

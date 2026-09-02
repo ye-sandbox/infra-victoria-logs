@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 03.0: Implementação de Perfis de Armazenamento Dinâmicos (HDD vs SSD)
+### 📌 Tarefa 04.0: Agregação Multilinha, Scripts Operacionais (Backup/Smoke Test) e Autenticação Opcional
 
-- **Descrição:** Implementar suporte nativo a perfis de armazenamento via variável `STORAGE_PROFILE` (hdd / ssd). O modo HDD foca em poupar IOPS com buffer em memória RAM, escrita sequencial (2MB/2s), descarte de healthchecks e menos buscas paralelas. O modo SSD foca em menor latência de busca e persistência em buffer de disco.
-- **Sistema(s) Envolvido(s):** `vector`, `docker-compose`, `.env.example`, `documentação`
+- **Descrição:** Implementar agregação nativa de logs multilinha (stack traces) no Vector, desenvolver scripts operacionais de backup atômico via API de snapshot (`scripts/backup.sh`) e smoke test automatizado do pipeline (`scripts/test-pipeline.sh`), além de suporte opcional a autenticação básica no VictoriaLogs.
+- **Sistema(s) Envolvido(s):** `vector`, `docker-compose`, `scripts`, `.env.example`, `documentação`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,12 +23,12 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] `vector/vector.hdd.yaml` criado e otimizado para HD mecânico (buffer em memória, lotes 2MB/2s, descarte de pings).
-- [x] `vector/vector.ssd.yaml` criado e otimizado para SSD (buffer em disco de 256MB, lotes 1MB/1s).
-- [x] `docker-compose.yml` parametrizado com `./vector/vector.${STORAGE_PROFILE:-hdd}.yaml` e variáveis de busca.
-- [x] `.env.example` atualizado com a documentação clara dos perfis `STORAGE_PROFILE=hdd` e `STORAGE_PROFILE=ssd`.
-- [x] `README.md` e `.agent/NOTES.md` atualizados com o guia de escolha e justificativa arquitetural dos perfis.
-- [x] Validação de sintaxe dos arquivos YAML aprovada com 100% de sucesso.
+- [x] Agregação multilinha (`multiline`) adicionada em `vector.hdd.yaml`, `vector.ssd.yaml` e `vector.yaml`.
+- [x] Script de backup atômico (`scripts/backup.sh`) implementado usando a API de snapshots do VictoriaLogs com rotação de cópias.
+- [x] Script de smoke test (`scripts/test-pipeline.sh`) implementado para validação ponta a ponta em tempo real.
+- [x] Suporte opcional a autenticação básica no VictoriaLogs e Vector configurado e documentado no `.env.example`.
+- [x] Auto-monitoramento com Prometheus nativo (`/metrics`) documentado no Backlog Futuro do `TASK.md`.
+- [x] Validações de sintaxe de todos os arquivos YAML e scripts executadas com 100% de sucesso.
 
 ---
 
@@ -46,12 +46,12 @@
 ## Backlog (Próximas, em ordem)
 
 - [ ] **[01.1]** Validação de deploy em ambiente real no Proxmox e teste de ingestão de logs — `docker-compose / vector`
-- [ ] **[01.2]** Automação de rotação de logs e script de backup de volumes — `scripts / devops`
 
 ---
 
 ## Backlog Futuro / Ideias (não priorizadas)
 
+- [ ] **Auto-monitoramento da Stack:** Coleta e exportação de métricas nativas do VictoriaLogs (`/metrics`) para Grafana/Prometheus no Proxmox
 - [ ] Painel Grafana ou Dashboard leve alternativo para métricas combinadas (se VictoriaMetrics for adicionado no futuro)
 - [ ] Agente MCP dedicado para consulta direta de VictoriaLogs por assistentes de IA
 

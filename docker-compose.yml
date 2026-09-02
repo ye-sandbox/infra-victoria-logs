@@ -15,6 +15,8 @@ services:
       - "-memory.allowedPercent=${VICTORIALOGS_MEMORY_ALLOWED_PERCENT:-60}"
       - "-search.maxQueryDuration=${VL_MAX_QUERY_DURATION:-30s}"
       - "-search.maxConcurrentRequests=${VL_MAX_CONCURRENT_REQUESTS:-2}"
+      - "-httpAuth.username=${VICTORIALOGS_AUTH_USERNAME:-}"
+      - "-httpAuth.password=${VICTORIALOGS_AUTH_PASSWORD:-}"
     ports:
       - "${VICTORIALOGS_HTTP_PORT:-9428}:9428"
     volumes:
@@ -34,7 +36,7 @@ services:
         reservations:
           memory: 30M
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9428/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://${VICTORIALOGS_AUTH_USERNAME:+${VICTORIALOGS_AUTH_USERNAME}:${VICTORIALOGS_AUTH_PASSWORD}@}127.0.0.1:9428/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -48,6 +50,8 @@ services:
     environment:
       VECTOR_LOG: ${VECTOR_LOG_LEVEL:-warn}
       HOST_IDENTIFIER: ${HOST_IDENTIFIER:-proxmox-homelab}
+      VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION: "true"
+      VICTORIALOGS_AUTH_USERPASS: "${VICTORIALOGS_AUTH_USERNAME:+${VICTORIALOGS_AUTH_USERNAME}:${VICTORIALOGS_AUTH_PASSWORD}@}"
     ports:
       - "${VECTOR_SYSLOG_PORT:-5140}:5140/udp"
       - "${VECTOR_HTTP_PORT:-8686}:8686"

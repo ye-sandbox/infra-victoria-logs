@@ -92,7 +92,13 @@ VICTORIALOGS_HTTP_PORT=9428
 docker compose up -d
 ```
 
-### 4. Verificar Status e Consumo de Memória
+### 4. Executar Teste Ponta a Ponta (Smoke Test)
+Valide a ingestão e a busca de logs em menos de 5 segundos com o script automatizado:
+```bash
+./scripts/test-pipeline.sh
+```
+
+### 5. Verificar Status e Consumo de Memória
 ```bash
 docker compose ps
 docker stats --no-stream
@@ -198,20 +204,43 @@ As configurações no [`docker-compose.yml`](./docker-compose.yml) foram ajustad
 
 ---
 
+## 🔒 Segurança e Autenticação Básica (Opcional)
+
+Se o seu homelab for exposto externamente ou você desejar proteger a VMUI e as APIs, basta descomentar e configurar no [`.env`](./.env.example):
+```env
+VICTORIALOGS_AUTH_USERNAME=admin
+VICTORIALOGS_AUTH_PASSWORD=coloque_sua_senha_segura
+```
+O VictoriaLogs exigirá HTTP Basic Auth para todas as consultas e o Vector se autenticará automaticamente.
+
+---
+
+## 📑 Suporte a Logs Multilinha (Stack Traces)
+
+O coletor Vector possui agregação multilinha configurada nativamente para containers Docker:
+- Linhas que começam com espaços ou tabulações (como tracebacks do Python, *panics* do Go ou exceções Java) são agrupadas no mesmo evento do log original.
+- Evita que um único erro seja fatiado em dezenas de registros desconexos.
+
+---
+
 ## 🛠️ Manutenção e Operações Comuns
 
+- **Validar saúde do pipeline:**
+  ```bash
+  ./scripts/test-pipeline.sh
+  ```
+- **Backup atômico consistente (sem parar o banco):**
+  ```bash
+  # Utiliza a API nativa de snapshot do VictoriaLogs e rotaciona as cópias
+  ./scripts/backup.sh
+  ```
 - **Ver logs internos da stack:**
   ```bash
   docker compose logs -f
   ```
-- **Reiniciar os serviços sem perder dados:**
+- **Reiniciar os serviços:**
   ```bash
   docker compose restart
-  ```
-- **Efetuar backup dos logs persistidos:**
-  ```bash
-  # Os dados estão salvos no volume Docker 'victorialogs_data'
-  tar -czvf backup-logs-$(date +%F).tar.gz /var/lib/docker/volumes/victorialogs_data/_data
   ```
 
 ---
