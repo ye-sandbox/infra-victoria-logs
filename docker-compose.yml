@@ -3,17 +3,29 @@ services:
     image: victoriametrics/victoria-logs:${VICTORIALOGS_VERSION:-v1.23.0}
     container_name: victorialogs
     restart: unless-stopped
+    stop_grace_period: 30s
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     command:
       - "-storageDataPath=/victoria-logs-data"
       - "-retentionPeriod=${RETENTION_PERIOD:-30d}"
       - "-httpListenAddr=:${VICTORIALOGS_HTTP_PORT:-9428}"
       - "-memory.allowedPercent=${VICTORIALOGS_MEMORY_ALLOWED_PERCENT:-60}"
+      - "-search.maxQueryDuration=30s"
+      - "-search.maxConcurrentRequests=4"
     ports:
       - "${VICTORIALOGS_HTTP_PORT:-9428}:9428"
     volumes:
       - victorialogs_data:/victoria-logs-data
     networks:
       - logging-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     deploy:
       resources:
         limits:
@@ -32,6 +44,7 @@ services:
     image: timberio/vector:${VECTOR_VERSION:-0.45.0-alpine}
     container_name: vector
     restart: unless-stopped
+    stop_grace_period: 15s
     environment:
       VECTOR_LOG: ${VECTOR_LOG_LEVEL:-warn}
       HOST_IDENTIFIER: ${HOST_IDENTIFIER:-proxmox-homelab}
@@ -44,6 +57,11 @@ services:
       - vector_data:/var/lib/vector
     networks:
       - logging-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       victorialogs:
         condition: service_healthy

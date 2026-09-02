@@ -109,14 +109,18 @@ sinks:
       - remap_syslog
       - remap_http
     uri: "http://victorialogs:9428/insert/jsonline"
-    compression: gzip
+    compression: zstd
     encoding:
       codec: json
       framing:
         method: newline_delimited
+    batch:
+      max_bytes: 1048576
+      timeout_secs: 1
     healthcheck:
       enabled: false
     request:
+      concurrency: 1
       headers:
         VL-Stream-Fields: "host,container_name,service,stream"
         VL-Time-Field: "timestamp"

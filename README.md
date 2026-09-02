@@ -37,7 +37,7 @@ flowchart LR
     D --> V
     P --> V
     A --> V
-    V -- "HTTP POST (gzip ndjson)\nVL-Stream-Fields" --> VL
+    V -- "HTTP POST (zstd ndjson)\nVL-Stream-Fields" --> VL
     VL --> UI
     VL --> AI
 ```

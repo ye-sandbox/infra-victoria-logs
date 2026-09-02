@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 01.0: Setup da Stack de Observabilidade Minimalista (VictoriaLogs + Vector)
+### 📌 Tarefa 02.0: Otimizações de Performance (Zstandard, Batching, Ulimits e Proteção de Queries)
 
-- **Descrição:** Criação da estrutura completa pronta para produção de uma stack leve de centralização de logs para homelabs (Mini PC no Proxmox com Docker). Composta por VictoriaLogs e Vector, com foco em footprint mínimo (< 150 MB RAM total) e facilidade de consulta para desenvolvedores e agentes de IA via LogsQL.
-- **Sistema(s) Envolvido(s):** `docker-compose`, `vector`, `documentação / .agent`
+- **Descrição:** Aplicar melhorias de throughput e proteção de recursos: migrar compressão do Vector para `zstd` com micro-batching explícito (1MB/1s) e concorrência 1; adicionar `ulimits`, `stop_grace_period` e flags de proteção contra buscas lentas (`maxQueryDuration`, `maxConcurrentRequests`) no VictoriaLogs.
+- **Sistema(s) Envolvido(s):** `vector`, `docker-compose`, `.agent/NOTES.md`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,12 +23,11 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] `docker-compose.yml` funcional com VictoriaLogs e Vector configurados com limits rígidos de memória (< 150 MB somados).
-- [x] `vector/vector.yaml` configurado para capturar logs do Docker via socket, enriquecer metadados, tratar loops e enviar via HTTP/jsonline para o VictoriaLogs com `VL-Stream-Fields`.
-- [x] `.env.example` com todas as variáveis (portas, retenção, limites de memória, tags de imagem).
-- [x] `.gitignore` atualizado para ignorar dados locais e volumes de desenvolvimento.
-- [x] `README.md` completo com guia de deploy, arquitetura, consultas LogsQL (exemplos para agentes de IA) e integração com Proxmox.
-- [x] `AGENTS.md` e `.agent/NOTES.md` devidamente preenchidos com o contexto real de DevOps e decisões de arquitetura da stack.
+- [x] `vector/vector.yaml` atualizado com `compression: zstd`, bloco `batch` explícito e controle de concorrência.
+- [x] `docker-compose.yml` atualizado com `stop_grace_period: 30s`, `ulimits.nofile: 65536`, flags `-search.maxQueryDuration=30s` e `-search.maxConcurrentRequests=4`.
+- [x] Rotação de logs locais do Docker configurada para os containers da stack.
+- [x] `.agent/NOTES.md` atualizado com a decisão do Zstandard e proteções de CPU/RAM.
+- [x] Validação de sintaxe executada com 100% de sucesso.
 
 ---
 

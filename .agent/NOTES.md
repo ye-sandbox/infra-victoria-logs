@@ -18,11 +18,22 @@
 
 ### 2026-09-02 — Ingestão via Vector HTTP Sink com Stream Fields
 - **Contexto:** O VictoriaLogs indexa registros baseado no conceito de *Streams* (conjunto único de campos que identificam uma fonte contínua de logs).
-- **Decisão:** Vector envia logs diretamente para o endpoint `/insert/jsonline` do VictoriaLogs com compressão `gzip` e cabeçalho:
+- **Decisão:** Vector envia logs diretamente para o endpoint `/insert/jsonline` do VictoriaLogs com cabeçalho:
   `VL-Stream-Fields: "host,container_name,service,stream"`.
 - **Alternativas consideradas:**
   - *Elasticsearch sink:* Suportado pelo VictoriaLogs, porém adiciona sobrecarga de simulação de API e limita flexibilidade de cabeçalhos de multi-tenancy ou timestamps personalizados.
 - **Consequências:** Buscas em tempo de execução são extremamente rápidas ao filtrar por container ou host (`_stream:{container_name="nginx"}`).
+
+### 2026-09-02 — Adoção de Zstandard (zstd), Micro-Batching e Proteção de Queries
+- **Contexto:** Necessidade de minimizar o consumo de CPU em Mini PCs durante a compressão/descompressão e evitar picos de I/O por micro-requisições HTTP, além de blindar a stack contra buscas lentas de LLMs/Agentes de IA.
+- **Decisão:**
+  - Migrar compressão no sink do Vector de `gzip` para `zstd` com `batch.max_bytes: 1048576` (1 MB) e `batch.timeout_secs: 1`.
+  - Fixar `concurrency: 1` no Vector para evitar contenção de CPU no host.
+  - Habilitar `-search.maxQueryDuration=30s` e `-search.maxConcurrentRequests=4` no VictoriaLogs para impedir travamentos por consultas mal formuladas.
+  - Adicionar `ulimits: nofile: 65536` e `stop_grace_period: 30s` para assegurar flush atômico de índices em memória no desligamento.
+- **Alternativas consideradas:**
+  - *Manter gzip padrão sem batching:* Gera milhares de conexões HTTP e eleva uso de CPU do Go e Rust desnecessariamente.
+- **Consequências:** Menor utilização de CPU por MB ingerido, menor latência de I/O em disco e imunidade contra OOM originado de queries longas.
 
 ---
 
