@@ -37,6 +37,7 @@
 |---|---|---|---|
 | 00.1 | Setup inicial da arquitetura e template do repositório | `67ed939` | 2026-09-01 |
 | 01.0 | Setup da Stack de Observabilidade Minimalista (VictoriaLogs + Vector) | `dba7608` | 2026-09-02 |
+| 02.0 | Otimizações de Performance (Zstandard, Batching, Ulimits e Proteções de Busca) | `a6890e0` | 2026-09-02 |
 
 ---
 
