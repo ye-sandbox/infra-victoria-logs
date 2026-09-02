@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 02.0: Otimizações de Performance (Zstandard, Batching, Ulimits e Proteção de Queries)
+### 📌 Tarefa 03.0: Implementação de Perfis de Armazenamento Dinâmicos (HDD vs SSD)
 
-- **Descrição:** Aplicar melhorias de throughput e proteção de recursos: migrar compressão do Vector para `zstd` com micro-batching explícito (1MB/1s) e concorrência 1; adicionar `ulimits`, `stop_grace_period` e flags de proteção contra buscas lentas (`maxQueryDuration`, `maxConcurrentRequests`) no VictoriaLogs.
-- **Sistema(s) Envolvido(s):** `vector`, `docker-compose`, `.agent/NOTES.md`
+- **Descrição:** Implementar suporte nativo a perfis de armazenamento via variável `STORAGE_PROFILE` (hdd / ssd). O modo HDD foca em poupar IOPS com buffer em memória RAM, escrita sequencial (2MB/2s), descarte de healthchecks e menos buscas paralelas. O modo SSD foca em menor latência de busca e persistência em buffer de disco.
+- **Sistema(s) Envolvido(s):** `vector`, `docker-compose`, `.env.example`, `documentação`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,11 +23,12 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] `vector/vector.yaml` atualizado com `compression: zstd`, bloco `batch` explícito e controle de concorrência.
-- [x] `docker-compose.yml` atualizado com `stop_grace_period: 30s`, `ulimits.nofile: 65536`, flags `-search.maxQueryDuration=30s` e `-search.maxConcurrentRequests=4`.
-- [x] Rotação de logs locais do Docker configurada para os containers da stack.
-- [x] `.agent/NOTES.md` atualizado com a decisão do Zstandard e proteções de CPU/RAM.
-- [x] Validação de sintaxe executada com 100% de sucesso.
+- [x] `vector/vector.hdd.yaml` criado e otimizado para HD mecânico (buffer em memória, lotes 2MB/2s, descarte de pings).
+- [x] `vector/vector.ssd.yaml` criado e otimizado para SSD (buffer em disco de 256MB, lotes 1MB/1s).
+- [x] `docker-compose.yml` parametrizado com `./vector/vector.${STORAGE_PROFILE:-hdd}.yaml` e variáveis de busca.
+- [x] `.env.example` atualizado com a documentação clara dos perfis `STORAGE_PROFILE=hdd` e `STORAGE_PROFILE=ssd`.
+- [x] `README.md` e `.agent/NOTES.md` atualizados com o guia de escolha e justificativa arquitetural dos perfis.
+- [x] Validação de sintaxe dos arquivos YAML aprovada com 100% de sucesso.
 
 ---
 

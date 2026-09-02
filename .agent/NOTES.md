@@ -27,13 +27,18 @@
 ### 2026-09-02 — Adoção de Zstandard (zstd), Micro-Batching e Proteção de Queries
 - **Contexto:** Necessidade de minimizar o consumo de CPU em Mini PCs durante a compressão/descompressão e evitar picos de I/O por micro-requisições HTTP, além de blindar a stack contra buscas lentas de LLMs/Agentes de IA.
 - **Decisão:**
-  - Migrar compressão no sink do Vector de `gzip` para `zstd` com `batch.max_bytes: 1048576` (1 MB) e `batch.timeout_secs: 1`.
-  - Fixar `concurrency: 1` no Vector para evitar contenção de CPU no host.
-  - Habilitar `-search.maxQueryDuration=30s` e `-search.maxConcurrentRequests=4` no VictoriaLogs para impedir travamentos por consultas mal formuladas.
-  - Adicionar `ulimits: nofile: 65536` e `stop_grace_period: 30s` para assegurar flush atômico de índices em memória no desligamento.
+  - Migrar compressão no sink do Vector de `gzip` para `zstd`.
+  - Habilitar `-search.maxQueryDuration=30s` e `ulimits: nofile: 65536` com `stop_grace_period: 30s` para desligamento atômico.
+- **Consequências:** Menor utilização de CPU por MB ingerido e imunidade contra OOM originado de queries longas.
+
+### 2026-09-02 — Perfis Dinâmicos de Armazenamento (STORAGE_PROFILE=hdd | ssd)
+- **Contexto:** Em Homelabs, muitos Mini PCs utilizam HD mecânico (com limitação severa de ~75 a 120 IOPS aleatórios), enquanto outros rodam em SSD/NVMe. O buffer de disco no Vector em HD gerava *Double Write* e *head thrashing*, causando I/O Wait no sistema.
+- **Decisão:** Implementar seleção dinâmica via `STORAGE_PROFILE`:
+  - **Modo HD (`vector.hdd.yaml`):** Buffer em memória RAM (`type: memory`), lotes de 2 MB / 2s para forçar escritas sequenciais no disco, filtro automático de pings/healthchecks no VRL e concorrência máxima de 2 buscas no VictoriaLogs.
+  - **Modo SSD (`vector.ssd.yaml`):** Buffer persistente em disco (`256 MB`), lotes de 1 MB / 1s para baixa latência de consulta e concorrência de 4 buscas.
 - **Alternativas consideradas:**
-  - *Manter gzip padrão sem batching:* Gera milhares de conexões HTTP e eleva uso de CPU do Go e Rust desnecessariamente.
-- **Consequências:** Menor utilização de CPU por MB ingerido, menor latência de I/O em disco e imunidade contra OOM originado de queries longas.
+  - *Manter configuração única:* Prejudicaria HDs com alto I/O Wait ou limitaria o potencial de SSDs.
+- **Consequências:** Stack adaptável instantaneamente a qualquer hardware de Homelab apenas alterando o `.env`.
 
 ---
 

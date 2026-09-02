@@ -1,10 +1,10 @@
 # ==============================================================================
-# Vector Configuration — Default (Profile: HDD)
+# Vector Configuration — Profile: HDD (Disco Mecânico)
 # ==============================================================================
-# Este arquivo é o padrão base. Em produção com Docker Compose, o perfil
-# ativo é selecionado automaticamente via STORAGE_PROFILE (hdd | ssd):
-# - vector.hdd.yaml (Modo HD: buffer em RAM, batch 2MB/2s, filtro de pings)
-# - vector.ssd.yaml (Modo SSD: buffer em disco 256MB, batch 1MB/1s)
+# Otimizado para minimizar IOPS aleatório e evitar I/O wait no host:
+# - Buffer em RAM (memory) para eliminar escrita dupla no HD mecânico.
+# - Lotes maiores (2 MB / 2s) para maximizar escrita sequencial contínua.
+# - Descarte no edge de pings vazios de healthcheck para poupar ciclos de disco.
 # ==============================================================================
 
 data_dir: /var/lib/vector
@@ -41,7 +41,7 @@ transforms:
     source: |
       msg = string(.message) ?? ""
 
-      # OTIMIZAÇÃO: Descarta pings vazios de healthcheck para poupar IOPS
+      # OTIMIZAÇÃO HD: Descarta pings vazios de healthcheck para poupar IOPS
       if match(msg, r'(?i)\b(healthcheck|kube-probe|GET /health|GET /ping|GET /ready)\b') && !match(msg, r'(?i)\b(error|fail|warn)\b') {
         abort
       }
@@ -50,7 +50,8 @@ transforms:
       .host = get_env_var("HOST_IDENTIFIER") ?? "unknown-host"
       .container_name = .container_name || "unknown"
       .stream = .stream || "stdout"
-
+      
+      # Tenta decodificar JSON caso a aplicação emita logs estruturados
       parsed, err = parse_json(msg)
       if err == null {
         if exists(parsed.level) {
@@ -118,12 +119,12 @@ sinks:
       framing:
         method: newline_delimited
     batch:
-      max_bytes: 2097152
-      timeout_secs: 2
+      max_bytes: 2097152 # 2 MB por lote (ideal para escrita sequencial contínua em HD)
+      timeout_secs: 2    # Aguarda 2s para consolidar
     healthcheck:
       enabled: false
     request:
-      concurrency: 1
+      concurrency: 1     # Evita contenção na agulha mecânica
       headers:
         VL-Stream-Fields: "host,container_name,service,stream"
         VL-Time-Field: "timestamp"
@@ -131,6 +132,6 @@ sinks:
         AccountID: "0"
         ProjectID: "0"
     buffer:
-      type: memory
-      max_events: 10000
+      type: memory       # Buffer em RAM: ZERA a escrita dupla no HD
+      max_events: 10000  # Máximo de eventos em repouso
       when_full: drop_newest

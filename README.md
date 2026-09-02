@@ -77,8 +77,11 @@ Clone o repositório e crie o arquivo `.env`:
 cp .env.example .env
 ```
 
-Edite o `.env` se desejar customizar portas ou retenção:
+Edite o `.env` selecionando o perfil de armazenamento do seu hardware:
 ```env
+# Defina 'hdd' para disco mecânico ou 'ssd' para SSD/NVMe
+STORAGE_PROFILE=hdd
+
 HOST_IDENTIFIER=mini-pc-proxmox
 RETENTION_PERIOD=30d
 VICTORIALOGS_HTTP_PORT=9428
@@ -163,6 +166,22 @@ curl -X POST http://<IP_DO_MINI_PC>:8686/logs \
 
 ---
 
+## 💾 Perfis de Armazenamento: Modo HD vs Modo SSD
+
+O projeto inclui perfis dinâmicos selecionáveis através da variável `STORAGE_PROFILE` no `.env`. Essa escolha calibra automaticamente o pipeline para a mídia de armazenamento do seu Mini PC / servidor:
+
+| Recurso / Comportamento | 💾 Modo HD (`STORAGE_PROFILE=hdd`) | ⚡ Modo SSD (`STORAGE_PROFILE=ssd`) |
+|---|---|---|
+| **Foco Operacional** | **Minimizar IOPS e evitar I/O Wait** | **Baixa latência de busca e persistência** |
+| **Buffer do Vector** | `memory` (RAM, máx 10.000 eventos) — *Zero escrita dupla no HD mecânico* | `disk` (256 MB persistentes no volume) — *Máxima resiliência contra quedas* |
+| **Lotes de Envio (`batch`)** | `2 MB` / `2s` — *Gera gravações sequenciais longas no disco* | `1 MB` / `1s` — *Logs disponíveis para busca quase instantaneamente* |
+| **Filtro de Ruído no Edge** | **Ativo** — *Descarta pings vazios (`/health`, `/ping`) para poupar disco* | **Desativado** — *Ingestão de 100% dos logs* |
+| **Concorrência de Busca (VL)**| `2 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=2`) | `4 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=4`) |
+
+> **Dica para usuários de HD mecânico:** Mantenha o modo `hdd` ativo para evitar que a agulha do disco sofra com *head thrashing* por concorrência entre o buffer e o banco.
+
+---
+
 ## ⚙️ Limites de Recursos e Tuning
 
 As configurações no [`docker-compose.yml`](./docker-compose.yml) foram ajustadas para estabilidade absoluta em ambientes limitados:
@@ -173,8 +192,9 @@ As configurações no [`docker-compose.yml`](./docker-compose.yml) foram ajustad
 | **Vector** | `60 MB` | `20 MB` | `0.50 core` |
 | **Total** | **`140 MB`** | **`50 MB`** | **`1.0 core`** |
 
-- O buffer de fallback do Vector (`disk buffer`) está fixado em `100 MB` no volume persistente, garantindo que picos de logs não causem esgotamento de memória (OOMKilled).
-- Caso o volume de logs diário do seu Homelab seja alto (> 20 GB/dia), você pode aumentar `memory: 120M` no VictoriaLogs via `.env` se necessário.
+- No **modo SSD**, o buffer em disco do Vector fica em `256 MB` no volume `vector_data`.
+- No **modo HD**, o buffer reside em memória RAM (limitado dentro dos `60 MB`), garantindo que o HD só receba escritas sequenciais consolidadas.
+- Caso o volume de logs diário do seu Homelab seja alto (> 20 GB/dia), você pode aumentar `memory: 120M` no VictoriaLogs se necessário.
 
 ---
 

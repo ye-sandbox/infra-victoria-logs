@@ -1,10 +1,10 @@
 # ==============================================================================
-# Vector Configuration — Default (Profile: HDD)
+# Vector Configuration — Profile: SSD / NVMe
 # ==============================================================================
-# Este arquivo é o padrão base. Em produção com Docker Compose, o perfil
-# ativo é selecionado automaticamente via STORAGE_PROFILE (hdd | ssd):
-# - vector.hdd.yaml (Modo HD: buffer em RAM, batch 2MB/2s, filtro de pings)
-# - vector.ssd.yaml (Modo SSD: buffer em disco 256MB, batch 1MB/1s)
+# Otimizado para alto IOPS e baixa latência de consulta:
+# - Buffer persistente em disco (256 MB) para tolerância a falhas e reinicializações.
+# - Lotes menores (1 MB / 1s) para visualização dos logs quase em tempo real.
+# - Ingestão integral de logs sem descarte.
 # ==============================================================================
 
 data_dir: /var/lib/vector
@@ -39,18 +39,14 @@ transforms:
     inputs:
       - docker_logs
     source: |
-      msg = string(.message) ?? ""
-
-      # OTIMIZAÇÃO: Descarta pings vazios de healthcheck para poupar IOPS
-      if match(msg, r'(?i)\b(healthcheck|kube-probe|GET /health|GET /ping|GET /ready)\b') && !match(msg, r'(?i)\b(error|fail|warn)\b') {
-        abort
-      }
-
       .timestamp = .timestamp || now()
       .host = get_env_var("HOST_IDENTIFIER") ?? "unknown-host"
       .container_name = .container_name || "unknown"
       .stream = .stream || "stdout"
 
+      msg = string(.message) ?? ""
+      
+      # Tenta decodificar JSON caso a aplicação emita logs estruturados
       parsed, err = parse_json(msg)
       if err == null {
         if exists(parsed.level) {
@@ -118,12 +114,12 @@ sinks:
       framing:
         method: newline_delimited
     batch:
-      max_bytes: 2097152
-      timeout_secs: 2
+      max_bytes: 1048576 # 1 MB por lote
+      timeout_secs: 1    # 1s para menor latência de ingestão
     healthcheck:
       enabled: false
     request:
-      concurrency: 1
+      concurrency: 2     # SSD suporta requisições paralelas sem lentidão mecânica
       headers:
         VL-Stream-Fields: "host,container_name,service,stream"
         VL-Time-Field: "timestamp"
@@ -131,6 +127,6 @@ sinks:
         AccountID: "0"
         ProjectID: "0"
     buffer:
-      type: memory
-      max_events: 10000
-      when_full: drop_newest
+      type: disk         # Buffer persistente no SSD
+      max_size: 268435488 # 256 MiB (tamanho mínimo exigido pelo Vector para disk buffer)
+      when_full: block

@@ -13,8 +13,8 @@ services:
       - "-retentionPeriod=${RETENTION_PERIOD:-30d}"
       - "-httpListenAddr=:${VICTORIALOGS_HTTP_PORT:-9428}"
       - "-memory.allowedPercent=${VICTORIALOGS_MEMORY_ALLOWED_PERCENT:-60}"
-      - "-search.maxQueryDuration=30s"
-      - "-search.maxConcurrentRequests=4"
+      - "-search.maxQueryDuration=${VL_MAX_QUERY_DURATION:-30s}"
+      - "-search.maxConcurrentRequests=${VL_MAX_CONCURRENT_REQUESTS:-2}"
     ports:
       - "${VICTORIALOGS_HTTP_PORT:-9428}:9428"
     volumes:
@@ -53,7 +53,7 @@ services:
       - "${VECTOR_HTTP_PORT:-8686}:8686"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
+      - ./vector/vector.${STORAGE_PROFILE:-hdd}.yaml:/etc/vector/vector.yaml:ro
       - vector_data:/var/lib/vector
     networks:
       - logging-network
