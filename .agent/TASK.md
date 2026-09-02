@@ -34,26 +34,24 @@
 
 ## Log de Tarefas Concluídas
 
-> Uma linha por tarefa. Nada de "critérios verificados" repetidos aqui — isso já está
-> no commit. Use `git log --oneline --grep="Tarefa XX"` ou `git show <hash>` para
-> recuperar o detalhe quando precisar.
-
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
-| [00.1] | [Setup inicial da arquitetura e template do repositório] | [`0000000`] | [AAAA-MM-DD] |
-
-> Quando esta tabela passar de ~15-20 linhas, mova as mais antigas para
-> `.agent/ARCHIVE.md` (ou simplesmente apague — o Git já é a fonte da verdade).
+| 00.1 | Setup inicial da arquitetura e template do repositório | `67ed939` | 2026-09-01 |
+| 01.0 | Setup da Stack de Observabilidade Minimalista (VictoriaLogs + Vector) | `dba7608` | 2026-09-02 |
 
 ---
 
 ## Backlog (Próximas, em ordem)
 
-> Uma linha por item. Só vira uma seção detalhada com "Descrição" e "Critérios de
-> Aceite" completos quando se tornar a Tarefa Ativa.
+- [ ] **[01.1]** Validação de deploy em ambiente real no Proxmox e teste de ingestão de logs — `docker-compose / vector`
+- [ ] **[01.2]** Automação de rotação de logs e script de backup de volumes — `scripts / devops`
 
-- [ ] **[01.1]** [Título curto da próxima tarefa] — `[sistema envolvido]`
-- [ ] **[01.2]** [Título curto da tarefa subsequente] — `[sistema envolvido]`
+---
+
+## Backlog Futuro / Ideias (não priorizadas)
+
+- [ ] Painel Grafana ou Dashboard leve alternativo para métricas combinadas (se VictoriaMetrics for adicionado no futuro)
+- [ ] Agente MCP dedicado para consulta direta de VictoriaLogs por assistentes de IA
 
 ---
 
