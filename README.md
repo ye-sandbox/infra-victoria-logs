@@ -225,7 +225,15 @@ O coletor Vector possui agregação multilinha configurada nativamente para cont
 
 ## 🛠️ Manutenção e Operações Comuns
 
-- **Validar saúde do pipeline:**
+- **Dashboard CLI de Saúde e Telemetria (ao vivo):**
+  ```bash
+  # Execução pontual
+  ./scripts/health-dashboard.sh
+
+  # Modo contínuo (atualização a cada 5s)
+  ./scripts/health-dashboard.sh --watch
+  ```
+- **Validar saúde do pipeline (Smoke Test):**
   ```bash
   ./scripts/test-pipeline.sh
   ```

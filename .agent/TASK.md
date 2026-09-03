@@ -12,20 +12,23 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 05.0: Auto-monitoramento da Stack (Métricas do VictoriaLogs e Vector)
+### 📌 Tarefa 05.0: Dashboard CLI de Saúde e Telemetria do Homelab (VictoriaLogs /hits e /metrics)
 
-- **Descrição:** Configurar a exposição e coleta de métricas nativas de telemetria da stack (VictoriaLogs `/metrics` e métricas internas do Vector) para viabilizar monitoramento via Prometheus/Grafana externo.
-- **Sistema(s) Envolvido(s):** `docker-compose`, `vector`, `victorialogs`
+- **Descrição:** Desenvolver um utilitário/dashboard em linha de comando (`scripts/health-dashboard.sh`) leve e colorido que consome diretamente as APIs nativas do VictoriaLogs (`/health`, `/metrics`, `/select/logsql/hits` e `/select/logsql/query`) para exibir status da stack, taxa de ingestão, distribuição de erros e top containers sem necessidade de ferramentas externas pesadas.
+- **Sistema(s) Envolvido(s):** `scripts`, `victorialogs`, `documentação`
 - **Tipo de Ação:**
-  - [ ] Somente leitura / Documentação
+  - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
-- **Status:** PRONTO PARA PLANEJAMENTO
+- **Status:** EM EXECUÇÃO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Endpoint `/metrics` do VictoriaLogs acessível e documentado.
-- [ ] Coleta ou exposição de métricas do Vector habilitada (via `api` ou sink Prometheus).
-- [ ] Documentação de integração com Prometheus externo atualizada no `README.md`.
+- [x] Script `scripts/health-dashboard.sh` desenvolvido com saída limpa, formatada e colorida.
+- [x] Exibição de métricas vitais: status dos containers, consumo de RAM, volume de logs ingeridos e contagem de erros nas últimas 1h / 24h via `/hits`.
+- [x] Identificação dos containers que mais geram logs (Top 5 geradores de ruído).
+- [x] Suporte a modo único (`run once`) e modo contínuo (`--watch` / `-w`).
+- [x] Compatibilidade total com autenticação básica se ativada no `.env`.
+- [x] Documentação do uso no `README.md` e decisões em `.agent/NOTES.md`.
 
 ---
 
@@ -45,8 +48,7 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] Painel Grafana ou Dashboard leve alternativo para métricas combinadas (se VictoriaMetrics for adicionado no futuro)
-- [ ] Agente MCP dedicado para consulta direta de VictoriaLogs por assistentes de IA
+- [ ] **[06.0]** Servidor MCP para VictoriaLogs (Integração Direta com Agentes de IA) — `mcp / python / ai`
 
 ---
 
