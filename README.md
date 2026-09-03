@@ -56,12 +56,24 @@ flowchart LR
 .
 ├── docker-compose.yml       # Orquestração com limites de RAM rígidos (140 MB somados)
 ├── vector/
-│   └── vector.yaml          # Configuração do Vector (Docker, Syslog, HTTP -> VictoriaLogs)
-├── .env.example             # Variáveis de ambiente e parâmetros de retenção
-├── .gitignore               # Ignora dados locais, volumes e segredos
-├── AGENTS.md                # Diretrizes de engenharia e regras de atuação dos agentes
-├── .agent/                  # Documentação de contexto (TASK.md, NOTES.md, ADRs)
-└── README.md                # Guia de operação da stack
+│   ├── vector.hdd.yaml      # Perfil HD mecânico (buffer em RAM, 2MB batch, filtro de pings)
+│   ├── vector.ssd.yaml      # Perfil SSD/NVMe (buffer em disco, 1MB batch, 100% retenção)
+│   └── vector.yaml          # Perfil base / fallback de configuração
+├── mcp/
+│   └── server.py            # Servidor MCP stdio nativo para integração direta com Agentes de IA
+├── scripts/
+│   ├── backup.sh            # Backup atômico via API de snapshots com rotação de cópias
+│   ├── health-dashboard.sh  # Dashboard CLI colorido de telemetria ao vivo via APIs nativas
+│   ├── test-pipeline.sh     # Smoke test ponta a ponta de ingestão e LogsQL em 1 comando
+│   └── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
+├── skills/
+│   ├── victorialogs-integration/      # Skill ensinando IA a plugar aplicações (Python, Node, Go, Docker)
+│   └── victorialogs-troubleshooting/  # Skill ensinando IA o playbook de investigação de erros/SRE
+├── .env.example             # Template documentado de variáveis de ambiente e segurança
+├── .gitignore               # Ignora dados locais, volumes, backups e segredos
+├── AGENTS.md                # Diretrizes de engenharia, governança e regras dos agentes
+├── .agent/                  # Documentação de contexto do agente (TASK.md, NOTES.md)
+└── README.md                # Guia técnico e operacional completo da stack
 ```
 
 ---
@@ -285,6 +297,18 @@ O coletor Vector possui agregação multilinha configurada nativamente para cont
   ```bash
   docker compose restart
   ```
+
+---
+
+## 🤖 Skills para Agentes de IA (`skills/`)
+
+O repositório inclui duas SKILLs completas e reutilizáveis, preparadas para serem consumidas por assistentes de IA (Claude, Antigravity, Cursor, Roo Code) em qualquer repositório da organização `ye-sandbox`:
+
+1. **[`skills/victorialogs-integration`](./skills/victorialogs-integration/SKILL.md):**
+   - Ensina a IA a plugar e configurar novas aplicações para enviarem logs para o pipeline.
+   - Contém snippets prontos para **Docker Compose**, **Python** (`logging`/`structlog`), **Node.js** (`pino`), **Go** (`slog`), **Bash** (`curl`) e **Proxmox** (`rsyslog`).
+2. **[`skills/victorialogs-troubleshooting`](./skills/victorialogs-troubleshooting/SKILL.md):**
+   - Playbook de SRE e investigação de incidentes para a IA diagnosticar falhas no homelab via servidor MCP e LogsQL com **máxima economia de tokens**.
 
 ---
 

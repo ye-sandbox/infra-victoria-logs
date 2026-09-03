@@ -71,6 +71,13 @@
   - Instituir como regra inegociável no `AGENTS.md` (DoD) que qualquer alteração na arquitetura de ingestão ou consumo deve sincronizar imediatamente as SKILLs correspondentes.
 - **Consequências:** Interoperabilidade contínua entre agentes de IA na organização `ye-sandbox`.
 
+### 2026-09-03 — Regra de Coerência Contínua com o README.md
+- **Contexto:** À medida que novas ferramentas (MCP, scripts operacionais, skills, perfis dinâmicos de HD/SSD) são adicionadas, a documentação pública do repositório pode sofrer divergência caso não seja atualizada em tandem.
+- **Decisão:**
+  - Tornar cláusula explícita no DoD (`AGENTS.md`) que o `README.md` (árvore de arquivos, comandos, tabelas e guias) DEVE ser atualizado a cada nova entrega ou ajuste arquitetural.
+  - Atualizada a árvore estrutural do `README.md` refletindo os diretórios `mcp/`, `scripts/`, `skills/` e perfis de armazenamento.
+- **Consequências:** O `README.md` reflete rigorosamente a verdade operacional da stack em qualquer commit.
+
 ---
 
 ## Contratos de Dados Vigentes
