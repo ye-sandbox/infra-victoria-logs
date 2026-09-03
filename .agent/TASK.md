@@ -12,20 +12,20 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 01.1: Validação de deploy em ambiente real no Proxmox e teste de ingestão de logs
+### 📌 Tarefa 05.0: Auto-monitoramento da Stack (Métricas do VictoriaLogs e Vector)
 
-- **Descrição:** Validar o deploy da stack VictoriaLogs + Vector em ambiente real (Docker no Proxmox/Mini PC) e realizar testes de ingestão de logs ponta a ponta.
+- **Descrição:** Configurar a exposição e coleta de métricas nativas de telemetria da stack (VictoriaLogs `/metrics` e métricas internas do Vector) para viabilizar monitoramento via Prometheus/Grafana externo.
 - **Sistema(s) Envolvido(s):** `docker-compose`, `vector`, `victorialogs`
 - **Tipo de Ação:**
-  - [x] Somente leitura / Documentação
+  - [ ] Somente leitura / Documentação
   - [x] Escrita de código-fonte
 - **Status:** PRONTO PARA PLANEJAMENTO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Serviços inicializam com `docker compose up -d` sem erros de resolução de imagem.
-- [ ] Endpoints de healthcheck do VictoriaLogs e Vector respondem com sucesso.
-- [ ] Teste de pipeline (`scripts/test-pipeline.sh`) executa com sucesso ingerindo e consultando logs via LogsQL.
+- [ ] Endpoint `/metrics` do VictoriaLogs acessível e documentado.
+- [ ] Coleta ou exposição de métricas do Vector habilitada (via `api` ou sink Prometheus).
+- [ ] Documentação de integração com Prometheus externo atualizada no `README.md`.
 
 ---
 
@@ -39,20 +39,21 @@
 | 03.0 | Implementação de Perfis Dinâmicos de Armazenamento (HDD vs SSD) | `ae1e305` | 2026-09-02 |
 | 04.0 | Agregação Multilinha, Scripts (Backup/Smoke Test) e Autenticação Opcional | `4d05f68` | 2026-09-02 |
 | 04.1 | Correção da tag padrão da imagem do VictoriaLogs para 'latest' | `f76b515` | 2026-09-03 |
+| 01.1 | Validação de deploy em ambiente real no Proxmox e teste de ingestão de logs | `2f64d14` | 2026-09-03 |
 
 ---
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] [Próxima tarefa pós-validação de deploy]
+- [ ] Painel Grafana ou Dashboard leve alternativo para métricas combinadas (se VictoriaMetrics for adicionado no futuro)
+- [ ] Agente MCP dedicado para consulta direta de VictoriaLogs por assistentes de IA
 
 ---
 
 ## Backlog Futuro / Ideias (não priorizadas)
 
-- [ ] **Auto-monitoramento da Stack:** Coleta e exportação de métricas nativas do VictoriaLogs (`/metrics`) para Grafana/Prometheus no Proxmox
-- [ ] Painel Grafana ou Dashboard leve alternativo para métricas combinadas (se VictoriaMetrics for adicionado no futuro)
-- [ ] Agente MCP dedicado para consulta direta de VictoriaLogs por assistentes de IA
+- [ ] Suporte a alertas nativos via vmalert
+- [ ] Enriquecimento de logs com GeoIP para tráfego web Nginx/Traefik
 
 ---
 
