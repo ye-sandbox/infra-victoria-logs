@@ -12,23 +12,22 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 05.0: Dashboard CLI de Saúde e Telemetria do Homelab (VictoriaLogs /hits e /metrics)
+### 📌 Tarefa 06.0: Servidor MCP para VictoriaLogs (Integração Direta com Agentes de IA)
 
-- **Descrição:** Desenvolver um utilitário/dashboard em linha de comando (`scripts/health-dashboard.sh`) leve e colorido que consome diretamente as APIs nativas do VictoriaLogs (`/health`, `/metrics`, `/select/logsql/hits` e `/select/logsql/query`) para exibir status da stack, taxa de ingestão, distribuição de erros e top containers sem necessidade de ferramentas externas pesadas.
-- **Sistema(s) Envolvido(s):** `scripts`, `victorialogs`, `documentação`
+- **Descrição:** Desenvolver um servidor MCP (Model Context Protocol) leve para permitir que assistentes e agentes de IA (Claude Code, Antigravity, Cursor, Roo Code) consultem, filtrem e investiguem logs no VictoriaLogs nativamente através de ferramentas estruturadas (`query_logs`, `get_errors`, `top_containers`, `list_streams`), economizando tokens e eliminando comandos manuais de terminal.
+- **Sistema(s) Envolvido(s):** `mcp`, `python / node`, `victorialogs`, `documentação`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
-- **Status:** EM EXECUÇÃO
+- **Status:** PRONTO PARA PLANEJAMENTO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] Script `scripts/health-dashboard.sh` desenvolvido com saída limpa, formatada e colorida.
-- [x] Exibição de métricas vitais: status dos containers, consumo de RAM, volume de logs ingeridos e contagem de erros nas últimas 1h / 24h via `/hits`.
-- [x] Identificação dos containers que mais geram logs (Top 5 geradores de ruído).
-- [x] Suporte a modo único (`run once`) e modo contínuo (`--watch` / `-w`).
-- [x] Compatibilidade total com autenticação básica se ativada no `.env`.
-- [x] Documentação do uso no `README.md` e decisões em `.agent/NOTES.md`.
+- [ ] Servidor MCP implementado com suporte a protocolo stdio para fácil conexão em clientes de IA.
+- [ ] Ferramentas MCP expostas: `query_logs` (LogsQL filtrado e paginado), `get_service_errors` (resumo de erros recentes) e `list_streams` (containers e hosts ativos).
+- [ ] Formatação compacta de respostas (Markdown e JSON limpo) para economia máxima de tokens de contexto.
+- [ ] Documentação de instalação e configuração nos clientes de IA no `README.md`.
+- [ ] Testes automatizados da integração MCP.
 
 ---
 
@@ -43,6 +42,7 @@
 | 04.0 | Agregação Multilinha, Scripts (Backup/Smoke Test) e Autenticação Opcional | `4d05f68` | 2026-09-02 |
 | 04.1 | Correção da tag padrão da imagem do VictoriaLogs para 'latest' | `f76b515` | 2026-09-03 |
 | 01.1 | Validação de deploy em ambiente real no Proxmox e teste de ingestão de logs | `2f64d14` | 2026-09-03 |
+| 05.0 | Dashboard CLI de Saúde e Telemetria do Homelab (VictoriaLogs /hits e /metrics) | `bc748f1` | 2026-09-03 |
 
 ---
 
