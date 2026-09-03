@@ -40,6 +40,7 @@
 | 04.0 | Agregação Multilinha, Scripts (Backup/Smoke Test) e Autenticação Opcional | `4d05f68` | 2026-09-02 |
 | 04.1 | Correção da tag padrão da imagem do VictoriaLogs para 'latest' | `f76b515` | 2026-09-03 |
 | 01.1 | Validação de deploy em ambiente real no Proxmox e teste de ingestão de logs | `2f64d14` | 2026-09-03 |
+| 04.2 | Criação e Manutenção da Skill de Observabilidade & Logging | `da64eb1` | 2026-09-03 |
 
 ---
 
