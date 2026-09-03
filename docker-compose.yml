@@ -1,6 +1,6 @@
 services:
   victorialogs:
-    image: victoriametrics/victoria-logs:${VICTORIALOGS_VERSION:-v1.23.0}
+    image: victoriametrics/victoria-logs:${VICTORIALOGS_VERSION:-latest}
     container_name: victorialogs
     restart: unless-stopped
     stop_grace_period: 30s

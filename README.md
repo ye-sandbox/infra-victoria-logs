@@ -1,7 +1,7 @@
 # 🪵 Minimalist Homelab Log Observability (VictoriaLogs + Vector)
 
 [![Docker Compose](https://img.shields.io/badge/Docker%20Compose-v2+-blue.svg)](https://docs.docker.com/compose/)
-[![VictoriaLogs](https://img.shields.io/badge/VictoriaLogs-v1.23.0-orange.svg)](https://docs.victoriametrics.com/victorialogs/)
+[![VictoriaLogs](https://img.shields.io/badge/VictoriaLogs-latest-orange.svg)](https://docs.victoriametrics.com/victorialogs/)
 [![Vector](https://img.shields.io/badge/Vector-0.45.0--alpine-purple.svg)](https://vector.dev/)
 [![Footprint](https://img.shields.io/badge/RAM%20Usage-%3C%20150MB-success.svg)]()
 

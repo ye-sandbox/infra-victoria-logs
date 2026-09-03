@@ -84,3 +84,6 @@ Todo log processado pelo Vector e ingerido no VictoriaLogs segue a seguinte estr
 - **Permissões do Docker Socket:**
   - *Armadilha:* No Linux, o `/var/run/docker.sock` exige permissões de leitura.
   - *Mitigação:* O container do Vector monta o socket em modo somente leitura (`:ro`).
+- **Tag da Imagem Docker do VictoriaLogs:**
+  - *Armadilha:* O Docker Hub não possui a tag `victoriametrics/victoria-logs:v1.23.0` (versões legadas utilizavam o sufixo `-victorialogs`, ex: `v1.23.0-victorialogs`, e versões modernas utilizam `v1.25.0+` ou `latest`). Tentar subir com `v1.23.0` causa erro do daemon `failed to resolve reference ... not found`.
+  - *Mitigação:* Usar `latest` (ou `${VICTORIALOGS_VERSION:-latest}`) no `docker-compose.yml` e `.env.example`.
