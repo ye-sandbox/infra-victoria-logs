@@ -55,6 +55,7 @@ services:
     ports:
       - "${VECTOR_SYSLOG_PORT:-5140}:5140/udp"
       - "${VECTOR_HTTP_PORT:-8686}:8686"
+      - "${VECTOR_METRICS_PORT:-9598}:9598"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./vector/vector.${STORAGE_PROFILE:-hdd}.yaml:/etc/vector/vector.yaml:ro

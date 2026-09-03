@@ -245,5 +245,50 @@ O coletor Vector possui agregação multilinha configurada nativamente para cont
 
 ---
 
+## 📊 Auto-monitoramento com Prometheus & Grafana
+
+Ambos os serviços expõem métricas nativas prontas para coleta pelo Prometheus ou Grafana Agent sem a necessidade de exporters externos:
+
+| Componente | Endpoint de Métricas | Porta Padrão | Variável no `.env` |
+|---|---|---|---|
+| **VictoriaLogs** | `http://<IP>:9428/metrics` | `9428` | `VICTORIALOGS_HTTP_PORT` |
+| **Vector** | `http://<IP>:9598/metrics` | `9598` | `VECTOR_METRICS_PORT` |
+
+### Exemplo de Configuração no `prometheus.yml`:
+```yaml
+scrape_configs:
+  - job_name: 'victorialogs'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['<IP_DO_MINI_PC>:9428']
+
+  - job_name: 'vector'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['<IP_DO_MINI_PC>:9598']
+```
+
+### Principais Métricas a Monitorar:
+- **VictoriaLogs:**
+  - `vl_bytes_ingested_total{type="jsonline"}`: Total de bytes de log ingeridos.
+  - `vl_concurrent_select_current`: Quantidade de buscas LogsQL rodando simultaneamente.
+  - `vl_http_requests_total`: Total de requisições recebidas por rota HTTP.
+  - `process_memory_limit_bytes`: Limite de RAM imposto ao processo (governança).
+- **Vector:**
+  - `vector_component_received_events_total`: Vazão de eventos recebidos por source/transform/sink.
+  - `vector_buffer_byte_size`: Ocupação atual do buffer (em RAM ou SSD).
+  - `vector_component_errors_total`: Contagem de erros internos de parsing ou roteamento.
+
+---
+
+## 🤖 Skill de Observabilidade para Agentes de IA
+
+Este repositório inclui a skill padronizada [`skills/observability-logging/SKILL.md`](./skills/observability-logging/SKILL.md) (e [`.agent/skills/observability-logging/SKILL.md`](./.agent/skills/observability-logging/SKILL.md)), ensinando agentes de IA e desenvolvedores a:
+1. Formatar logs no padrão canônico JSON (`timestamp`, `level`, `app`, `env`, `message`, `context`).
+2. Configurar roteamento correto em aplicações Docker (`stdout`) ou bare-metal (HTTP assíncrono).
+3. Utilizar o runbook de investigação via LogsQL para diagnóstico de falhas antes de propor correções.
+
+---
+
 ## 📄 Licença
 Distribuído sob licença MIT. Sinta-se livre para usar, adaptar e evoluir em seu homelab!

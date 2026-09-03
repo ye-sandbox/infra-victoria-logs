@@ -56,6 +56,13 @@
   - Expandir o cabeçalho canônico para `VL-Stream-Fields: "host,container_name,service,app,env,stream"`.
 - **Consequências:** Buscas rápidas via LogsQL permitem particionamento instantâneo por `_stream:{app="api-gateway",env="production"}` mantendo 100% de retrocompatibilidade com logs legados que utilizavam `service`.
 
+### 2026-09-03 — Auto-monitoramento da Stack (Métricas Nativas VictoriaLogs e Vector)
+- **Contexto:** Necessidade de coletar telemetria operacional da própria stack (throughput de logs ingeridos, buffer em disco/RAM, concorrência de queries e contagem de erros) sem adicionar containers pesados de monitoramento na mesma máquina.
+- **Decisão:**
+  - **VictoriaLogs:** Expor o endpoint nativo `/metrics` na porta configurada `9428`.
+  - **Vector:** Adicionar a fonte `internal_metrics` e o sink `prometheus_exporter` na porta registrada `9598` (`VECTOR_METRICS_PORT`), servindo telemetria em tempo real no padrão Prometheus sob demanda de scraping.
+- **Consequências:** Zero overhead de escrita/armazenamento extra (modelo pull puro), permitindo que um servidor centralizado de Prometheus/Grafana colete métricas da stack sem violar o teto de 150 MB de RAM.
+
 ---
 
 ## Contratos de Dados Vigentes

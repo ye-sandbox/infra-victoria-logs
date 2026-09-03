@@ -35,6 +35,11 @@ sources:
     path: /logs
     encoding: json
 
+  vector_metrics:
+    type: internal_metrics
+    namespace: vector
+    scrape_interval_secs: 15
+
 # ------------------------------------------------------------------------------
 # TRANSFORMS (Normalização e Enriquecimento via VRL)
 # ------------------------------------------------------------------------------
@@ -148,3 +153,9 @@ sinks:
       type: disk         # Buffer persistente no SSD
       max_size: 268435488 # 256 MiB (tamanho mínimo exigido pelo Vector para disk buffer)
       when_full: block
+
+  prometheus_metrics:
+    type: prometheus_exporter
+    inputs:
+      - vector_metrics
+    address: 0.0.0.0:9598

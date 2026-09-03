@@ -35,6 +35,11 @@ sources:
     path: /logs
     encoding: json
 
+  vector_metrics:
+    type: internal_metrics
+    namespace: vector
+    scrape_interval_secs: 15
+
 # ------------------------------------------------------------------------------
 # TRANSFORMS (Normalização e Enriquecimento via VRL)
 # ------------------------------------------------------------------------------
@@ -153,3 +158,9 @@ sinks:
       type: memory       # Buffer em RAM: ZERA a escrita dupla no HD
       max_events: 10000  # Máximo de eventos em repouso
       when_full: drop_newest
+
+  prometheus_metrics:
+    type: prometheus_exporter
+    inputs:
+      - vector_metrics
+    address: 0.0.0.0:9598
