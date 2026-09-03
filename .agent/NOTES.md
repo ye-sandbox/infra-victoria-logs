@@ -49,6 +49,13 @@
   - Suportar autenticação básica HTTP opcional parametrizada em VictoriaLogs e Vector via `${VICTORIALOGS_AUTH_USERNAME:+...}`.
 - **Consequências:** Diagnósticos de erros por LLMs/Devs preservam o contexto completo do erro, backups são atômicos e zero-downtime, e a stack ganha validação automatizada.
 
+### 2026-09-03 — Expansão Canônica de Streams com `app` e `env` (Skill de Observabilidade)
+- **Contexto:** Padronização da emissão de logs por novos serviços e agentes via skill de Observabilidade & Logging. A especificação canônica exige os campos `app` (nome do repositório/serviço) e `env` (ambiente: `production` ou `development`).
+- **Decisão:**
+  - Incluir `app` e `env` nos transforms VRL do Vector (`remap_docker`, `remap_syslog`, `remap_http`) com fallback seguro para `service` e `container_name`.
+  - Expandir o cabeçalho canônico para `VL-Stream-Fields: "host,container_name,service,app,env,stream"`.
+- **Consequências:** Buscas rápidas via LogsQL permitem particionamento instantâneo por `_stream:{app="api-gateway",env="production"}` mantendo 100% de retrocompatibilidade com logs legados que utilizavam `service`.
+
 ---
 
 ## Contratos de Dados Vigentes
@@ -59,14 +66,18 @@ Todo log processado pelo Vector e ingerido no VictoriaLogs segue a seguinte estr
 
 | Campo | Tipo | Descrição | Exemplo |
 |---|---|---|---|
-| `timestamp` | `string (ISO8601)` | Timestamp da ocorrência do log | `2026-09-02T17:00:00.000Z` |
-| `message` | `string` | Mensagem do log (texto principal) | `Server started on port 8080` |
+| `timestamp` | `string (ISO8601)` | Timestamp da ocorrência do log em UTC | `2026-09-03T15:00:00.000Z` |
 | `level` | `string` | Nível do log (`error`, `warn`, `info`, `debug`) | `info` |
-| `host` | `string` | Identificador do host/nó físico ou virtual | `mini-pc-proxmox` |
-| `service` | `string` | Nome do serviço ou aplicação | `api-gateway` |
+| `app` | `string` | Identificador do repositório ou serviço | `api-gateway` |
+| `env` | `string` | Ambiente de execução (`production`, `development`) | `production` |
+| `message` | `string` | Mensagem do log (texto principal legível) | `Server started on port 8080` |
+| `service` | `string` | Nome do serviço (mantido sincronizado com `app`) | `api-gateway` |
 | `container_name`| `string` | Nome do container Docker ou fonte | `api-gateway` |
+| `host` | `string` | Identificador do host/nó físico ou virtual | `mini-pc-proxmox` |
 | `stream` | `string` | Canal de origem (`stdout`, `stderr`, `syslog`, `http`) | `stdout` |
+| `context` | `object (opcional)`| Objeto com chaves extras de contexto ou metadados | `{"userId": 123}` |
 | `structured` | `object (opcional)`| Objeto com chaves extras caso a mensagem seja JSON | `{"userId": 123}` |
+| `stack_trace` | `string (opcional)`| Rastreamento da pilha em caso de erro | `Error: ...\n at ...` |
 
 ---
 

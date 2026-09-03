@@ -53,6 +53,8 @@ echo "2️⃣  Enviando evento de teste para o Vector (${VECTOR_URL})..."
 HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${VECTOR_URL}" \
   -H "Content-Type: application/json" \
   -d "{
+    \"app\": \"smoke-test-service\",
+    \"env\": \"production\",
     \"service\": \"smoke-test-service\",
     \"level\": \"warn\",
     \"message\": \"Smoke test message for VictoriaLogs pipeline [${TEST_ID}]\",
@@ -66,17 +68,22 @@ fi
 echo "   ✅ Evento recebido com sucesso pelo Vector (HTTP ${HTTP_STATUS})."
 
 # 3. Aguardar flush do lote (batch) do Vector
-WAIT_SECONDS=3
-echo "3️⃣  Aguardando ${WAIT_SECONDS}s para o Vector consolidar o lote e descarregar no VictoriaLogs..."
-sleep "${WAIT_SECONDS}"
+echo "3️⃣  Aguardando flush do lote pelo Vector..."
 
-# 4. Consultar no VictoriaLogs via LogsQL
+# 4. Consultar no VictoriaLogs via LogsQL (com polling resiliente para batching)
 echo "4️⃣  Consultando o evento no VictoriaLogs via LogsQL..."
-QUERY="_stream:{service='smoke-test-service'} AND test_run_id:'${TEST_ID}'"
+QUERY="_stream:{app='smoke-test-service',env='production'} AND test_run_id:'${TEST_ID}'"
 
-QUERY_RESULT=$(curl "${CURL_AUTH_OPTS[@]}" -s -G "${VL_QUERY_URL}" \
-  --data-urlencode "query=${QUERY}" \
-  --data-urlencode "limit=5")
+QUERY_RESULT=""
+for attempt in {1..6}; do
+  sleep 1
+  QUERY_RESULT=$(curl "${CURL_AUTH_OPTS[@]}" -s -G "${VL_QUERY_URL}" \
+    --data-urlencode "query=${QUERY}" \
+    --data-urlencode "limit=5")
+  if echo "${QUERY_RESULT}" | grep -q "${TEST_ID}"; then
+    break
+  fi
+done
 
 if echo "${QUERY_RESULT}" | grep -q "${TEST_ID}"; then
   echo "   ✅ Evento localizado com sucesso no VictoriaLogs!"

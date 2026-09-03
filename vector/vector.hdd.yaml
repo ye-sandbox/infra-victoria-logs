@@ -62,6 +62,13 @@ transforms:
         if exists(parsed.level) {
           .level = downcase(string(parsed.level) ?? "info")
         }
+        if exists(parsed.app) {
+          .app = downcase(string(parsed.app) ?? "unknown")
+          .service = .app
+        }
+        if exists(parsed.env) {
+          .env = downcase(string(parsed.env) ?? "production")
+        }
         if exists(parsed.message) {
           .message = string(parsed.message) ?? msg
         } else if exists(parsed.msg) {
@@ -80,7 +87,9 @@ transforms:
         }
       }
 
-      .service = .container_name
+      .app = .app || string(.container_name) ?? "unknown"
+      .env = .env || "production"
+      .service = .service || string(.container_name) ?? "unknown"
 
   remap_syslog:
     type: remap
@@ -89,7 +98,9 @@ transforms:
     source: |
       .timestamp = .timestamp || now()
       .host = .host || get_env_var("HOST_IDENTIFIER") ?? "syslog-host"
-      .service = .appname || "syslog"
+      .service = string(.appname) ?? "syslog"
+      .app = .service
+      .env = "production"
       .container_name = "syslog"
       .stream = "syslog"
       .level = downcase(string(.severity) ?? "info")
@@ -101,7 +112,9 @@ transforms:
     source: |
       .timestamp = .timestamp || now()
       .host = .host || get_env_var("HOST_IDENTIFIER") ?? "http-client"
-      .service = .service || "http-source"
+      .app = downcase(string(.app) ?? string(.service) ?? "http-source")
+      .service = .app
+      .env = downcase(string(.env) ?? "production")
       .container_name = .container_name || .service
       .stream = .stream || "http"
       .level = downcase(string(.level) ?? "info")
@@ -131,7 +144,7 @@ sinks:
     request:
       concurrency: 1     # Evita contenção na agulha mecânica
       headers:
-        VL-Stream-Fields: "host,container_name,service,stream"
+        VL-Stream-Fields: "host,container_name,service,app,env,stream"
         VL-Time-Field: "timestamp"
         VL-Msg-Field: "message"
         AccountID: "0"
