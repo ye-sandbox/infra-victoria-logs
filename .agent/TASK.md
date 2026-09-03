@@ -12,23 +12,20 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 04.0: Agregação Multilinha, Scripts Operacionais (Backup/Smoke Test) e Autenticação Opcional
+### 📌 Tarefa 01.1: Validação de deploy em ambiente real no Proxmox e teste de ingestão de logs
 
-- **Descrição:** Implementar agregação nativa de logs multilinha (stack traces) no Vector, desenvolver scripts operacionais de backup atômico via API de snapshot (`scripts/backup.sh`) e smoke test automatizado do pipeline (`scripts/test-pipeline.sh`), além de suporte opcional a autenticação básica no VictoriaLogs.
-- **Sistema(s) Envolvido(s):** `vector`, `docker-compose`, `scripts`, `.env.example`, `documentação`
+- **Descrição:** Validar o deploy da stack VictoriaLogs + Vector em ambiente real (Docker no Proxmox/Mini PC) e realizar testes de ingestão de logs ponta a ponta.
+- **Sistema(s) Envolvido(s):** `docker-compose`, `vector`, `victorialogs`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
-- **Status:** EM EXECUÇÃO
+- **Status:** PRONTO PARA PLANEJAMENTO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] Agregação multilinha (`multiline`) adicionada em `vector.hdd.yaml`, `vector.ssd.yaml` e `vector.yaml`.
-- [x] Script de backup atômico (`scripts/backup.sh`) implementado usando a API de snapshots do VictoriaLogs com rotação de cópias.
-- [x] Script de smoke test (`scripts/test-pipeline.sh`) implementado para validação ponta a ponta em tempo real.
-- [x] Suporte opcional a autenticação básica no VictoriaLogs e Vector configurado e documentado no `.env.example`.
-- [x] Auto-monitoramento com Prometheus nativo (`/metrics`) documentado no Backlog Futuro do `TASK.md`.
-- [x] Validações de sintaxe de todos os arquivos YAML e scripts executadas com 100% de sucesso.
+- [ ] Serviços inicializam com `docker compose up -d` sem erros de resolução de imagem.
+- [ ] Endpoints de healthcheck do VictoriaLogs e Vector respondem com sucesso.
+- [ ] Teste de pipeline (`scripts/test-pipeline.sh`) executa com sucesso ingerindo e consultando logs via LogsQL.
 
 ---
 
@@ -41,12 +38,13 @@
 | 02.0 | Otimizações de Performance (Zstandard, Batching, Ulimits e Proteções de Busca) | `a6890e0` | 2026-09-02 |
 | 03.0 | Implementação de Perfis Dinâmicos de Armazenamento (HDD vs SSD) | `ae1e305` | 2026-09-02 |
 | 04.0 | Agregação Multilinha, Scripts (Backup/Smoke Test) e Autenticação Opcional | `4d05f68` | 2026-09-02 |
+| 04.1 | Correção da tag padrão da imagem do VictoriaLogs para 'latest' | `f76b515` | 2026-09-03 |
 
 ---
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] **[01.1]** Validação de deploy em ambiente real no Proxmox e teste de ingestão de logs — `docker-compose / vector`
+- [ ] [Próxima tarefa pós-validação de deploy]
 
 ---
 
