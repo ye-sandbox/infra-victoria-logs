@@ -19,15 +19,15 @@
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
-- **Status:** PRONTO PARA PLANEJAMENTO
+- **Status:** EM EXECUÇÃO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Servidor MCP implementado com suporte a protocolo stdio para fácil conexão em clientes de IA.
-- [ ] Ferramentas MCP expostas: `query_logs` (LogsQL filtrado e paginado), `get_service_errors` (resumo de erros recentes) e `list_streams` (containers e hosts ativos).
-- [ ] Formatação compacta de respostas (Markdown e JSON limpo) para economia máxima de tokens de contexto.
-- [ ] Documentação de instalação e configuração nos clientes de IA no `README.md`.
-- [ ] Testes automatizados da integração MCP.
+- [x] Servidor MCP implementado com suporte a protocolo stdio para fácil conexão em clientes de IA.
+- [x] Ferramentas MCP expostas: `query_logs` (LogsQL filtrado e paginado), `get_service_errors` (resumo de erros recentes) e `list_streams` (containers e hosts ativos).
+- [x] Formatação compacta de respostas (Markdown e JSON limpo) para economia máxima de tokens de contexto.
+- [x] Documentação de instalação e configuração nos clientes de IA no `README.md`.
+- [x] Testes automatizados da integração MCP.
 
 ---
 

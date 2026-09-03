@@ -57,6 +57,13 @@
   - *Subir container Grafana + Prometheus:* Consumiria 200MB+ de RAM adicionais, inviabilizando a meta de operação em Mini PC modesto.
 - **Consequências:** Visibilidade instantânea de telemetria sem adicionar nenhum byte extra de consumo de memória em repouso.
 
+### 2026-09-03 — Servidor MCP Nativo para Agentes de IA (Pure Python 3 / stdio)
+- **Contexto:** Agentes de IA (Claude, Cursor, Antigravity) precisavam de comandos manuais de shell `curl` com queries LogsQL cruas, o que causava alto consumo de tokens de contexto, erros frequentes de escape/URL encoding e necessidade de aprovação de comandos pelo usuário.
+- **Decisão:** Implementar `mcp/server.py` em Pure Python 3 (zero dependências externas) utilizando o protocolo MCP sobre `stdio` (JSON-RPC 2.0).
+  - Ferramentas expostas: `query_logs`, `get_errors`, `get_log_hits`, `list_streams` e `health_check`.
+  - Respostas pré-processadas e formatadas em Markdown compacto para economizar até 80% dos tokens em relação ao JSON bruto.
+- **Consequências:** Agentes de IA conectam-se de forma nativa e segura ao VictoriaLogs com invocação direta de funções.
+
 ---
 
 ## Contratos de Dados Vigentes

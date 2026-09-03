@@ -145,6 +145,41 @@ curl -s -G "http://localhost:9428/select/logsql/hits" \
 
 ---
 
+### 3. Consultas Nativas para Agentes de IA via MCP (Model Context Protocol)
+
+O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py)) em Pure Python 3 (zero dependências extras). Ele permite que Claude Code, Cursor, Roo Code ou Antigravity investiguem logs diretamente sem rodar comandos manuais e economizando tokens de contexto:
+
+#### Ferramentas MCP Disponíveis:
+- `query_logs`: Executa buscas avançadas com LogsQL e retorna saída limpa em Markdown.
+- `get_errors`: Traz erros e stack traces multilinha recentes de um serviço ou de todo o homelab.
+- `get_log_hits`: Gráfico temporal/histograma de eventos agrupados por minuto/hora.
+- `list_streams`: Lista containers, serviços e hosts ativos.
+- `health_check`: Testa a conexão com o VictoriaLogs.
+
+#### Como Configurar no seu Cliente de IA:
+
+**Claude Desktop (`claude_desktop_config.json`) / Cursor:**
+```json
+{
+  "mcpServers": {
+    "victorialogs": {
+      "command": "python3",
+      "args": ["/caminho/absoluto/para/victoria-logs/mcp/server.py"],
+      "env": {
+        "VICTORIALOGS_URL": "http://127.0.0.1:9428"
+      }
+    }
+  }
+}
+```
+
+**Testar o servidor MCP manualmente:**
+```bash
+./scripts/test-mcp.sh
+```
+
+---
+
 ## 📡 Ingestão de Outras Fontes do Homelab
 
 ### 1. Encaminhar Logs do Host Proxmox VE (Syslog)
