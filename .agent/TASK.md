@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 05.0: Auto-monitoramento da Stack (Métricas do VictoriaLogs e Vector)
+### 📌 Tarefa 06.0: Painel Grafana ou Dashboard leve para métricas e logs do VictoriaLogs
 
-- **Descrição:** Configurar a exposição e coleta de métricas nativas de telemetria da stack (VictoriaLogs `/metrics` e métricas internas do Vector) para viabilizar monitoramento via Prometheus/Grafana externo.
-- **Sistema(s) Envolvido(s):** `docker-compose`, `vector`, `victorialogs`
+- **Descrição:** Configurar dashboard para visualização de métricas da stack e integração com o datasource do VictoriaLogs/VictoriaMetrics no Grafana.
+- **Sistema(s) Envolvido(s):** `grafana`, `victorialogs`
 - **Tipo de Ação:**
   - [ ] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,9 +23,8 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Endpoint `/metrics` do VictoriaLogs acessível e documentado.
-- [ ] Coleta ou exposição de métricas do Vector habilitada (via `api` ou sink Prometheus).
-- [ ] Documentação de integração com Prometheus externo atualizada no `README.md`.
+- [ ] Template de dashboard JSON ou configuração de datasource documentada.
+- [ ] Validação de queries de métricas e exploração de logs.
 
 ---
 
@@ -41,12 +40,12 @@
 | 04.1 | Correção da tag padrão da imagem do VictoriaLogs para 'latest' | `f76b515` | 2026-09-03 |
 | 01.1 | Validação de deploy em ambiente real no Proxmox e teste de ingestão de logs | `2f64d14` | 2026-09-03 |
 | 04.2 | Criação e Manutenção da Skill de Observabilidade & Logging | `da64eb1` | 2026-09-03 |
+| 05.0 | Auto-monitoramento da Stack (Métricas do VictoriaLogs e Vector) | `a868811` | 2026-09-03 |
 
 ---
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] Painel Grafana ou Dashboard leve alternativo para métricas combinadas (se VictoriaMetrics for adicionado no futuro)
 - [ ] Agente MCP dedicado para consulta direta de VictoriaLogs por assistentes de IA
 
 ---
