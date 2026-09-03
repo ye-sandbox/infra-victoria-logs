@@ -121,8 +121,8 @@ sinks:
     compression: zstd
     encoding:
       codec: json
-      framing:
-        method: newline_delimited
+    framing:
+      method: newline_delimited
     batch:
       max_bytes: 2097152 # 2 MB por lote (ideal para escrita sequencial contínua em HD)
       timeout_secs: 2    # Aguarda 2s para consolidar

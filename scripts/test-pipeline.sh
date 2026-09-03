@@ -52,12 +52,12 @@ echo "   ✅ VictoriaLogs está saudável e respondendo."
 echo "2️⃣  Enviando evento de teste para o Vector (${VECTOR_URL})..."
 HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${VECTOR_URL}" \
   -H "Content-Type: application/json" \
-  -d '{
-    "service": "smoke-test-service",
-    "level": "warn",
-    "message": "Smoke test message for VictoriaLogs pipeline",
-    "test_run_id": "'"${TEST_ID}"'"
-  }')
+  -d "{
+    \"service\": \"smoke-test-service\",
+    \"level\": \"warn\",
+    \"message\": \"Smoke test message for VictoriaLogs pipeline [${TEST_ID}]\",
+    \"test_run_id\": \"${TEST_ID}\"
+  }")
 
 if [[ "${HTTP_STATUS}" != "200" && "${HTTP_STATUS}" != "204" ]]; then
   echo "❌ Falha ao enviar log para o Vector. Código HTTP: ${HTTP_STATUS}"
@@ -72,7 +72,7 @@ sleep "${WAIT_SECONDS}"
 
 # 4. Consultar no VictoriaLogs via LogsQL
 echo "4️⃣  Consultando o evento no VictoriaLogs via LogsQL..."
-QUERY="_stream:{service='smoke-test-service'} AND '${TEST_ID}'"
+QUERY="_stream:{service='smoke-test-service'} AND test_run_id:'${TEST_ID}'"
 
 QUERY_RESULT=$(curl "${CURL_AUTH_OPTS[@]}" -s -G "${VL_QUERY_URL}" \
   --data-urlencode "query=${QUERY}" \

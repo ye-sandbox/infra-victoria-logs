@@ -48,29 +48,35 @@ if ! curl "${CURL_AUTH_OPTS[@]}" -s -f "${VL_BASE_URL}/health" > /dev/null; then
   exit 1
 fi
 
-# 2. Criar snapshot via API nativa
+# 2. Criar snapshot via API nativa do VictoriaLogs
 echo "📸 Criando snapshot consistente via API nativa..."
-SNAPSHOT_RESPONSE=$(curl "${CURL_AUTH_OPTS[@]}" -s -f -X POST "${VL_BASE_URL}/snapshot/create")
+SNAPSHOT_RESPONSE=$(curl "${CURL_AUTH_OPTS[@]}" -s -f "${VL_BASE_URL}/internal/partition/snapshot/create")
 
-# Extrair o nome do snapshot (compatível com ou sem jq)
-SNAPSHOT_NAME=$(echo "${SNAPSHOT_RESPONSE}" | python3 -c "import sys, json; print(json.load(sys.stdin).get('snapshot', ''))" 2>/dev/null || true)
+# Extrair caminhos dos snapshots (compatível com ou sem python3)
+SNAPSHOT_PATHS=$(echo "${SNAPSHOT_RESPONSE}" | python3 -c "import sys, json; [print(p) for p in json.load(sys.stdin)]" 2>/dev/null || echo "${SNAPSHOT_RESPONSE}" | grep -o '"/[^"]*"' | tr -d '"')
 
-if [[ -z "${SNAPSHOT_NAME}" ]]; then
-  # Fallback caso python3 falhe
-  SNAPSHOT_NAME=$(echo "${SNAPSHOT_RESPONSE}" | grep -o '"snapshot":"[^"]*"' | cut -d'"' -f4)
+if [[ -z "${SNAPSHOT_PATHS}" ]]; then
+  echo "⚠️  Nenhum snapshot retornado pela API (pode não haver dados persistidos ainda)."
+  exit 0
 fi
 
-if [[ -z "${SNAPSHOT_NAME}" ]]; then
-  echo "❌ ERRO ao criar snapshot. Resposta da API: ${SNAPSHOT_RESPONSE}"
-  exit 1
-fi
+echo "✅ Snapshot(s) criado(s) com sucesso:"
+echo "${SNAPSHOT_PATHS}"
 
-echo "✅ Snapshot criado com sucesso: ${SNAPSHOT_NAME}"
+# 3. Compactar snapshots usando docker cp (compatível com imagem scratch do VictoriaLogs)
+echo "📦 Compactando snapshots para ${BACKUP_FILE}..."
+TMP_BACKUP_DIR=$(mktemp -d)
+trap 'rm -rf "${TMP_BACKUP_DIR}"' EXIT
 
-# 3. Compactar o snapshot diretamente do container
-echo "📦 Compactando snapshot para ${BACKUP_FILE}..."
-cd "${ROOT_DIR}"
-docker compose exec -T victorialogs tar -czf - -C "/victoria-logs-data/snapshots/${SNAPSHOT_NAME}" . > "${BACKUP_FILE}"
+while IFS= read -r snap_path; do
+  [[ -z "${snap_path}" ]] && continue
+  rel_dir="${snap_path#/victoria-logs-data/}"
+  target_dir="${TMP_BACKUP_DIR}/$(dirname "${rel_dir}")"
+  mkdir -p "${target_dir}"
+  docker cp "victorialogs:${snap_path}" "${target_dir}/"
+done <<< "${SNAPSHOT_PATHS}"
+
+tar -czf "${BACKUP_FILE}" -C "${TMP_BACKUP_DIR}" .
 
 # Validar se o arquivo de backup foi gerado e não está vazio
 if [[ ! -s "${BACKUP_FILE}" ]]; then
@@ -81,9 +87,12 @@ fi
 BACKUP_SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
 echo "✅ Arquivo gerado com sucesso: ${BACKUP_FILE} (${BACKUP_SIZE})"
 
-# 4. Excluir o snapshot do disco para liberar espaço
-echo "🧹 Removendo snapshot temporário do VictoriaLogs..."
-curl "${CURL_AUTH_OPTS[@]}" -s -f -X POST "${VL_BASE_URL}/snapshot/delete?snapshot=${SNAPSHOT_NAME}" > /dev/null || true
+# 4. Excluir os snapshots temporários do disco para liberar espaço
+echo "🧹 Removendo snapshots temporários do VictoriaLogs..."
+while IFS= read -r snap_path; do
+  [[ -z "${snap_path}" ]] && continue
+  curl "${CURL_AUTH_OPTS[@]}" -s -f "${VL_BASE_URL}/internal/partition/snapshot/delete?path=${snap_path}" > /dev/null || true
+done <<< "${SNAPSHOT_PATHS}"
 
 # 5. Rotação de backups antigos (mantém as últimas N cópias)
 echo "♻️  Aplicando política de retenção (mantendo as últimas ${RETENTION_COPIES} cópias)..."

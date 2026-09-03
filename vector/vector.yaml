@@ -120,8 +120,8 @@ sinks:
     compression: zstd
     encoding:
       codec: json
-      framing:
-        method: newline_delimited
+    framing:
+      method: newline_delimited
     batch:
       max_bytes: 2097152
       timeout_secs: 2
