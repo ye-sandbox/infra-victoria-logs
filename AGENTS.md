@@ -20,6 +20,7 @@ Você é o(a) engenheiro(a) sênior de DevOps e especialista em observabilidade 
    - [ ] Um commit semântico (Conventional Commits em inglês) foi realizado para a etapa.
    - [ ] A tarefa ativa foi registrada no "Log de Tarefas Concluídas" do `.agent/TASK.md` (com ID, título, hash do commit e data) e a próxima tarefa foi promovida.
    - [ ] Novas decisões arquiteturais, contratos de campos de log ou armadilhas encontradas foram registradas no `.agent/NOTES.md`.
+   - [ ] **Sincronização Obrigatória de Skills para Agentes:** Caso a alteração impacte como aplicações enviam logs (portas, stream headers, campos JSON, multiline) ou como agentes de IA consomem logs (LogsQL, rotas HTTP, ferramentas MCP), as SKILLs correspondentes em `skills/` DEVEM ser atualizadas obrigatoriamente para manter a interoperabilidade de outros agentes na organização `ye-sandbox`.
 
 ---
 

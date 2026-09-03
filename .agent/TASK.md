@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 06.0: Servidor MCP para VictoriaLogs (Integração Direta com Agentes de IA)
+### 📌 Tarefa 07.0: Criação da Skill 'victorialogs-integration' e Governança no AGENTS.md
 
-- **Descrição:** Desenvolver um servidor MCP (Model Context Protocol) leve para permitir que assistentes e agentes de IA (Claude Code, Antigravity, Cursor, Roo Code) consultem, filtrem e investiguem logs no VictoriaLogs nativamente através de ferramentas estruturadas (`query_logs`, `get_errors`, `top_containers`, `list_streams`), economizando tokens e eliminando comandos manuais de terminal.
-- **Sistema(s) Envolvido(s):** `mcp`, `python / node`, `victorialogs`, `documentação`
+- **Descrição:** Criar a skill estruturada `skills/victorialogs-integration/SKILL.md` (ensinando agentes a configurarem novas aplicações Docker, scripts e serviços para enviar logs ao VictoriaLogs/Vector) e atualizar o `AGENTS.md` tornando obrigatória a sincronização contínua das skills com mudanças arquiteturais.
+- **Sistema(s) Envolvido(s):** `skills`, `documentação`, `AGENTS.md`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,11 +23,10 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] Servidor MCP implementado com suporte a protocolo stdio para fácil conexão em clientes de IA.
-- [x] Ferramentas MCP expostas: `query_logs` (LogsQL filtrado e paginado), `get_service_errors` (resumo de erros recentes) e `list_streams` (containers e hosts ativos).
-- [x] Formatação compacta de respostas (Markdown e JSON limpo) para economia máxima de tokens de contexto.
-- [x] Documentação de instalação e configuração nos clientes de IA no `README.md`.
-- [x] Testes automatizados da integração MCP.
+- [x] Regra de governança adicionada ao `AGENTS.md` (DoD) exigindo atualização das skills em qualquer mudança arquitetural de uso para agentes.
+- [x] Skill `skills/victorialogs-integration/SKILL.md` criada com frontmatter YAML, padrões de logging JSON, snippets para Docker Compose, Python, Node.js, Go, bash/curl e rsyslog.
+- [x] Contratos de campos e streams documentados de forma clara na skill para fácil adoção por outros agentes na organização `ye-sandbox`.
+- [x] Validação de integridade dos arquivos e documentação sincronizada.
 
 ---
 
@@ -49,7 +48,8 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] **[07.0]** Coletor de Consumo de Recursos Docker (`docker stats` periódico para o Vector) — `scripts / cron / docker`
+- [ ] **[08.0]** Criação da Skill 'victorialogs-troubleshooting' (Playbook para Agentes Investigarem Erros e Logs) — `skills / ai / runbook`
+- [ ] **[09.0]** Coletor de Consumo de Recursos Docker (`docker stats` periódico para o Vector) — `scripts / cron / docker`
 
 ---
 

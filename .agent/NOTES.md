@@ -64,6 +64,13 @@
   - Respostas pré-processadas e formatadas em Markdown compacto para economizar até 80% dos tokens em relação ao JSON bruto.
 - **Consequências:** Agentes de IA conectam-se de forma nativa e segura ao VictoriaLogs com invocação direta de funções.
 
+### 2026-09-03 — Governança e Versionamento de Skills para Agentes de IA
+- **Contexto:** Desenvolvedores e agentes de IA que atuam em outros repositórios da organização `ye-sandbox` precisam de instruções padronizadas para integrar novas aplicações (Python, Node, Go, Docker) e consumir logs sem reescrever configurações do zero.
+- **Decisão:**
+  - Criar a skill `skills/victorialogs-integration/SKILL.md` com padrões de código, docker-compose e snippets JSON.
+  - Instituir como regra inegociável no `AGENTS.md` (DoD) que qualquer alteração na arquitetura de ingestão ou consumo deve sincronizar imediatamente as SKILLs correspondentes.
+- **Consequências:** Interoperabilidade contínua entre agentes de IA na organização `ye-sandbox`.
+
 ---
 
 ## Contratos de Dados Vigentes
