@@ -12,22 +12,21 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 08.0: Criação da Skill 'victorialogs-troubleshooting' (Playbook para Agentes Investigarem Erros e Logs)
+### 📌 Tarefa 09.0: Coletor de Consumo de Recursos Docker (`docker stats` periódico para o Vector)
 
-- **Descrição:** Criar a skill estruturada `skills/victorialogs-troubleshooting/SKILL.md` fornecendo um playbook completo de SRE para agentes de IA investigarem incidentes, correlacionarem erros com código, executarem queries LogsQL avançadas e consumirem as ferramentas do servidor MCP de forma token-eficiente.
-- **Sistema(s) Envolvido(s):** `skills`, `mcp`, `documentação`
+- **Descrição:** Desenvolver um script/utilitário em shell ou container minúsculo (`scripts/ship-docker-stats.sh`) que captura métricas instantâneas de CPU e memória dos containers locais via `docker stats --no-stream` e envia como logs estruturados para o endpoint HTTP do Vector (`:8686/logs`), permitindo que VictoriaLogs e Agentes de IA monitorem o uso de recursos dos containers sem subir Prometheus/Grafana.
+- **Sistema(s) Envolvido(s):** `scripts`, `vector`, `docker`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
-- **Status:** EM EXECUÇÃO
+- **Status:** PRONTO PARA PLANEJAMENTO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] Skill `skills/victorialogs-troubleshooting/SKILL.md` criada com frontmatter YAML e metodologia de investigação em 3 etapas (Triagem temporal -> Diagnóstico e tracebacks -> Resolução de causa-raiz).
-- [x] Guia de ferramentas MCP com exemplos práticos de uso (`query_logs`, `get_errors`, `get_log_hits`, `list_streams`).
-- [x] Cheat-sheet e padrões avançados de LogsQL (filtros booleanos, pipes `| stats`, buscas por frase, regex e agregação).
-- [x] Diretrizes de economia de contexto e tokens para agentes LLM.
-- [x] Validação de integridade e links dos arquivos.
+- [ ] Script `scripts/ship-docker-stats.sh` implementado para capturar `docker stats` em formato JSON e enviar para o Vector.
+- [ ] Suporte a execução em cron job ou em loop daemon com intervalo customizável (ex: a cada 60s).
+- [ ] Documentação de uso adicionada ao `README.md` e referenciada nas SKILLs.
+- [ ] Testes de envio e consulta via LogsQL.
 
 ---
 
@@ -45,12 +44,14 @@
 | 05.0 | Dashboard CLI de Saúde e Telemetria do Homelab (VictoriaLogs /hits e /metrics) | `bc748f1` | 2026-09-03 |
 | 06.0 | Servidor MCP Nativo para VictoriaLogs (Integração Direta com Agentes de IA) | `9657ddd` | 2026-09-03 |
 | 07.0 | Criação da Skill 'victorialogs-integration' e Governança no AGENTS.md | `836634a` | 2026-09-03 |
+| 08.0 | Criação da Skill 'victorialogs-troubleshooting' (Playbook de SRE para IA) | `c55176f` | 2026-09-03 |
 
 ---
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] **[09.0]** Coletor de Consumo de Recursos Docker (`docker stats` periódico para o Vector) — `scripts / cron / docker`
+- [ ] Suporte a alertas nativos via vmalert
+- [ ] Enriquecimento de logs com GeoIP para tráfego web Nginx/Traefik
 
 ---
 
