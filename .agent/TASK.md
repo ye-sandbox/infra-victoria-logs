@@ -43,12 +43,13 @@
 | 04.1 | Correção da tag padrão da imagem do VictoriaLogs para 'latest' | `f76b515` | 2026-09-03 |
 | 01.1 | Validação de deploy em ambiente real no Proxmox e teste de ingestão de logs | `2f64d14` | 2026-09-03 |
 | 05.0 | Dashboard CLI de Saúde e Telemetria do Homelab (VictoriaLogs /hits e /metrics) | `bc748f1` | 2026-09-03 |
+| 06.0 | Servidor MCP Nativo para VictoriaLogs (Integração Direta com Agentes de IA) | `9657ddd` | 2026-09-03 |
 
 ---
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] **[06.0]** Servidor MCP para VictoriaLogs (Integração Direta com Agentes de IA) — `mcp / python / ai`
+- [ ] **[07.0]** Coletor de Consumo de Recursos Docker (`docker stats` periódico para o Vector) — `scripts / cron / docker`
 
 ---
 
