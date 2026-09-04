@@ -42,6 +42,7 @@
 | 04.2 | Criação e Manutenção da Skill de Observabilidade & Logging | `da64eb1` | 2026-09-03 |
 | 05.0 | Auto-monitoramento da Stack (Métricas do VictoriaLogs e Vector) | `a868811` | 2026-09-03 |
 | 07.0 | Configuração e Integração do Servidor MCP Oficial do VictoriaLogs | `f3c134e` | 2026-09-03 |
+| 07.1 | Atualização da Skill de Observabilidade para Operação MCP-First | `3e70abf` | 2026-09-03 |
 
 ---
 
