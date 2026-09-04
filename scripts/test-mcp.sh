@@ -3,7 +3,7 @@
 # VictoriaLogs MCP Server Automated Integration Test
 # ==============================================================================
 # Envia requisições JSON-RPC 2.0 via stdin para mcp/server.py e valida
-# se o handshake, o catálogo de ferramentas e a execução respondem conforme a spec MCP.
+# se o handshake, o catálogo de 8 ferramentas e as execuções respondem conforme a spec MCP.
 # ==============================================================================
 
 set -euo pipefail
@@ -37,11 +37,11 @@ else
 fi
 
 # 2. Testar catálogo 'tools/list'
-echo "2️⃣  Testando método 'tools/list'..."
+echo "2️⃣  Testando método 'tools/list' com as 8 ferramentas..."
 TOOLS_REQ='{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 TOOLS_RESP=$(echo "${TOOLS_REQ}" | python3 "${SERVER_SCRIPT}")
 
-REQUIRED_TOOLS=("query_logs" "get_errors" "get_log_hits" "list_streams" "health_check")
+REQUIRED_TOOLS=("health_check" "query_logs" "get_errors" "get_log_hits" "list_streams" "field_names" "field_values" "documentation")
 for tool in "${REQUIRED_TOOLS[@]}"; do
   if echo "${TOOLS_RESP}" | grep -q "\"name\": \"${tool}\""; then
     echo "   ✅ Ferramenta registrada: '${tool}'"
@@ -57,7 +57,7 @@ CALL_REQ='{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"health
 CALL_RESP=$(echo "${CALL_REQ}" | python3 "${SERVER_SCRIPT}")
 
 if echo "${CALL_RESP}" | grep -q '"type": "text"'; then
-  echo "   ✅ Chamada de ferramenta executada com resposta estruturada válida:"
+  echo "   ✅ Chamada de 'health_check' executada com resposta válida:"
   echo "      ${CALL_RESP}"
 else
   echo "❌ Falha ao chamar a ferramenta 'health_check'. Resposta:"
@@ -65,6 +65,20 @@ else
   exit 1
 fi
 
+# 4. Testar execução de tool 'documentation' (offline, não depende de rede)
+echo "4️⃣  Testando execução de tool 'documentation' via 'tools/call'..."
+DOC_REQ='{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"documentation","arguments":{"query":"stats"}}}'
+DOC_RESP=$(echo "${DOC_REQ}" | python3 "${SERVER_SCRIPT}")
+
+if echo "${DOC_RESP}" | grep -q "stats"; then
+  echo "   ✅ Chamada de 'documentation' executada com sucesso (guia offline recuperado):"
+  echo "      $(echo "${DOC_RESP}" | head -c 200)..."
+else
+  echo "❌ Falha ao chamar a ferramenta 'documentation'. Resposta:"
+  echo "${DOC_RESP}"
+  exit 1
+fi
+
 echo "================================================================================"
-echo "🎉 [SUCESSO] Servidor MCP está 100% conforme a especificação JSON-RPC 2.0!"
+echo "🎉 [SUCESSO] Servidor MCP está 100% validado e conforme a especificação JSON-RPC 2.0!"
 echo "================================================================================"

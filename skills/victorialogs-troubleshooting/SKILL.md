@@ -1,6 +1,6 @@
 ---
 name: victorialogs-troubleshooting
-description: Playbook de SRE e investigação de incidentes para agentes de IA diagnosticarem erros, falhas e métricas no VictoriaLogs via MCP e LogsQL com máxima economia de tokens.
+description: Playbook de SRE e investigação de incidentes para agentes de IA diagnosticarem erros, falhas e métricas no VictoriaLogs via MCP e LogsQL com máxima economia de tokens e zero perda de contexto.
 ---
 
 # VictoriaLogs Troubleshooting & Investigation Playbook (for AI Agents)
@@ -18,62 +18,94 @@ Quando o usuário relatar um erro ("a API caiu", "o worker parou", "estou recebe
   get_log_hits(query="level:error", time_range="1h", step="5m")
             │
             ▼ (Identificou o pico exato de erros)
-  [Etapa 2: Isolamento do Erro e Traceback]
+  [Etapa 2: Isolamento do Erro e Traceback com Deduplicação]
   get_errors(service="meu-app", time_range="30m", limit=10)
             │
-            ▼ (Extraiu a stack trace e a mensagem de erro)
+            ▼ (Extraiu a stack trace intacta e a contagem de ocorrências)
   [Etapa 3: Correlação com o Código-Fonte]
   Ler arquivo do workspace (ex: api/routes.py:L42) -> Propor Correção
 ```
 
 ---
 
-## 🛠️ Como Usar as Ferramentas MCP (Recomendado)
+## 🛠️ Catálogo Completo de Ferramentas MCP
 
-Se o servidor MCP estiver configurado, utilize as chamadas de ferramentas diretamente (economizam até 80% dos tokens):
+O servidor MCP nativo do repositório (`mcp/server.py`) expõe **8 ferramentas otimizadas**, projetadas para entregar à IA exatamente o que ela precisa para resolver bugs sem desperdiçar tokens com metadados irrelevantes:
 
 ### 1. `health_check`
-- **Quando usar:** Primeiro comando ao iniciar uma sessão de diagnóstico para verificar se a stack VictoriaLogs está operacional.
-- **Exemplo:**
-  ```json
-  {}
-  ```
+- **Quando usar:** No início da sessão para checar a conectividade com o VictoriaLogs.
+- **Parâmetros:** `{}`
 
 ### 2. `get_log_hits`
-- **Quando usar:** Para responder "quando começou o problema?" ou "quantas falhas ocorreram?".
+- **Quando usar:** Para responder *"quando o problema começou?"* ou *"quantas falhas ocorreram por minuto?"*.
 - **Parâmetros:**
   - `query`: `level:error` ou `_stream:{service="pagamentos"} AND level:error`
-  - `time_range`: `"1h"`, `"6h"`, `"24h"`
-  - `step`: `"5m"`, `"15m"`, `"1h"`
+  - `time_range`: `"30m"`, `"1h"`, `"6h"`, `"24h"`
+  - `step`: `"1m"`, `"5m"`, `"1h"`
 
-### 3. `get_errors`
-- **Quando usar:** A ferramenta mais rápida para extrair os erros mais recentes com stack trace multilinha sem poluição de logs de `info`.
+### 3. `get_errors` ⭐ (Principal para Debugging)
+- **Quando usar:** Extrai erros e stack traces multilinha formatadas em blocos de código sem ruído de logs `info`.
+- **Deduplicação Inteligente:** Por padrão (`deduplicate=true`), agrupa tempestades de erros repetidos exibindo a quantidade de ocorrências e o intervalo (`[34x] Primeira: 11:20 | Última: 11:25`), mantendo a stack trace integral da causa-raiz.
 - **Parâmetros:**
   - `service`: `"nome-do-container"` (opcional; se omitido, busca em todos)
-  - `time_range`: `"30m"`, `"1h"`
+  - `time_range`: `"30m"`, `"1h"` (padrão: `"1h"`)
   - `limit`: `10` ou `20`
+  - `deduplicate`: `true` (padrão) ou `false` (para lista sequencial crua)
+  - `full`: `false` (padrão, truncando tracebacks gigantes após 1.200 chars) ou `true` (stack trace 100% sem cortes)
 
 ### 4. `query_logs`
-- **Quando usar:** Quando você precisa de consultas flexíveis com LogsQL (ex: buscar um `request_id`, transação ou texto específico).
+- **Quando usar:** Consultas flexíveis com LogsQL (ex: buscar um `request_id`, usuário ou texto).
 - **Parâmetros:**
   - `query`: `_stream:{container_name="nginx"} AND status:500`
   - `time_range`: `"1h"`
   - `limit`: `20`
-  - `format`: `"markdown"` (padrão compacto) ou `"json"`
+  - `format`: `"markdown"` (padrão compacto com ícones) ou `"json"` (ndjson bruto)
+  - `full`: `false` (padrão) ou `true` (desativa truncamento de mensagens longas)
 
 ### 5. `list_streams`
-- **Quando usar:** Para descobrir quais containers ou hosts estão enviando logs se você não souber o nome exato do serviço.
+- **Quando usar:** Para descobrir quais containers, serviços e hosts estão enviando logs ativos.
 - **Parâmetros:**
   - `time_range`: `"24h"`
 
+### 6. `field_names`
+- **Quando usar:** Para listar todos os campos indexados no VictoriaLogs (ex: `user_id`, `path`, `status`).
+- **Parâmetros:**
+  - `time_range`: `"24h"`
+
+### 7. `field_values`
+- **Quando usar:** Para listar os valores existentes de um campo específico (ex: ver quais `level` ou `service` existem).
+- **Parâmetros:**
+  - `field`: `"service"` ou `"level"` (obrigatório)
+  - `time_range`: `"24h"`
+  - `limit`: `20`
+
+### 8. `documentation`
+- **Quando usar:** Para consultar a sintaxe do LogsQL (filtros, pipes, stats) sem sair do chat.
+- **Parâmetros:**
+  - `query`: `"stats"`, `"filtros"`, `"streams"`, `"pipes"` (ou vazio para o guia completo)
+
 ---
 
-## ⚡ Cheat-Sheet de LogsQL (Padrões Avançados)
+## 🧠 Garantia de Zero Perda de Contexto para a IA
 
-Caso precise executar queries via `query_logs` ou `curl` direto:
+A compactação realizada pelo nosso MCP foi desenhada por engenheiros de observabilidade para **nunca comprometer a capacidade de diagnóstico da IA**:
 
-### 1. Filtros por Stream (Extremamente Rápidos no HD/SSD)
-Os campos de stream (`host`, `container_name`, `service`, `stream`) utilizam índices dedicados:
+1. **O que é descartado (Ruído Inútil):**
+   - Labels internas do Docker Compose (`label.com.docker.compose.config-hash`, `label.com.docker.compose.project_dir`, `label.com.docker.compose.version`, etc.).
+   - Hashes de imagem SHA256 e IDs brutos de stream (`_stream_id: 000000000000...`).
+2. **O que é 100% Preservado (Contexto Vital de SRE):**
+   - **Mensagem do Erro e Stack Trace Completa:** O nome da exceção, linha do arquivo (`routes.py:L42`) e cadeia de chamadas.
+   - **Identidade do Serviço:** Container (`container_name`), serviço (`service`) e host (`host`).
+   - **Dimensão Temporal:** Timestamp exato em UTC, primeira ocorrência e última ocorrência do problema.
+   - **Frequência da Falha:** Contagem exata de quantas vezes o erro disparou (`[42x ocorrências]`).
+3. **Mecanismo de Escape (`full=true`):**
+   - Caso um traceback ou mensagem seja anormalmente longo e a IA precise inspecionar os últimos caracteres truncados, basta chamar com `full=true`.
+
+---
+
+## ⚡ Cheat-Sheet de LogsQL (Padrões Rápidos)
+
+### 1. Filtros por Stream (Indexados em Memória)
 ```text
 _stream:{service="meu-backend"}
 _stream:{container_name="vector"}
@@ -97,44 +129,5 @@ timeout AND NOT "keepalive"
 ### 4. Pipes de Agregação e Estatísticas
 Contar erros agrupados por container na última hora:
 ```text
-_time:1h AND level:error | stats count() total by (container_name) | sort by (total) desc | limit 5
+_time:1h AND level:error | stats by (container_name) count() as total | sort by (total) desc | limit 5
 ```
-
-Descobrir quais rotas HTTP geraram status 5xx:
-```text
-_time:2h AND status:5* | stats count() total by (path) | sort by (total) desc
-```
-
----
-
-## 🧠 Regras de Ouro de Economia de Tokens para Agentes de IA
-
-1. **NUNCA faça consultas sem filtro temporal (`_time`):**
-   - ❌ Errado: `level:error` (pode escanear 30 dias de logs e estourar o limite de memória).
-   - ✅ Correto: `_time:30m AND level:error` ou passe `time_range="30m"` na tool MCP.
-2. **Limite a quantidade de registros:**
-   - Para entender a causa-raiz de um bug, **3 a 5 stack traces idênticas bastam**. Nunca solicite `limit=500`. Comece com `limit=10`.
-3. **Filtre ruído repetitivo na própria query:**
-   - Se um container fica dando healthcheck falho ou warning inofensivo, use negação: `level:error AND NOT "ping"`.
-
----
-
-## 💻 Fallback via Curl (Quando o MCP não estiver ativo)
-
-Se o ambiente do agente não tiver o cliente MCP configurado, execute comandos via shell com codificação de URL:
-
-```bash
-# 1. Checar saúde
-curl -s -f http://localhost:9428/health
-
-# 2. Buscar últimos 10 erros com LogsQL
-curl -s -G "http://localhost:9428/select/logsql/query" \
-  --data-urlencode 'query=_time:30m AND level:error' \
-  --data-urlencode 'limit=10'
-
-# 3. Série temporal de contagem de erros
-curl -s -G "http://localhost:9428/select/logsql/hits" \
-  --data-urlencode 'query=_time:1h AND level:error' \
-  --data-urlencode 'step=5m'
-```
-*Se a stack tiver autenticação ativada no `.env`, passe `-u "$VICTORIALOGS_AUTH_USERNAME:$VICTORIALOGS_AUTH_PASSWORD"`.*

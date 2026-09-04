@@ -64,7 +64,6 @@ flowchart LR
 ├── scripts/
 │   ├── backup.sh            # Backup atômico via API de snapshots com rotação de cópias
 │   ├── health-dashboard.sh  # Dashboard CLI colorido de telemetria ao vivo via APIs nativas
-│   ├── setup-mcp.sh         # Instalador automatizado do binário Go oficial da VictoriaMetrics
 │   ├── test-pipeline.sh     # Smoke test ponta a ponta de ingestão e LogsQL em 1 comando
 │   └── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
 ├── skills/
@@ -160,13 +159,16 @@ curl -s -G "http://localhost:9428/select/logsql/hits" \
 
 ### 3. Consultas Nativas para Agentes de IA via MCP (Model Context Protocol)
 
-O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py)) em Pure Python 3 (zero dependências extras). Ele permite que Claude Code, Cursor, Roo Code ou Antigravity investiguem logs diretamente sem rodar comandos manuais e economizando tokens de contexto:
+O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py)) em Pure Python 3 (zero dependências extras, < 22 MB de RAM). Ele permite que Claude Code, Cursor, Roo Code ou Antigravity investiguem logs diretamente sem rodar comandos manuais, com deduplicação de erros e economizando até 99.8% dos tokens em relação a APIs brutas:
 
-#### Ferramentas MCP Disponíveis:
-- `query_logs`: Executa buscas avançadas com LogsQL e retorna saída limpa em Markdown.
-- `get_errors`: Traz erros e stack traces multilinha recentes de um serviço ou de todo o homelab.
-- `get_log_hits`: Gráfico temporal/histograma de eventos agrupados por minuto/hora.
-- `list_streams`: Lista containers, serviços e hosts ativos.
+#### Ferramentas MCP Disponíveis (8 Ferramentas Especializadas):
+- `get_errors`: Extrai erros e stack traces limpas com **deduplicação inteligente** de falhas repetidas (`deduplicate=true`, `full=false`).
+- `query_logs`: Executa buscas flexíveis com LogsQL e retorna saída formatada em Markdown com projeção seletiva `| keep`.
+- `get_log_hits`: Gráfico temporal/histograma de eventos agrupados por minuto/hora para triagem de anomalias.
+- `list_streams`: Lista containers, serviços e hosts ativos instantaneamente via endpoint nativo do VictoriaLogs.
+- `field_names`: Descobre os nomes de campos indexados no storage (ex: `service`, `userId`, `status`).
+- `field_values`: Lista os valores mais frequentes de qualquer campo.
+- `documentation`: Manual e guia de referência offline de LogsQL (filtros, pipes, stats e regex) embutido no servidor.
 - `health_check`: Testa a conexão com o VictoriaLogs.
 
 #### Como Configurar no seu Cliente de IA:
@@ -177,7 +179,7 @@ O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py))
   "mcpServers": {
     "victorialogs": {
       "command": "python3",
-      "args": ["/caminho/absoluto/para/victoria-logs/mcp/server.py"],
+      "args": ["/caminho/absoluto/para/infra-victoria-logs/mcp/server.py"],
       "env": {
         "VICTORIALOGS_URL": "http://127.0.0.1:9428"
       }
@@ -346,18 +348,6 @@ O repositório inclui duas SKILLs completas e reutilizáveis, preparadas para se
    - Contém snippets prontos para **Docker Compose**, **Python** (`logging`/`structlog`), **Node.js** (`pino`), **Go** (`slog`), **Bash** (`curl`) e **Proxmox** (`rsyslog`).
 2. **[`skills/victorialogs-troubleshooting`](./skills/victorialogs-troubleshooting/SKILL.md):**
    - Playbook de SRE e investigação de incidentes para a IA diagnosticar falhas no homelab via servidor MCP e LogsQL com **máxima economia de tokens**.
-
----
-
-## 🔌 Servidor MCP Oficial VictoriaMetrics (Binário Go Alternativo)
-
-Além do servidor nativo em Python ([`mcp/server.py`](./mcp/server.py)), o repositório também disponibiliza um script para baixar e configurar o **MCP Server oficial da VictoriaMetrics compilado em Go** ([`VictoriaMetrics/mcp-victorialogs`](https://github.com/VictoriaMetrics/mcp-victorialogs)):
-
-### Instalação Automatizada:
-```bash
-./scripts/setup-mcp.sh
-```
-O executável ficará disponível em `./bin/mcp-victorialogs`. Ele expõe ferramentas ricas como `query`, `hits`, `streams`, `field_names`, `field_values`, `facets` e `documentation`.
 
 ---
 

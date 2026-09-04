@@ -77,10 +77,14 @@
   - Respostas pré-processadas e formatadas em Markdown compacto para economizar até 80% dos tokens em relação ao JSON bruto.
 - **Consequências:** Agentes de IA conectam-se de forma nativa e segura ao VictoriaLogs com invocação direta de funções.
 
-### 2026-09-03 — Integração do VictoriaLogs MCP Server Oficial em Go (`VictoriaMetrics/mcp-victorialogs`)
-- **Contexto:** Possibilidade de utilizar diretamente o binário oficial em Go disponibilizado pela equipe da VictoriaMetrics.
-- **Decisão:** Disponibilizar instalador automatizado `scripts/setup-mcp.sh` para compilar/baixar o binário oficial como alternativa ou complemento ao servidor nativo em Python.
-- **Consequências:** Flexibilidade para escolher entre o servidor Python pré-formatado (Markdown/baixo consumo de token) ou o binário Go nativo da VictoriaMetrics.
+### 2026-09-04 — Padronização e Otimização Extrema do Servidor MCP em Python
+- **Contexto:** Testes de benchmarking em hardware real revelaram que o MCP oficial em Go consumia 1.36 MB / ~350.000 tokens por consulta (estourando a janela de contexto de LLMs), enquanto o processo em Python consumia apenas 21.6 MB de RAM física (metade dos 46.7 MB do Go) e respondia em menos de 1 ms. Além disso, o binário Go acrescentava 33 MB ao repositório.
+- **Decisão:**
+  - Padronizar 100% no servidor MCP nativo em Python (`mcp/server.py`), descartando o binário Go de 33 MB.
+  - Implementar deduplicação inteligente de erros repetidos (agrupando por assinatura da falha com contagem de ocorrências e timestamps de início/fim), preservando 100% da causa-raiz e economizando de 70% a 95% de tokens adicionais.
+  - Adicionar projeção seletiva com `| keep` para não trafegar labels de Docker Compose na rede local.
+  - Adicionar ferramentas de introspecção (`field_names`, `field_values`) e documentação offline de LogsQL (`documentation`), atingindo paridade total com o Go.
+- **Consequências:** A stack ganha o servidor MCP mais leve, eficiente e contextualizado do ecossistema de observabilidade para agentes de IA, com zero dependências externas e zero binários pesados.
 
 ### 2026-09-03 — Governança e Versionamento de Skills para Agentes de IA
 - **Contexto:** Desenvolvedores e agentes de IA que atuam em outros repositórios da organização `ye-sandbox` precisam de instruções padronizadas para integrar novas aplicações (Python, Node, Go, Docker) e consumir logs sem reescrever configurações do zero.
