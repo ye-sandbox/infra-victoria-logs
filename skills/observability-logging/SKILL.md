@@ -1,13 +1,13 @@
 ---
 name: observability-logging
 description: >-
-  Padrão de observabilidade e logs estruturados (JSON) para criação de novos serviços e runbook para investigação de erros e timeouts consultando o VictoriaLogs via LogsQL. Use ao configurar logging em qualquer aplicação do homelab ou diagnosticar falhas no sistema.
+  Padrão de observabilidade e logs estruturados (JSON) para serviços do homelab e runbook de investigação rápida de incidentes, erros e timeouts utilizando as ferramentas nativas do VictoriaLogs MCP Server (query, streams, hits, field_values, documentation) e LogsQL. Use ao configurar logging em aplicações ou diagnosticar qualquer falha no sistema.
 ---
 
 # Skill: Observabilidade & Logging (VictoriaLogs / Vector)
 
 ## Missão
-Garantir que qualquer novo serviço gere logs estruturados padronizados e investigar problemas consultando os logs centrais no VictoriaLogs.
+Garantir que qualquer novo serviço do homelab gere logs estruturados padronizados em JSON e guiar diagnósticos de erros e incidentes utilizando **MCP-First** (ferramentas nativas do servidor MCP do VictoriaLogs) ou via API LogsQL.
 
 ---
 
@@ -123,55 +123,97 @@ logging:
 
 ---
 
-## Investigação de Erros (Runbook LogsQL & MCP)
+## Investigação de Erros e Incidentes (Runbook MCP-First)
 
-Ao investigar falhas, exceções ou timeouts relatados pelo usuário:
-1. **SEMPRE** consulte os logs centrais antes de tentar alterar o código.
-2. Utilize as ferramentas do **VictoriaLogs MCP Server** quando disponível na sessão, ou execute consultas HTTP GET na API:
+> [!IMPORTANT]
+> **REGRA DE OURO DA INVESTIGAÇÃO:** Sempre consulte os logs reais no VictoriaLogs antes de propor ou realizar qualquer modificação de código no projeto.
 
-### 1. Via Ferramentas Nativas do MCP Server (`mcp-victorialogs`)
-Quando o servidor MCP estiver configurado, utilize as tools integradas:
-- **`query`**: Executa queries LogsQL nativas (ex: `_stream:{app="api-gateway"} AND level:"error"`).
-- **`streams`**: Lista os streams e labels ativas no storage.
-- **`hits`**: Conta a distribuição de ocorrências de eventos por bucket de tempo.
-- **`field_names` / `field_values`**: Inspeciona dinamicamente os campos estruturados indexados.
-- **`documentation`**: Busca direta na documentação técnica do VictoriaLogs sem precisar de internet.
+---
 
-### 2. Via Linha de Comando (cURL / API HTTP)
-Caso utilize terminal ou scripts:
+### Método Primário: VictoriaLogs MCP Server (`mcp-victorialogs`)
+
+Quando atuando como agente de IA, priorize a chamada direta às ferramentas nativas do MCP Server registrado (`victorialogs`). Isso garante comunicação rápida, tipada, sem necessidade de shell e sem bloqueios de rede.
+
+#### Catálogo de Ferramentas MCP
+
+| Tool | Finalidade | Parâmetros Principais |
+|---|---|---|
+| **`query`** | Executa queries LogsQL completas | `query` *(obrigatório, LogsQL)*, `start` *(obrigatório, RFC3339)*, `end` *(RFC3339)*, `limit` *(padrão: 1000)*, `timeout` *(ex: "10s")* |
+| **`streams`** | Lista os streams e contêineres ativos | `query` *(obrigatório, ex: `*` ou `app="meu-app"`)*, `start` *(obrigatório, RFC3339)* |
+| **`hits`** | Agrupa contagens de logs por intervalos de tempo | `query` *(obrigatório)*, `start` *(obrigatório, RFC3339)*, `step` *(ex: "5m", "1h")* |
+| **`field_values`** | Lista os valores únicos de um campo | `field` *(obrigatório, ex: "app", "level")*, `query` *(obrigatório)*, `start` *(obrigatório)* |
+| **`field_names`** | Lista todos os campos disponíveis | `query` *(obrigatório)*, `start` *(obrigatório)* |
+| **`documentation`** | Busca na documentação oficial embutida | `query` *(obrigatório, termo ou conceito)*, `limit` *(padrão: 30)* |
+
+#### Exemplos Práticos de Invocação MCP
+
+1. **Buscar erros recentes de um serviço específico:**
+   - **Tool:** `query`
+   - **Payload:**
+     ```json
+     {
+       "query": "_stream:{app=\"api-gateway\"} AND level:\"error\"",
+       "start": "2026-09-03T00:00:00Z",
+       "limit": 50
+     }
+     ```
+
+2. **Identificar todos os serviços e contêineres gerando logs:**
+   - **Tool:** `streams`
+   - **Payload:**
+     ```json
+     {
+       "query": "*",
+       "start": "2026-09-03T00:00:00Z"
+     }
+     ```
+
+3. **Investigar incidentes de indisponibilidade ou timeouts:**
+   - **Tool:** `query`
+   - **Payload:**
+     ```json
+     {
+       "query": "level:(\"error\" OR \"warn\") AND (\"timeout\" OR \"connection refused\" OR \"502\" OR \"504\")",
+       "start": "2026-09-03T20:00:00Z",
+       "limit": 30
+     }
+     ```
+
+4. **Rastrear requisição ponta a ponta por Trace ID / Request ID:**
+   - **Tool:** `query`
+   - **Payload:**
+     ```json
+     {
+       "query": "\"req_abcdef123456\"",
+       "start": "2026-09-03T00:00:00Z",
+       "limit": 20
+     }
+     ```
+
+5. **Consultar sintaxe ou funções LogsQL na documentação interna:**
+   - **Tool:** `documentation`
+   - **Payload:**
+     ```json
+     {
+       "query": "stats aggregation count unique"
+     }
+     ```
+
+---
+
+### Método Secundário (Fallback): Linha de Comando (cURL / HTTP API)
+
+Utilize este método em scripts de manutenção, pipelines CI/CD ou quando o cliente não tiver o MCP Server configurado:
 
 ```bash
 curl -s -G "http://${VICTORIALOGS_HOST:-192.168.0.201}:9428/select/logsql/query" \
-  --data-urlencode "query=<LogsQL>" \
+  --data-urlencode "query=_stream:{app=\"api-gateway\"} AND level:\"error\"" \
   --data-urlencode "limit=50"
 ```
 
-### Consultas LogsQL Frequentes
-
-1. **Buscar erros recentes de um serviço específico:**
-   ```logsql
-   _stream:{app="api-gateway"} AND level:"error"
-   ```
-
-2. **Buscar logs com timeouts ou conexões recusadas:**
-   ```logsql
-   _stream:{app="meu-servico"} AND ("timeout" OR "connection refused")
-   ```
-
-3. **Filtrar por ambiente e período específico:**
-   ```logsql
-   _stream:{env="production"} AND level:("error" OR "warn") AND _time:5m
-   ```
-
-4. **Inspecionar stack traces completos:**
-   ```bash
-   curl -s -G "http://${VICTORIALOGS_HOST:-192.168.0.201}:9428/select/logsql/query" \
-     --data-urlencode 'query=_stream:{app="api-gateway"} AND level:"error"' \
-     --data-urlencode 'limit=10' | jq -r '._msg, .stack_trace // empty'
-   ```
-
-5. **Localizar requisição por Request ID / Trace ID:**
-   ```logsql
-   "req_123456789"
-   ```
-
+Inspecionar mensagens e stack traces formatados:
+```bash
+curl -s -G "http://${VICTORIALOGS_HOST:-192.168.0.201}:9428/select/logsql/query" \
+  --data-urlencode 'query=_stream:{app="api-gateway"} AND level:"error"' \
+  --data-urlencode 'limit=10' | jq -r '._msg, .stack_trace // empty'
+```

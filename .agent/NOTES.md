@@ -73,6 +73,13 @@
   - *Consultas exclusivas via shell `curl`:* Não expõe contratos de ferramentas para a LLM e exige autorização manual interativa a cada requisição.
 - **Consequências:** Zero dependências extras de runtime no host, acesso a ferramentas ricas de introspecção (`query`, `hits`, `streams`, `field_names`, `documentation`) e governança de consultas protegida pelo limite `-search.maxQueryDuration=30s`.
 
+### 2026-09-03 — Protocolo de Investigação MCP-First em Skills para Agentes de IA
+- **Contexto:** Com a ativação do VictoriaLogs MCP Server, os agentes de IA dispõem de ferramentas nativas (`query`, `streams`, `hits`, `field_values`, `documentation`). As instruções das skills precisavam refletir a precedência de uso e os requisitos de schema (ex: `start` em timestamp RFC3339 obrigatório).
+- **Decisão:** Atualizar a skill de observabilidade para instituir formalmente o fluxo **MCP-First**:
+  - *Primário:* Chamar ferramentas do servidor `victorialogs` (`query`, `streams`, etc.) diretamente no chat.
+  - *Secundário (Fallback):* Utilizar cURL / terminal apenas para automações externas em shell ou caso o MCP não esteja disponível.
+- **Consequências:** Diagnósticos de falhas e análise de incidentes por agentes de IA ocorrem com latência mínima, tipagem estrita de retorno e sem interrupções para aprovações manuais de comandos de rede no terminal.
+
 ---
 
 ## Contratos de Dados Vigentes
