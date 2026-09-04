@@ -41,12 +41,13 @@
 | 01.1 | Validação de deploy em ambiente real no Proxmox e teste de ingestão de logs | `2f64d14` | 2026-09-03 |
 | 04.2 | Criação e Manutenção da Skill de Observabilidade & Logging | `da64eb1` | 2026-09-03 |
 | 05.0 | Auto-monitoramento da Stack (Métricas do VictoriaLogs e Vector) | `a868811` | 2026-09-03 |
+| 07.0 | Configuração e Integração do Servidor MCP Oficial do VictoriaLogs | `f3c134e` | 2026-09-03 |
 
 ---
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] Agente MCP dedicado para consulta direta de VictoriaLogs por assistentes de IA
+- [ ] (A definir)
 
 ---
 
