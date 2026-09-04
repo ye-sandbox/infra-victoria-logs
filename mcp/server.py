@@ -406,17 +406,20 @@ def tool_field_names(args: Dict[str, Any]) -> str:
     """Retorna os nomes dos campos indexados no VictoriaLogs para guiar queries da IA."""
     time_range = args.get("time_range", "24h").strip()
     try:
-        resp = make_request("/select/logsql/field_names", {"start": time_range})
-        fields = [f.strip().strip('"') for f in resp.splitlines() if f.strip()]
-        if not fields:
+        resp = make_request("/select/logsql/field_names", {"query": f"_time:{time_range}"})
+        data = json.loads(resp)
+        items = data.get("values", [])
+        if not items:
             return f"ℹ️ Nenhum campo encontrado na janela de {time_range}."
 
         out = [
             f"### 🏷️ Campos Indexados no VictoriaLogs (Janela: {time_range})\n",
             "Estes campos podem ser utilizados em filtros (`campo:valor`) ou agregações (`| stats by (campo)`):\n",
         ]
-        for fld in sorted(fields):
-            out.append(f"- `{fld}`")
+        for it in sorted(items, key=lambda x: x.get("hits", 0), reverse=True):
+            fld = it.get("value", "")
+            hits = it.get("hits", 0)
+            out.append(f"- `{fld}` ({hits} logs)")
         return "\n".join(out)
     except Exception as e:
         return f"❌ Erro ao listar nomes de campos: {str(e)}"
@@ -432,18 +435,21 @@ def tool_field_values(args: Dict[str, Any]) -> str:
         return "Erro: parâmetro 'field' obrigatório (ex: 'level', 'service', 'container_name')."
 
     try:
-        resp = make_request("/select/logsql/field_values", {"field": field, "start": time_range, "limit": limit})
-        lines = [l.strip() for l in resp.splitlines() if l.strip()]
-        if not lines:
+        resp = make_request("/select/logsql/field_values", {"field": field, "query": f"_time:{time_range}", "limit": limit})
+        data = json.loads(resp)
+        items = data.get("values", [])
+        if not items:
             return f"ℹ️ Nenhum valor encontrado para o campo `{field}` na janela de {time_range}."
 
         out = [
             f"### 📊 Valores do Campo `{field}` (Janela: {time_range})\n",
-            "| Valor | Ocorrências / Linha |",
+            "| Valor | Ocorrências (Hits) |",
             "|---|---|",
         ]
-        for line in lines:
-            out.append(f"| `{line}` | presente |")
+        for item in items:
+            val = item.get("value", "")
+            hits = item.get("hits", 0)
+            out.append(f"| `{val}` | {hits} |")
         return "\n".join(out)
     except Exception as e:
         return f"❌ Erro ao buscar valores do campo '{field}': {str(e)}"
