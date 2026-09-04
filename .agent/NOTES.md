@@ -61,7 +61,17 @@
 - **Decisão:**
   - **VictoriaLogs:** Expor o endpoint nativo `/metrics` na porta configurada `9428`.
   - **Vector:** Adicionar a fonte `internal_metrics` e o sink `prometheus_exporter` na porta registrada `9598` (`VECTOR_METRICS_PORT`), servindo telemetria em tempo real no padrão Prometheus sob demanda de scraping.
-- **Consequências:** Zero overhead de escrita/armazenamento extra (modelo pull puro), permitindo que um servidor centralizado de Prometheus/Grafana colete métricas da stack sem violar o teto de 150 MB de RAM.
+
+### 2026-09-03 — Integração do VictoriaLogs MCP Server Oficial (`VictoriaMetrics/mcp-victorialogs`)
+- **Contexto:** Necessidade de permitir que assistentes de IA (Antigravity, Cursor, Claude Desktop, Claude Code) explorem e debuguem logs diretamente no chat via LogsQL sem exigir que o desenvolvedor execute queries manuais em cURL ou troque de contexto para a VMUI.
+- **Decisão:**
+  - Adotar o binário oficial compilado em Go do repositório `VictoriaMetrics/mcp-victorialogs` em modo `stdio`.
+  - Configurar `VL_INSTANCE_ENTRYPOINT` apontando para o IP da VM (`http://192.168.0.201:9428`).
+  - Disponibilizar instalador automatizado `scripts/setup-mcp.sh` e registrar configuração global no Antigravity (`~/.gemini/config/mcp_config.json`).
+- **Alternativas consideradas:**
+  - *Pacote npm TypeScript (`victorialogs-mcp-server`):* Requer runtime Node.js/npx, download de dependências e maior consumo de memória.
+  - *Consultas exclusivas via shell `curl`:* Não expõe contratos de ferramentas para a LLM e exige autorização manual interativa a cada requisição.
+- **Consequências:** Zero dependências extras de runtime no host, acesso a ferramentas ricas de introspecção (`query`, `hits`, `streams`, `field_names`, `documentation`) e governança de consultas protegida pelo limite `-search.maxQueryDuration=30s`.
 
 ---
 

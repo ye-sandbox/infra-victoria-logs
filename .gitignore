@@ -58,6 +58,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Docker / local storage
+bin/
 docker/data/
 victorialogs_data/
 vector_data/

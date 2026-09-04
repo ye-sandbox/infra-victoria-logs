@@ -290,5 +290,79 @@ Este repositório inclui a skill padronizada [`skills/observability-logging/SKIL
 
 ---
 
+## 🔌 VictoriaLogs MCP Server (Model Context Protocol)
+
+Para permitir que assistentes de IA (Antigravity, Claude Desktop, Cursor, VS Code, Roo Code) realizem diagnósticos de logs nativamente pelo chat com LogsQL, este repositório disponibiliza suporte direto ao **MCP Server oficial da VictoriaMetrics** ([`VictoriaMetrics/mcp-victorialogs`](https://github.com/VictoriaMetrics/mcp-victorialogs)).
+
+### 1. Instalação Automatizada
+Execute o script instalador para baixar o binário estático Go oficial compilado para o seu ambiente:
+```bash
+./scripts/setup-mcp.sh
+```
+O executável ficará disponível em `./bin/mcp-victorialogs` (e em `~/.local/bin/mcp-victorialogs`).
+
+### 2. Ferramentas (Tools) Disponibilizadas pelo MCP
+- **`query`**: Executa queries LogsQL nativas no VictoriaLogs (ex: `_stream:{app="api-gateway"} AND level:"error"`).
+- **`hits`**: Retorna distribuição e contagem de ocorrências por buckets temporais.
+- **`streams`**: Lista os streams e fontes ativas no storage.
+- **`field_names` / `field_values`**: Inspeciona dinamicamente os campos estruturados e metadados indexados.
+- **`facets`**: Valores mais frequentes por campo de log.
+- **`documentation`**: Motor de busca semântica embutido na documentação oficial do VictoriaLogs (offline).
+
+### 3. Como Configurar no seu Assistente de IA
+
+#### A. Google Antigravity
+Adicione ao seu arquivo global `~/.gemini/config/mcp_config.json`:
+```json
+{
+  "mcpServers": {
+    "victorialogs": {
+      "command": "/caminho/para/infra-victoria-logs/bin/mcp-victorialogs",
+      "env": {
+        "VL_INSTANCE_ENTRYPOINT": "http://192.168.0.201:9428"
+      }
+    }
+  }
+}
+```
+
+#### B. Claude Desktop
+Adicione ao arquivo `claude_desktop_config.json` (`Settings -> Developer -> Edit config`):
+```json
+{
+  "mcpServers": {
+    "victorialogs": {
+      "command": "/caminho/para/infra-victoria-logs/bin/mcp-victorialogs",
+      "env": {
+        "VL_INSTANCE_ENTRYPOINT": "http://192.168.0.201:9428"
+      }
+    }
+  }
+}
+```
+
+#### C. Cursor
+Adicione em `~/.cursor/mcp.json` (`Settings -> Cursor Settings -> MCP`):
+```json
+{
+  "mcpServers": {
+    "victorialogs": {
+      "command": "/caminho/para/infra-victoria-logs/bin/mcp-victorialogs",
+      "env": {
+        "VL_INSTANCE_ENTRYPOINT": "http://192.168.0.201:9428"
+      }
+    }
+  }
+}
+```
+
+#### D. Claude Code (CLI)
+```bash
+claude mcp add victorialogs -- /caminho/para/infra-victoria-logs/bin/mcp-victorialogs \
+  -e VL_INSTANCE_ENTRYPOINT=http://192.168.0.201:9428
+```
+
+---
+
 ## 📄 Licença
 Distribuído sob licença MIT. Sinta-se livre para usar, adaptar e evoluir em seu homelab!

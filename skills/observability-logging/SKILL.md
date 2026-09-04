@@ -123,14 +123,25 @@ logging:
 
 ---
 
-## Investigação de Erros (Runbook LogsQL)
+## Investigação de Erros (Runbook LogsQL & MCP)
 
 Ao investigar falhas, exceções ou timeouts relatados pelo usuário:
 1. **SEMPRE** consulte os logs centrais antes de tentar alterar o código.
-2. Execute requisições HTTP GET na API de consulta do VictoriaLogs:
+2. Utilize as ferramentas do **VictoriaLogs MCP Server** quando disponível na sessão, ou execute consultas HTTP GET na API:
+
+### 1. Via Ferramentas Nativas do MCP Server (`mcp-victorialogs`)
+Quando o servidor MCP estiver configurado, utilize as tools integradas:
+- **`query`**: Executa queries LogsQL nativas (ex: `_stream:{app="api-gateway"} AND level:"error"`).
+- **`streams`**: Lista os streams e labels ativas no storage.
+- **`hits`**: Conta a distribuição de ocorrências de eventos por bucket de tempo.
+- **`field_names` / `field_values`**: Inspeciona dinamicamente os campos estruturados indexados.
+- **`documentation`**: Busca direta na documentação técnica do VictoriaLogs sem precisar de internet.
+
+### 2. Via Linha de Comando (cURL / API HTTP)
+Caso utilize terminal ou scripts:
 
 ```bash
-curl -s -G "http://<IP_DO_MINI_PC>:9428/select/logsql/query" \
+curl -s -G "http://${VICTORIALOGS_HOST:-192.168.0.201}:9428/select/logsql/query" \
   --data-urlencode "query=<LogsQL>" \
   --data-urlencode "limit=50"
 ```
@@ -154,7 +165,7 @@ curl -s -G "http://<IP_DO_MINI_PC>:9428/select/logsql/query" \
 
 4. **Inspecionar stack traces completos:**
    ```bash
-   curl -s -G "http://<IP_DO_MINI_PC>:9428/select/logsql/query" \
+   curl -s -G "http://${VICTORIALOGS_HOST:-192.168.0.201}:9428/select/logsql/query" \
      --data-urlencode 'query=_stream:{app="api-gateway"} AND level:"error"' \
      --data-urlencode 'limit=10' | jq -r '._msg, .stack_trace // empty'
    ```
@@ -163,3 +174,4 @@ curl -s -G "http://<IP_DO_MINI_PC>:9428/select/logsql/query" \
    ```logsql
    "req_123456789"
    ```
+
