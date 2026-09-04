@@ -12,19 +12,21 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 06.0: Painel Grafana ou Dashboard leve para métricas e logs do VictoriaLogs
+### 📌 Tarefa 09.0: Coletor de Consumo de Recursos Docker (`docker stats` periódico para o Vector)
 
-- **Descrição:** Configurar dashboard para visualização de métricas da stack e integração com o datasource do VictoriaLogs/VictoriaMetrics no Grafana.
-- **Sistema(s) Envolvido(s):** `grafana`, `victorialogs`
+- **Descrição:** Desenvolver um script/utilitário em shell ou container minúsculo (`scripts/ship-docker-stats.sh`) que captura métricas instantâneas de CPU e memória dos containers locais via `docker stats --no-stream` e envia como logs estruturados para o endpoint HTTP do Vector (`:8686/logs`), permitindo que VictoriaLogs e Agentes de IA monitorem o uso de recursos dos containers sem subir Prometheus/Grafana.
+- **Sistema(s) Envolvido(s):** `scripts`, `vector`, `docker`
 - **Tipo de Ação:**
-  - [ ] Somente leitura / Documentação
+  - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
 - **Status:** PRONTO PARA PLANEJAMENTO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Template de dashboard JSON ou configuração de datasource documentada.
-- [ ] Validação de queries de métricas e exploração de logs.
+- [ ] Script `scripts/ship-docker-stats.sh` implementado para capturar `docker stats` em formato JSON e enviar para o Vector.
+- [ ] Suporte a execução em cron job ou em loop daemon com intervalo customizável (ex: a cada 60s).
+- [ ] Documentação de uso adicionada ao `README.md` e referenciada nas SKILLs.
+- [ ] Testes de envio e consulta via LogsQL.
 
 ---
 
@@ -39,16 +41,17 @@
 | 04.0 | Agregação Multilinha, Scripts (Backup/Smoke Test) e Autenticação Opcional | `4d05f68` | 2026-09-02 |
 | 04.1 | Correção da tag padrão da imagem do VictoriaLogs para 'latest' | `f76b515` | 2026-09-03 |
 | 01.1 | Validação de deploy em ambiente real no Proxmox e teste de ingestão de logs | `2f64d14` | 2026-09-03 |
-| 04.2 | Criação e Manutenção da Skill de Observabilidade & Logging | `da64eb1` | 2026-09-03 |
-| 05.0 | Auto-monitoramento da Stack (Métricas do VictoriaLogs e Vector) | `a868811` | 2026-09-03 |
-| 07.0 | Configuração e Integração do Servidor MCP Oficial do VictoriaLogs | `f3c134e` | 2026-09-03 |
-| 07.1 | Atualização da Skill de Observabilidade para Operação MCP-First | `3e70abf` | 2026-09-03 |
+| 05.0 | Telemetria e Monitoramento da Stack (Dashboard CLI e Vector Prometheus Exporter) | `bc748f1`, `a868811` | 2026-09-03 |
+| 06.0 | Servidor MCP Nativo para VictoriaLogs (Integração Direta com Agentes de IA) | `9657ddd` | 2026-09-03 |
+| 07.0 | Criação da Skill 'victorialogs-integration' e Setup do MCP Oficial (Go) | `836634a`, `f3c134e` | 2026-09-03 |
+| 08.0 | Criação da Skill 'victorialogs-troubleshooting' (Playbook de SRE) e Governança | `c55176f`, `6abe39c` | 2026-09-03 |
 
 ---
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] (A definir)
+- [ ] Suporte a alertas nativos via vmalert
+- [ ] Enriquecimento de logs com GeoIP para tráfego web Nginx/Traefik
 
 ---
 

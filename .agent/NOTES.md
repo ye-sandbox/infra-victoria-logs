@@ -49,12 +49,20 @@
   - Suportar autenticação básica HTTP opcional parametrizada em VictoriaLogs e Vector via `${VICTORIALOGS_AUTH_USERNAME:+...}`.
 - **Consequências:** Diagnósticos de erros por LLMs/Devs preservam o contexto completo do erro, backups são atômicos e zero-downtime, e a stack ganha validação automatizada.
 
-### 2026-09-03 — Expansão Canônica de Streams com `app` e `env` (Skill de Observabilidade)
-- **Contexto:** Padronização da emissão de logs por novos serviços e agentes via skill de Observabilidade & Logging. A especificação canônica exige os campos `app` (nome do repositório/serviço) e `env` (ambiente: `production` ou `development`).
+### 2026-09-03 — Expansão Canônica de Streams com `app` e `env`
+- **Contexto:** Padronização da emissão de logs por novos serviços e agentes via skills de Observabilidade. A especificação canônica exige os campos `app` (nome do repositório/serviço) e `env` (ambiente: `production` ou `development`).
 - **Decisão:**
   - Incluir `app` e `env` nos transforms VRL do Vector (`remap_docker`, `remap_syslog`, `remap_http`) com fallback seguro para `service` e `container_name`.
   - Expandir o cabeçalho canônico para `VL-Stream-Fields: "host,container_name,service,app,env,stream"`.
 - **Consequências:** Buscas rápidas via LogsQL permitem particionamento instantâneo por `_stream:{app="api-gateway",env="production"}` mantendo 100% de retrocompatibilidade com logs legados que utilizavam `service`.
+
+### 2026-09-03 — Dashboard CLI de Telemetria e Saúde via APIs Nativas
+- **Contexto:** Necessidade de monitorar a saúde da stack, o consumo de RAM e os picos de erro em tempo real sem subir componentes pesados (Prometheus / Grafana) que violariam a meta de < 150 MB.
+- **Decisão:** Desenvolver `scripts/health-dashboard.sh` consumindo endpoints nativos:
+  - `/health` (conectividade), `/metrics` (uso de memória do runtime Go e total de linhas), `/select/logsql/hits` (contagem de erros/warnings em 15m/1h) e `/select/logsql/query` (Top 5 containers com mais logs).
+- **Alternativas consideradas:**
+  - *Subir container Grafana + Prometheus:* Consumiria 200MB+ de RAM adicionais, inviabilizando a meta de operação em Mini PC modesto.
+- **Consequências:** Visibilidade instantânea de telemetria sem adicionar nenhum byte extra de consumo de memória em repouso.
 
 ### 2026-09-03 — Auto-monitoramento da Stack (Métricas Nativas VictoriaLogs e Vector)
 - **Contexto:** Necessidade de coletar telemetria operacional da própria stack (throughput de logs ingeridos, buffer em disco/RAM, concorrência de queries e contagem de erros) sem adicionar containers pesados de monitoramento na mesma máquina.
@@ -62,23 +70,31 @@
   - **VictoriaLogs:** Expor o endpoint nativo `/metrics` na porta configurada `9428`.
   - **Vector:** Adicionar a fonte `internal_metrics` e o sink `prometheus_exporter` na porta registrada `9598` (`VECTOR_METRICS_PORT`), servindo telemetria em tempo real no padrão Prometheus sob demanda de scraping.
 
-### 2026-09-03 — Integração do VictoriaLogs MCP Server Oficial (`VictoriaMetrics/mcp-victorialogs`)
-- **Contexto:** Necessidade de permitir que assistentes de IA (Antigravity, Cursor, Claude Desktop, Claude Code) explorem e debuguem logs diretamente no chat via LogsQL sem exigir que o desenvolvedor execute queries manuais em cURL ou troque de contexto para a VMUI.
-- **Decisão:**
-  - Adotar o binário oficial compilado em Go do repositório `VictoriaMetrics/mcp-victorialogs` em modo `stdio`.
-  - Configurar `VL_INSTANCE_ENTRYPOINT` apontando para o IP da VM (`http://192.168.0.201:9428`).
-  - Disponibilizar instalador automatizado `scripts/setup-mcp.sh` e registrar configuração global no Antigravity (`~/.gemini/config/mcp_config.json`).
-- **Alternativas consideradas:**
-  - *Pacote npm TypeScript (`victorialogs-mcp-server`):* Requer runtime Node.js/npx, download de dependências e maior consumo de memória.
-  - *Consultas exclusivas via shell `curl`:* Não expõe contratos de ferramentas para a LLM e exige autorização manual interativa a cada requisição.
-- **Consequências:** Zero dependências extras de runtime no host, acesso a ferramentas ricas de introspecção (`query`, `hits`, `streams`, `field_names`, `documentation`) e governança de consultas protegida pelo limite `-search.maxQueryDuration=30s`.
+### 2026-09-03 — Servidor MCP Nativo para Agentes de IA (Pure Python 3 / stdio)
+- **Contexto:** Agentes de IA (Claude, Cursor, Antigravity) precisavam de comandos manuais de shell `curl` com queries LogsQL cruas, o que causava alto consumo de tokens de contexto, erros frequentes de escape/URL encoding e necessidade de aprovação de comandos pelo usuário.
+- **Decisão:** Implementar `mcp/server.py` em Pure Python 3 (zero dependências externas) utilizando o protocolo MCP sobre `stdio` (JSON-RPC 2.0).
+  - Ferramentas expostas: `query_logs`, `get_errors`, `get_log_hits`, `list_streams` e `health_check`.
+  - Respostas pré-processadas e formatadas em Markdown compacto para economizar até 80% dos tokens em relação ao JSON bruto.
+- **Consequências:** Agentes de IA conectam-se de forma nativa e segura ao VictoriaLogs com invocação direta de funções.
 
-### 2026-09-03 — Protocolo de Investigação MCP-First em Skills para Agentes de IA
-- **Contexto:** Com a ativação do VictoriaLogs MCP Server, os agentes de IA dispõem de ferramentas nativas (`query`, `streams`, `hits`, `field_values`, `documentation`). As instruções das skills precisavam refletir a precedência de uso e os requisitos de schema (ex: `start` em timestamp RFC3339 obrigatório).
-- **Decisão:** Atualizar a skill de observabilidade para instituir formalmente o fluxo **MCP-First**:
-  - *Primário:* Chamar ferramentas do servidor `victorialogs` (`query`, `streams`, etc.) diretamente no chat.
-  - *Secundário (Fallback):* Utilizar cURL / terminal apenas para automações externas em shell ou caso o MCP não esteja disponível.
-- **Consequências:** Diagnósticos de falhas e análise de incidentes por agentes de IA ocorrem com latência mínima, tipagem estrita de retorno e sem interrupções para aprovações manuais de comandos de rede no terminal.
+### 2026-09-03 — Integração do VictoriaLogs MCP Server Oficial em Go (`VictoriaMetrics/mcp-victorialogs`)
+- **Contexto:** Possibilidade de utilizar diretamente o binário oficial em Go disponibilizado pela equipe da VictoriaMetrics.
+- **Decisão:** Disponibilizar instalador automatizado `scripts/setup-mcp.sh` para compilar/baixar o binário oficial como alternativa ou complemento ao servidor nativo em Python.
+- **Consequências:** Flexibilidade para escolher entre o servidor Python pré-formatado (Markdown/baixo consumo de token) ou o binário Go nativo da VictoriaMetrics.
+
+### 2026-09-03 — Governança e Versionamento de Skills para Agentes de IA
+- **Contexto:** Desenvolvedores e agentes de IA que atuam em outros repositórios da organização `ye-sandbox` precisam de instruções padronizadas para integrar novas aplicações (Python, Node, Go, Docker) e consumir logs sem reescrever configurações do zero.
+- **Decisão:**
+  - Criar a skill `skills/victorialogs-integration/SKILL.md` com padrões de código, docker-compose e snippets JSON.
+  - Instituir como regra inegociável no `AGENTS.md` (DoD) que qualquer alteração na arquitetura de ingestão ou consumo deve sincronizar imediatamente as SKILLs correspondentes.
+- **Consequências:** Interoperabilidade contínua entre agentes de IA na organização `ye-sandbox`.
+
+### 2026-09-03 — Regra de Coerência Contínua com o README.md
+- **Contexto:** À medida que novas ferramentas (MCP, scripts operacionais, skills, perfis dinâmicos de HD/SSD) são adicionadas, a documentação pública do repositório pode sofrer divergência caso não seja atualizada em tandem.
+- **Decisão:**
+  - Tornar cláusula explícita no DoD (`AGENTS.md`) que o `README.md` (árvore de arquivos, comandos, tabelas e guias) DEVE ser atualizado a cada nova entrega ou ajuste arquitetural.
+  - Atualizada a árvore estrutural do `README.md` refletindo os diretórios `mcp/`, `scripts/`, `skills/` e perfis de armazenamento.
+- **Consequências:** O `README.md` reflete rigorosamente a verdade operacional da stack em qualquer commit.
 
 ---
 

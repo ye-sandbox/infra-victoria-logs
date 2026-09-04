@@ -56,12 +56,25 @@ flowchart LR
 .
 ├── docker-compose.yml       # Orquestração com limites de RAM rígidos (140 MB somados)
 ├── vector/
-│   └── vector.yaml          # Configuração do Vector (Docker, Syslog, HTTP -> VictoriaLogs)
-├── .env.example             # Variáveis de ambiente e parâmetros de retenção
-├── .gitignore               # Ignora dados locais, volumes e segredos
-├── AGENTS.md                # Diretrizes de engenharia e regras de atuação dos agentes
-├── .agent/                  # Documentação de contexto (TASK.md, NOTES.md, ADRs)
-└── README.md                # Guia de operação da stack
+│   ├── vector.hdd.yaml      # Perfil HD mecânico (buffer em RAM, 2MB batch, filtro de pings)
+│   ├── vector.ssd.yaml      # Perfil SSD/NVMe (buffer em disco, 1MB batch, 100% retenção)
+│   └── vector.yaml          # Perfil base / fallback de configuração
+├── mcp/
+│   └── server.py            # Servidor MCP stdio nativo para integração direta com Agentes de IA
+├── scripts/
+│   ├── backup.sh            # Backup atômico via API de snapshots com rotação de cópias
+│   ├── health-dashboard.sh  # Dashboard CLI colorido de telemetria ao vivo via APIs nativas
+│   ├── setup-mcp.sh         # Instalador automatizado do binário Go oficial da VictoriaMetrics
+│   ├── test-pipeline.sh     # Smoke test ponta a ponta de ingestão e LogsQL em 1 comando
+│   └── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
+├── skills/
+│   ├── victorialogs-integration/      # Skill ensinando IA a plugar aplicações (Python, Node, Go, Docker)
+│   └── victorialogs-troubleshooting/  # Skill ensinando IA o playbook de investigação de erros/SRE
+├── .env.example             # Template documentado de variáveis de ambiente e segurança
+├── .gitignore               # Ignora dados locais, volumes, backups e segredos
+├── AGENTS.md                # Diretrizes de engenharia, governança e regras dos agentes
+├── .agent/                  # Documentação de contexto do agente (TASK.md, NOTES.md)
+└── README.md                # Guia técnico e operacional completo da stack
 ```
 
 ---
@@ -141,6 +154,41 @@ curl -s -G "http://localhost:9428/select/logsql/query" \
 curl -s -G "http://localhost:9428/select/logsql/hits" \
   --data-urlencode 'query=_time:30m AND level:error' \
   --data-urlencode 'step=5m'
+```
+
+---
+
+### 3. Consultas Nativas para Agentes de IA via MCP (Model Context Protocol)
+
+O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py)) em Pure Python 3 (zero dependências extras). Ele permite que Claude Code, Cursor, Roo Code ou Antigravity investiguem logs diretamente sem rodar comandos manuais e economizando tokens de contexto:
+
+#### Ferramentas MCP Disponíveis:
+- `query_logs`: Executa buscas avançadas com LogsQL e retorna saída limpa em Markdown.
+- `get_errors`: Traz erros e stack traces multilinha recentes de um serviço ou de todo o homelab.
+- `get_log_hits`: Gráfico temporal/histograma de eventos agrupados por minuto/hora.
+- `list_streams`: Lista containers, serviços e hosts ativos.
+- `health_check`: Testa a conexão com o VictoriaLogs.
+
+#### Como Configurar no seu Cliente de IA:
+
+**Claude Desktop (`claude_desktop_config.json`) / Cursor:**
+```json
+{
+  "mcpServers": {
+    "victorialogs": {
+      "command": "python3",
+      "args": ["/caminho/absoluto/para/victoria-logs/mcp/server.py"],
+      "env": {
+        "VICTORIALOGS_URL": "http://127.0.0.1:9428"
+      }
+    }
+  }
+}
+```
+
+**Testar o servidor MCP manualmente:**
+```bash
+./scripts/test-mcp.sh
 ```
 
 ---
@@ -225,7 +273,15 @@ O coletor Vector possui agregação multilinha configurada nativamente para cont
 
 ## 🛠️ Manutenção e Operações Comuns
 
-- **Validar saúde do pipeline:**
+- **Dashboard CLI de Saúde e Telemetria (ao vivo):**
+  ```bash
+  # Execução pontual
+  ./scripts/health-dashboard.sh
+
+  # Modo contínuo (atualização a cada 5s)
+  ./scripts/health-dashboard.sh --watch
+  ```
+- **Validar saúde do pipeline (Smoke Test):**
   ```bash
   ./scripts/test-pipeline.sh
   ```
@@ -281,86 +337,27 @@ scrape_configs:
 
 ---
 
-## 🤖 Skill de Observabilidade para Agentes de IA
+## 🤖 Skills para Agentes de IA (`skills/`)
 
-Este repositório inclui a skill padronizada [`skills/observability-logging/SKILL.md`](./skills/observability-logging/SKILL.md) (e [`.agent/skills/observability-logging/SKILL.md`](./.agent/skills/observability-logging/SKILL.md)), ensinando agentes de IA e desenvolvedores a:
-1. Formatar logs no padrão canônico JSON (`timestamp`, `level`, `app`, `env`, `message`, `context`).
-2. Configurar roteamento correto em aplicações Docker (`stdout`) ou bare-metal (HTTP assíncrono).
-3. Utilizar o runbook de investigação via LogsQL para diagnóstico de falhas antes de propor correções.
+O repositório inclui duas SKILLs completas e reutilizáveis, preparadas para serem consumidas por assistentes de IA (Claude, Antigravity, Cursor, Roo Code) em qualquer repositório da organização `ye-sandbox`:
+
+1. **[`skills/victorialogs-integration`](./skills/victorialogs-integration/SKILL.md):**
+   - Ensina a IA a plugar e configurar novas aplicações para enviarem logs para o pipeline.
+   - Contém snippets prontos para **Docker Compose**, **Python** (`logging`/`structlog`), **Node.js** (`pino`), **Go** (`slog`), **Bash** (`curl`) e **Proxmox** (`rsyslog`).
+2. **[`skills/victorialogs-troubleshooting`](./skills/victorialogs-troubleshooting/SKILL.md):**
+   - Playbook de SRE e investigação de incidentes para a IA diagnosticar falhas no homelab via servidor MCP e LogsQL com **máxima economia de tokens**.
 
 ---
 
-## 🔌 VictoriaLogs MCP Server (Model Context Protocol)
+## 🔌 Servidor MCP Oficial VictoriaMetrics (Binário Go Alternativo)
 
-Para permitir que assistentes de IA (Antigravity, Claude Desktop, Cursor, VS Code, Roo Code) realizem diagnósticos de logs nativamente pelo chat com LogsQL, este repositório disponibiliza suporte direto ao **MCP Server oficial da VictoriaMetrics** ([`VictoriaMetrics/mcp-victorialogs`](https://github.com/VictoriaMetrics/mcp-victorialogs)).
+Além do servidor nativo em Python ([`mcp/server.py`](./mcp/server.py)), o repositório também disponibiliza um script para baixar e configurar o **MCP Server oficial da VictoriaMetrics compilado em Go** ([`VictoriaMetrics/mcp-victorialogs`](https://github.com/VictoriaMetrics/mcp-victorialogs)):
 
-### 1. Instalação Automatizada
-Execute o script instalador para baixar o binário estático Go oficial compilado para o seu ambiente:
+### Instalação Automatizada:
 ```bash
 ./scripts/setup-mcp.sh
 ```
-O executável ficará disponível em `./bin/mcp-victorialogs` (e em `~/.local/bin/mcp-victorialogs`).
-
-### 2. Ferramentas (Tools) Disponibilizadas pelo MCP
-- **`query`**: Executa queries LogsQL nativas no VictoriaLogs (ex: `_stream:{app="api-gateway"} AND level:"error"`).
-- **`hits`**: Retorna distribuição e contagem de ocorrências por buckets temporais.
-- **`streams`**: Lista os streams e fontes ativas no storage.
-- **`field_names` / `field_values`**: Inspeciona dinamicamente os campos estruturados e metadados indexados.
-- **`facets`**: Valores mais frequentes por campo de log.
-- **`documentation`**: Motor de busca semântica embutido na documentação oficial do VictoriaLogs (offline).
-
-### 3. Como Configurar no seu Assistente de IA
-
-#### A. Google Antigravity
-Adicione ao seu arquivo global `~/.gemini/config/mcp_config.json`:
-```json
-{
-  "mcpServers": {
-    "victorialogs": {
-      "command": "/caminho/para/infra-victoria-logs/bin/mcp-victorialogs",
-      "env": {
-        "VL_INSTANCE_ENTRYPOINT": "http://192.168.0.201:9428"
-      }
-    }
-  }
-}
-```
-
-#### B. Claude Desktop
-Adicione ao arquivo `claude_desktop_config.json` (`Settings -> Developer -> Edit config`):
-```json
-{
-  "mcpServers": {
-    "victorialogs": {
-      "command": "/caminho/para/infra-victoria-logs/bin/mcp-victorialogs",
-      "env": {
-        "VL_INSTANCE_ENTRYPOINT": "http://192.168.0.201:9428"
-      }
-    }
-  }
-}
-```
-
-#### C. Cursor
-Adicione em `~/.cursor/mcp.json` (`Settings -> Cursor Settings -> MCP`):
-```json
-{
-  "mcpServers": {
-    "victorialogs": {
-      "command": "/caminho/para/infra-victoria-logs/bin/mcp-victorialogs",
-      "env": {
-        "VL_INSTANCE_ENTRYPOINT": "http://192.168.0.201:9428"
-      }
-    }
-  }
-}
-```
-
-#### D. Claude Code (CLI)
-```bash
-claude mcp add victorialogs -- /caminho/para/infra-victoria-logs/bin/mcp-victorialogs \
-  -e VL_INSTANCE_ENTRYPOINT=http://192.168.0.201:9428
-```
+O executável ficará disponível em `./bin/mcp-victorialogs`. Ele expõe ferramentas ricas como `query`, `hits`, `streams`, `field_names`, `field_values`, `facets` e `documentation`.
 
 ---
 
