@@ -15,6 +15,7 @@ services:
       - "-memory.allowedPercent=${VICTORIALOGS_MEMORY_ALLOWED_PERCENT:-60}"
       - "-search.maxQueryDuration=${VL_MAX_QUERY_DURATION:-30s}"
       - "-search.maxConcurrentRequests=${VL_MAX_CONCURRENT_REQUESTS:-2}"
+      - "-inmemoryDataFlushInterval=${VL_INMEMORY_FLUSH_INTERVAL:-15s}"
       - "-httpAuth.username=${VICTORIALOGS_AUTH_USERNAME:-}"
       - "-httpAuth.password=${VICTORIALOGS_AUTH_PASSWORD:-}"
     ports:

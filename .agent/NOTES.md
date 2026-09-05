@@ -45,6 +45,11 @@
 - **Decisão:** Elevar `batch.timeout_secs` de 2s para 15s no perfil de HD (`vector.hdd.yaml` e `vector.yaml`).
 - **Consequências:** Redução de até ~87% na frequência de I/O em disco (de 30 para no máximo 4 gravações por minuto em períodos ociosos), permitindo consolidação em memória RAM antes da escrita sequencial contínua no VictoriaLogs sem impacto perceptível na experiência de observabilidade.
 
+### 2026-09-05 — Calibração de Flush em Memória do VictoriaLogs (-inmemoryDataFlushInterval = 15s)
+- **Contexto:** VictoriaLogs organiza dados em formato LSM-tree e periodicamente descarrega da RAM para o disco. O intervalo padrão rápido (1s-5s) em HDs mecânicos gera uma proliferação de pequenas peças que forçam o engine a rodar rotinas contínuas de *merge* (compactação em segundo plano), provocando alta contenção na cabeça de leitura/gravação.
+- **Decisão:** Adicionar a flag `-inmemoryDataFlushInterval=${VL_INMEMORY_FLUSH_INTERVAL:-15s}` no `docker-compose.yml`, sincronizada com o intervalo de 15s do Vector.
+- **Consequências:** VictoriaLogs retém os logs na RAM por 15s antes de descarregar peças em disco, gerando peças já compactadas e diminuindo drasticamente os merges. O volume acumulado em 15s de tráfego de homelab (~300 KB a 2 MB) é desprezível e cabe com folga no teto de 80 MB, contando ainda com o circuit-breaker nativo de `-memory.allowedPercent=60` para descarte imediato em caso de picos anômalos.
+
 ### 2026-09-02 — Agregação Multilinha e Automação de Operações (Backup e Smoke Test)
 - **Contexto:** Logs de erros com stack traces (Python, Go, Java) estavam sendo fragmentados pelo Docker em múltiplas linhas avulsas, dificultando diagnósticos. Além disso, backups manuais por cópia crua de pastas em HDs mecânicos arriscavam inconsistências de partição.
 - **Decisão:**

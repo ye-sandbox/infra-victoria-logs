@@ -234,6 +234,7 @@ O projeto inclui perfis dinâmicos selecionáveis através da variável `STORAGE
 | **Buffer do Vector** | `memory` (RAM, máx 10.000 eventos) — *Zero escrita dupla no HD mecânico* | `disk` (256 MB persistentes no volume) — *Máxima resiliência contra quedas* |
 | **Lotes de Envio (`batch`)** | `2 MB` / `15s` — *Gera gravações sequenciais consolidadas e corta I/O contínuo* | `1 MB` / `1s` — *Logs disponíveis para busca quase instantaneamente* |
 | **Filtro de Ruído no Edge** | **Ativo** — *Descarta pings vazios (`/health`, `/ping`) para poupar disco* | **Desativado** — *Ingestão de 100% dos logs* |
+| **Flush em Memória (VL)** | `15s` (`VL_INMEMORY_FLUSH_INTERVAL=15s`) — *Reduz merges e fragmentação no HD* | `5s` (`VL_INMEMORY_FLUSH_INTERVAL=5s`) — *Disponibilização rápida no disco* |
 | **Concorrência de Busca (VL)**| `2 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=2`) | `4 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=4`) |
 
 > **Dica para usuários de HD mecânico:** Mantenha o modo `hdd` ativo para evitar que a agulha do disco sofra com *head thrashing* por concorrência entre o buffer e o banco.
