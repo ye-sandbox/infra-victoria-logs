@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 11.1: Calibração de Flush em Memória do VictoriaLogs (-inmemoryDataFlushInterval)
+### 📌 Tarefa 11.2: Guia e Configuração do Docker Daemon em Modo Non-Blocking no Host Proxmox
 
-- **Descrição:** Parametrizar a flag `-inmemoryDataFlushInterval` no serviço `victorialogs` do `docker-compose.yml` e `.env.example`, elevando o intervalo de descarregamento de partes da RAM para o disco (ex: 15s no perfil de HD). Isso faz com que o VictoriaLogs gere partes consolidadas maiores, reduzindo substancialmente a sobrecarga de merges em segundo plano (compaction) no HD mecânico.
-- **Sistema(s) Envolvido(s):** `victorialogs`, `docker-compose`, `docs`
+- **Descrição:** Elaborar guia operacional e script auxiliar para configurar `/etc/docker/daemon.json` no Proxmox em modo `non-blocking` com ring-buffer de 4 MB em RAM (`log-opts.mode: non-blocking`), desacoplando o I/O dos containers Docker da velocidade física do HD mecânico e prevenindo lentidão em aplicações locais.
+- **Sistema(s) Envolvido(s):** `docs`, `scripts`, `host`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,10 +23,9 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Flag `-inmemoryDataFlushInterval=${VL_INMEMORY_FLUSH_INTERVAL:-15s}` adicionada no `docker-compose.yml`.
-- [ ] Variável documentada no `.env.example` com explicação técnica para HD vs SSD.
-- [ ] Validação de sintaxe do compose executada.
-- [ ] Documentação sincronizada no `README.md`.
+- [ ] Guia prático de configuração e teste documentado no `README.md`.
+- [ ] Script utilitário em `scripts/tune-docker-host.sh` para validação e assistência opcional de configuração do daemon.
+- [ ] Documentação de armadilhas e mitigação de I/O Wait no `.agent/NOTES.md`.
 - [ ] Commit semântico em inglês registrado no Git.
 
 ---
@@ -50,6 +49,7 @@
 | 10.1 | Dicas Contextuais e Tratamento Defensivo de Sintaxe LogsQL no MCP | `199eb56` | 2026-09-04 |
 | 10.2 | Conscientização e Escopo de Aplicação (service) no MCP e SKILLs | `6c2a6b3` | 2026-09-04 |
 | 11.0 | Otimização de Lote no Vector para HD Único (batch 15s) | `dd22816` | 2026-09-05 |
+| 11.1 | Calibração de Flush em Memória do VictoriaLogs (15s) | `11205b5` | 2026-09-05 |
 
 ---
 
