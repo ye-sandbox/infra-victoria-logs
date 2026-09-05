@@ -131,3 +131,21 @@ Contar erros agrupados por container na última hora:
 ```text
 _time:1h AND level:error | stats by (container_name) count() as total | sort by (total) desc | limit 5
 ```
+
+### 5. Identificadores com Caracteres Especiais (WhatsApp JIDs, E-mails, URLs)
+> ⚠️ **Regra Crítica do LogsQL:** Qualquer termo contendo `@`, `:`, `/`, `-`, `.`, espaços ou parênteses **DEVE obrigatoriamente estar entre aspas duplas** (`"..."`). Caso contrário, o VictoriaLogs retornará erro HTTP 400 (`probably, the whole string must be put into quotes`).
+
+```text
+# WhatsApp JID (Grupos ou Usuários):
+"120363421617257978@g.us"
+_stream:{container_name="evolution-api"} AND "120363421617257978@g.us"
+exact:"120363421617257978@g.us"
+_msg:~"120363421617257978@g.us"
+
+# E-mails:
+"dev@empresa.com.br"
+
+# Endpoints e URLs:
+"/api/v1/auth/login"
+```
+

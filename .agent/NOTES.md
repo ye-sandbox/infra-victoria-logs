@@ -151,3 +151,7 @@ Todo log processado pelo Vector e ingerido no VictoriaLogs segue a seguinte estr
 - **API de Snapshot e Backup no VictoriaLogs:**
   - *Armadilha:* VictoriaLogs organiza dados em partições diárias e não suporta `/snapshot/create` do VictoriaMetrics. Tentar chamá-lo resulta em `unsupported path requested`. Além disso, a ausência de utilitários como `tar` dentro do container impede arquivamento in-loco.
   - *Mitigação:* Usar os endpoints `/internal/partition/snapshot/create` e `/internal/partition/snapshot/delete?path=...`, extraindo os dados via streaming com `docker cp "victorialogs:${path}"` para empacotar externamente.
+- **Tokens com Caracteres Especiais no LogsQL (JIDs WhatsApp, E-mails, URLs):**
+  - *Armadilha:* O parser do LogsQL não aceita tokens sem aspas contendo caracteres especiais (`@`, `:`, `/`, `-`, `.`, espaços). Por exemplo, consultar `120363421617257978@g.us` diretamente faz o VictoriaLogs interpretar `120363421617257978` como identificador esperando um separador `:`, falhando com HTTP 400 (`probably, the whole string must be put into quotes`).
+  - *Mitigação:* Queries com caracteres especiais devem obrigatoriamente ser envolvidas em aspas duplas (`"120363421617257978@g.us"` ou `_msg:~"120363421617257978@g.us"`). Além disso, o servidor MCP (`mcp/server.py`) normaliza quebras de linha e detecta esse erro automaticamente, injetando uma dica contextual (`💡 Dica LogsQL`) para que agentes de IA se auto-corrijam imediatamente na chamada seguinte.
+

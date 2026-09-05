@@ -86,13 +86,60 @@ def make_request(path: str, params: Optional[Dict[str, Any]] = None, timeout: in
         raise RuntimeError(f"Falha de conexão com VictoriaLogs em {VL_BASE_URL}: {e.reason}")
 
 
+def clean_query(raw_query: str) -> str:
+    """Normaliza espaçamentos e remove quebras de linha acidentais na query LogsQL."""
+    if not raw_query:
+        return ""
+    return " ".join(raw_query.split()).strip()
+
+
+def enrich_logsql_error(err_msg: str, query: str = "") -> str:
+    """Detecta erros clássicos de sintaxe do LogsQL e anexa dicas didáticas de auto-correção para IAs e devs."""
+    err_lower = err_msg.lower()
+    hints = []
+    cleaned = clean_query(query)
+
+    # Caso 1: Termos especiais sem aspas (ex: JID do WhatsApp, e-mail, tokens com @, :, /, -, etc.)
+    if "probably, the whole string must be put into quotes" in err_lower or "missing whitespace or ':'" in err_lower:
+        sample_quoted = f'"{cleaned}"' if cleaned and not (cleaned.startswith('"') and cleaned.endswith('"')) else cleaned
+        hints.append(
+            "💡 **Dica LogsQL (Caracteres Especiais):** Termos contendo caracteres como `@`, `:`, `/`, `-`, `.`, "
+            "parênteses ou espaços não são identificadores válidos sem aspas e devem obrigatoriamente estar entre aspas duplas (`\"...\"`).\n"
+            f"   - **Correção direta:** Execute novamente com `query='{sample_quoted}'`\n"
+            f"   - **Busca no texto da mensagem:** `query='_msg:~\"{cleaned}\"'`\n"
+            f"   - **Casamento exato de substring:** `query='exact:\"{cleaned}\"'`"
+        )
+
+    # Caso 2: Aspas abertas que não foram fechadas
+    elif "unclosed quote" in err_lower or "missing closing quote" in err_lower:
+        hints.append(
+            "💡 **Dica LogsQL (Aspas Não Fechadas):** Foi detectada uma aspa dupla (`\"`) aberta sem o devido fechamento na query. "
+            "Certifique-se de que todas as aspas duplas estejam balanceadas."
+        )
+
+    # Caso 3: Erro de sintaxe em pipes (| stats, | keep, | sort)
+    elif "cannot parse pipe" in err_lower or "unknown pipe" in err_lower:
+        hints.append(
+            "💡 **Dica LogsQL (Pipes de Transformação):** O VictoriaLogs suporta pipes como `| stats by (...)`, `| keep ...`, "
+            "`| sort by (...)` e `| limit N`. Consulte o guia offline executando a ferramenta `documentation` com `query=\"pipes\"`."
+        )
+
+    if hints:
+        return f"{err_msg}\n\n" + "\n\n".join(hints)
+    return err_msg
+
+
 # ==============================================================================
 # BASE DE CONHECIMENTO LOGSQL (DOCUMENTATION OFFLINE)
 # ==============================================================================
 
 LOGSQL_DOCS = {
     "filtros": """### 🔍 Filtros Básicos no LogsQL
-- **Palavra exata:** `error` (busca case-insensitive em qualquer campo).
+- **Palavra exata:** `error` (busca case-insensitive em palavras alfanuméricas simples).
+- **Termos com caracteres especiais (@, :, /, -, ., espaços, etc.):** Devem SEMPRE estar entre aspas duplas:
+  - JIDs WhatsApp / mensageria: `"120363421617257978@g.us"` ou `_msg:~"120363421617257978@g.us"`
+  - E-mails: `"usuario@dominio.com"`
+  - Caminhos ou URLs: `"/api/v1/pagamentos"` ou `"https://api.empresa.com"`
 - **Frase exata:** `"connection refused"` ou `"timeout exceeded"`.
 - **Filtro por campo:** `level:error`, `service:api-gateway`, `status:500`.
 - **Operadores booleanos:** `level:error AND NOT "/health"`, `(timeout OR panic) AND service:backend`.
@@ -151,8 +198,8 @@ def tool_health_check(_args: Dict[str, Any]) -> str:
 
 def tool_query_logs(args: Dict[str, Any]) -> str:
     """Executa consultas LogsQL formatadas e compactas."""
-    raw_query = args.get("query", "").strip()
-    time_range = args.get("time_range", "1h").strip()
+    raw_query = clean_query(args.get("query", ""))
+    time_range = clean_query(args.get("time_range", "1h"))
     limit = min(int(args.get("limit", 20)), 100)
     output_format = args.get("format", "markdown").lower()
     full_output = bool(args.get("full", False))
@@ -172,7 +219,7 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
     try:
         resp = make_request("/select/logsql/query", {"query": query, "limit": limit})
     except Exception as e:
-        return f"❌ Erro ao consultar LogsQL: {str(e)}"
+        return f"❌ Erro ao consultar LogsQL: {enrich_logsql_error(str(e), raw_query)}"
 
     lines = [l.strip() for l in resp.splitlines() if l.strip()]
     if not lines:
@@ -208,8 +255,8 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
 
 def tool_get_errors(args: Dict[str, Any]) -> str:
     """Busca rápida de erros com deduplicação inteligente e preservação total de contexto."""
-    service = args.get("service", "").strip()
-    time_range = args.get("time_range", "1h").strip()
+    service = clean_query(args.get("service", ""))
+    time_range = clean_query(args.get("time_range", "1h"))
     limit = min(int(args.get("limit", 20)), 50)
     deduplicate = bool(args.get("deduplicate", True))
     full_output = bool(args.get("full", False))
@@ -228,7 +275,7 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
         fetch_limit = min(limit * 3, 100) if deduplicate else limit
         resp = make_request("/select/logsql/query", {"query": query, "limit": fetch_limit})
     except Exception as e:
-        return f"❌ Erro ao buscar erros: {str(e)}"
+        return f"❌ Erro ao buscar erros: {enrich_logsql_error(str(e), query)}"
 
     lines = [l.strip() for l in resp.splitlines() if l.strip()]
     if not lines:
@@ -308,9 +355,9 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
 
 def tool_get_log_hits(args: Dict[str, Any]) -> str:
     """Obtém série temporal agregada de contagem de eventos via /select/logsql/hits."""
-    raw_query = args.get("query", "*").strip()
-    time_range = args.get("time_range", "1h").strip()
-    step = args.get("step", "5m").strip()
+    raw_query = clean_query(args.get("query", "*"))
+    time_range = clean_query(args.get("time_range", "1h"))
+    step = clean_query(args.get("step", "5m"))
 
     query = raw_query
     if time_range and "_time:" not in query:
@@ -320,7 +367,7 @@ def tool_get_log_hits(args: Dict[str, Any]) -> str:
         resp = make_request("/select/logsql/hits", {"query": query, "step": step})
         data = json.loads(resp)
     except Exception as e:
-        return f"❌ Erro ao buscar hits: {str(e)}"
+        return f"❌ Erro ao buscar hits: {enrich_logsql_error(str(e), raw_query)}"
 
     hits = data.get("hits", [])
     if not hits:

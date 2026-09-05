@@ -69,6 +69,8 @@ flowchart LR
 ├── skills/
 │   ├── victorialogs-integration/      # Skill ensinando IA a plugar aplicações (Python, Node, Go, Docker)
 │   └── victorialogs-troubleshooting/  # Skill ensinando IA o playbook de investigação de erros/SRE
+├── tests/
+│   └── test_mcp_error_enricher.py     # Testes unitários de sanitização e dicas contextuais do MCP
 ├── .env.example             # Template documentado de variáveis de ambiente e segurança
 ├── .gitignore               # Ignora dados locais, volumes, backups e segredos
 ├── AGENTS.md                # Diretrizes de engenharia, governança e regras dos agentes
@@ -163,7 +165,7 @@ O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py))
 
 #### Ferramentas MCP Disponíveis (8 Ferramentas Especializadas):
 - `get_errors`: Extrai erros e stack traces limpas com **deduplicação inteligente** de falhas repetidas (`deduplicate=true`, `full=false`).
-- `query_logs`: Executa buscas flexíveis com LogsQL e retorna saída formatada em Markdown com projeção seletiva `| keep`.
+- `query_logs`: Executa buscas flexíveis com LogsQL com sanitização de quebras de linha, dicas contextuais automáticas de sintaxe (como tokens especiais sem aspas) e saída compacta em Markdown (`| keep`).
 - `get_log_hits`: Gráfico temporal/histograma de eventos agrupados por minuto/hora para triagem de anomalias.
 - `list_streams`: Lista containers, serviços e hosts ativos instantaneamente via endpoint nativo do VictoriaLogs.
 - `field_names`: Descobre os nomes de campos indexados no storage (ex: `service`, `userId`, `status`).
