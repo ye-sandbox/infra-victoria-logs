@@ -46,6 +46,7 @@
 | 07.0 | Criação da Skill 'victorialogs-integration' e Setup do MCP Oficial (Go) | `836634a`, `f3c134e` | 2026-09-03 |
 | 08.0 | Criação da Skill 'victorialogs-troubleshooting' (Playbook de SRE) e Governança | `c55176f`, `6abe39c` | 2026-09-03 |
 | 10.0 | Otimização Extrema do MCP Python (Deduplicação, Keep, Docs, 8 Tools) | `8a86ef8` | 2026-09-04 |
+| 10.1 | Dicas Contextuais e Tratamento Defensivo de Sintaxe LogsQL no MCP | `199eb56` | 2026-09-04 |
 
 ---
 
