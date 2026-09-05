@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 09.0: Coletor de Consumo de Recursos Docker (`docker stats` periódico para o Vector)
+### 📌 Tarefa 11.1: Calibração de Flush em Memória do VictoriaLogs (-inmemoryDataFlushInterval)
 
-- **Descrição:** Desenvolver um script/utilitário em shell ou container minúsculo (`scripts/ship-docker-stats.sh`) que captura métricas instantâneas de CPU e memória dos containers locais via `docker stats --no-stream` e envia como logs estruturados para o endpoint HTTP do Vector (`:8686/logs`), permitindo que VictoriaLogs e Agentes de IA monitorem o uso de recursos dos containers sem subir Prometheus/Grafana.
-- **Sistema(s) Envolvido(s):** `scripts`, `vector`, `docker`
+- **Descrição:** Parametrizar a flag `-inmemoryDataFlushInterval` no serviço `victorialogs` do `docker-compose.yml` e `.env.example`, elevando o intervalo de descarregamento de partes da RAM para o disco (ex: 15s no perfil de HD). Isso faz com que o VictoriaLogs gere partes consolidadas maiores, reduzindo substancialmente a sobrecarga de merges em segundo plano (compaction) no HD mecânico.
+- **Sistema(s) Envolvido(s):** `victorialogs`, `docker-compose`, `docs`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,10 +23,11 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Script `scripts/ship-docker-stats.sh` implementado para capturar `docker stats` em formato JSON e enviar para o Vector.
-- [ ] Suporte a execução em cron job ou em loop daemon com intervalo customizável (ex: a cada 60s).
-- [ ] Documentação de uso adicionada ao `README.md` e referenciada nas SKILLs.
-- [ ] Testes de envio e consulta via LogsQL.
+- [ ] Flag `-inmemoryDataFlushInterval=${VL_INMEMORY_FLUSH_INTERVAL:-15s}` adicionada no `docker-compose.yml`.
+- [ ] Variável documentada no `.env.example` com explicação técnica para HD vs SSD.
+- [ ] Validação de sintaxe do compose executada.
+- [ ] Documentação sincronizada no `README.md`.
+- [ ] Commit semântico em inglês registrado no Git.
 
 ---
 
@@ -48,11 +49,13 @@
 | 10.0 | Otimização Extrema do MCP Python (Deduplicação, Keep, Docs, 8 Tools) | `8a86ef8` | 2026-09-04 |
 | 10.1 | Dicas Contextuais e Tratamento Defensivo de Sintaxe LogsQL no MCP | `199eb56` | 2026-09-04 |
 | 10.2 | Conscientização e Escopo de Aplicação (service) no MCP e SKILLs | `6c2a6b3` | 2026-09-04 |
+| 11.0 | Otimização de Lote no Vector para HD Único (batch 15s) | `dd22816` | 2026-09-05 |
 
 ---
 
 ## Backlog (Próximas, em ordem)
 
+- [ ] Tarefa 09.0: Coletor de Consumo de Recursos Docker (`scripts/ship-docker-stats.sh`)
 - [ ] Suporte a alertas nativos via vmalert
 - [ ] Enriquecimento de logs com GeoIP para tráfego web Nginx/Traefik
 
