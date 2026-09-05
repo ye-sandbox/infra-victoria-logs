@@ -50,6 +50,11 @@
 - **Decisão:** Adicionar a flag `-inmemoryDataFlushInterval=${VL_INMEMORY_FLUSH_INTERVAL:-15s}` no `docker-compose.yml`, sincronizada com o intervalo de 15s do Vector.
 - **Consequências:** VictoriaLogs retém os logs na RAM por 15s antes de descarregar peças em disco, gerando peças já compactadas e diminuindo drasticamente os merges. O volume acumulado em 15s de tráfego de homelab (~300 KB a 2 MB) é desprezível e cabe com folga no teto de 80 MB, contando ainda com o circuit-breaker nativo de `-memory.allowedPercent=60` para descarte imediato em caso de picos anômalos.
 
+### 2026-09-05 — Docker Host Non-Blocking Logging para Proteção contra I/O Wait em HD
+- **Contexto:** Em hosts Proxmox onde todo o sistema operacional, Docker e containers compartilham um único HD mecânico, o driver padrão `json-file` do Docker grava em modo síncrono bloqueante (`blocking`). Qualquer pico de I/O no disco físico (ex: backup noturno do Proxmox) causa lentidão e congelamentos temporários nas aplicações Docker locais devido a syscalls de escrita bloqueadas.
+- **Decisão:** Desenvolver `scripts/tune-docker-host.sh` e documentar a configuração de `/etc/docker/daemon.json` com `mode: non-blocking` e `max-buffer-size: 4m`.
+- **Consequências:** O Docker descarrega logs em ring-buffers na RAM (4 MB por container) e segue processando requisições sem esperar o HD mecânico responder. Em caso de saturação extrema prolongada de I/O, o Docker descarta logs excedentes no ring-buffer mais antigo em vez de travar a aplicação, priorizando a estabilidade e a disponibilidade dos serviços do homelab.
+
 ### 2026-09-02 — Agregação Multilinha e Automação de Operações (Backup e Smoke Test)
 - **Contexto:** Logs de erros com stack traces (Python, Go, Java) estavam sendo fragmentados pelo Docker em múltiplas linhas avulsas, dificultando diagnósticos. Além disso, backups manuais por cópia crua de pastas em HDs mecânicos arriscavam inconsistências de partição.
 - **Decisão:**

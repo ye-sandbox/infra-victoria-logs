@@ -65,7 +65,8 @@ flowchart LR
 │   ├── backup.sh            # Backup atômico via API de snapshots com rotação de cópias
 │   ├── health-dashboard.sh  # Dashboard CLI colorido de telemetria ao vivo via APIs nativas
 │   ├── test-pipeline.sh     # Smoke test ponta a ponta de ingestão e LogsQL em 1 comando
-│   └── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
+│   ├── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
+│   └── tune-docker-host.sh  # Otimização do Docker daemon (modo non-blocking para HD)
 ├── skills/
 │   ├── victorialogs-integration/      # Skill ensinando IA a plugar aplicações (Python, Node, Go, Docker)
 │   └── victorialogs-troubleshooting/  # Skill ensinando IA o playbook de investigação de erros/SRE
@@ -238,6 +239,42 @@ O projeto inclui perfis dinâmicos selecionáveis através da variável `STORAGE
 | **Concorrência de Busca (VL)**| `2 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=2`) | `4 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=4`) |
 
 > **Dica para usuários de HD mecânico:** Mantenha o modo `hdd` ativo para evitar que a agulha do disco sofra com *head thrashing* por concorrência entre o buffer e o banco.
+
+### 🔧 Otimização do Host Docker para HD Mecânico (Modo Non-Blocking)
+
+Em servidores onde todo o sistema operacional e containers rodam no mesmo HD mecânico (como Proxmox em disco único), o daemon do Docker por padrão tenta gravar logs de container de forma síncrona bloqueante (`blocking`). Em picos de I/O Wait (backups, tarefas de disco de VMs), **seus containers podem congelar** esperando o disco.
+
+Para desacoplar a execução dos containers da velocidade do HD mecânico, configure o Docker para operar com ring-buffer assíncrono em RAM (`non-blocking` com 4 MB por container):
+
+#### Opção A: Executar script assistido do repositório
+```bash
+# 1. Verificar status atual do Docker daemon
+sudo ./scripts/tune-docker-host.sh --check
+
+# 2. Aplicar configuração otimizada (cria backup automático)
+sudo ./scripts/tune-docker-host.sh --apply
+
+# 3. Recarregar o daemon do Docker sem reiniciar containers
+sudo systemctl reload docker
+```
+
+#### Opção B: Configuração manual em `/etc/docker/daemon.json`
+Edite `/etc/docker/daemon.json` no Proxmox adicionando as opções de buffer:
+```json
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3",
+    "mode": "non-blocking",
+    "max-buffer-size": "4m"
+  }
+}
+```
+E recarregue o serviço:
+```bash
+sudo systemctl reload docker
+```
 
 ---
 
