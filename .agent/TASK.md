@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 11.3: Guia e Assistente de Otimização do Host (noatime, I/O Scheduler e APM)
+### 📌 Tarefa 09.0: Coletor de Consumo de Recursos Docker (`docker stats` periódico para o Vector)
 
-- **Descrição:** Desenvolver guia operacional e script auxiliar (`scripts/tune-disk-host.sh`) para inspecionar e auxiliar na configuração do sistema de arquivos (`noatime,nodiratime` no `/etc/fstab`), scheduler de I/O de disco (`mq-deadline` / `bfq`) e políticas de APM/Spindown (`hdparm`) no Proxmox, eliminando escritas de metadados durante consultas e estabilizando a rotação mecânica.
-- **Sistema(s) Envolvido(s):** `docs`, `scripts`, `host`
+- **Descrição:** Desenvolver um script/utilitário em shell ou container minúsculo (`scripts/ship-docker-stats.sh`) que captura métricas instantâneas de CPU e memória dos containers locais via `docker stats --no-stream` e envia como logs estruturados para o endpoint HTTP do Vector (`:8686/logs`), permitindo que VictoriaLogs e Agentes de IA monitorem o uso de recursos dos containers sem subir Prometheus/Grafana.
+- **Sistema(s) Envolvido(s):** `scripts`, `vector`, `docker`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,10 +23,10 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Script `scripts/tune-disk-host.sh` para verificação não-invasiva de scheduler, atime e spindown.
-- [ ] Guia prático passo a passo documentado no `README.md`.
-- [ ] Documentação de boas práticas e armadilhas registrada no `.agent/NOTES.md`.
-- [ ] Commit semântico em inglês registrado no Git.
+- [ ] Script `scripts/ship-docker-stats.sh` implementado para capturar `docker stats` em formato JSON e enviar para o Vector.
+- [ ] Suporte a execução em cron job ou em loop daemon com intervalo customizável (ex: a cada 60s).
+- [ ] Documentação de uso adicionada ao `README.md` e referenciada nas SKILLs.
+- [ ] Testes de envio e consulta via LogsQL.
 
 ---
 
@@ -51,12 +51,12 @@
 | 11.0 | Otimização de Lote no Vector para HD Único (batch 15s) | `dd22816` | 2026-09-05 |
 | 11.1 | Calibração de Flush em Memória do VictoriaLogs (15s) | `11205b5` | 2026-09-05 |
 | 11.2 | Docker Daemon em Modo Non-Blocking no Host | `be9870e` | 2026-09-05 |
+| 11.3 | Otimização do Host (noatime, mq-deadline e APM) | `c8bc25d` | 2026-09-05 |
 
 ---
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] Tarefa 09.0: Coletor de Consumo de Recursos Docker (`scripts/ship-docker-stats.sh`)
 - [ ] Suporte a alertas nativos via vmalert
 - [ ] Enriquecimento de logs com GeoIP para tráfego web Nginx/Traefik
 
