@@ -3,7 +3,7 @@
 # ==============================================================================
 # Este arquivo é o padrão base. Em produção com Docker Compose, o perfil
 # ativo é selecionado automaticamente via STORAGE_PROFILE (hdd | ssd):
-# - vector.hdd.yaml (Modo HD: buffer em RAM, batch 2MB/2s, filtro de pings)
+# - vector.hdd.yaml (Modo HD: buffer em RAM, batch 2MB/15s, filtro de pings)
 # - vector.ssd.yaml (Modo SSD: buffer em disco 256MB, batch 1MB/1s)
 # ==============================================================================
 
@@ -142,7 +142,7 @@ sinks:
       method: newline_delimited
     batch:
       max_bytes: 2097152
-      timeout_secs: 2
+      timeout_secs: 15
     healthcheck:
       enabled: false
     request:

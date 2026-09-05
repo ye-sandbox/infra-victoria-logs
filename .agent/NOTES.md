@@ -40,6 +40,11 @@
   - *Manter configuração única:* Prejudicaria HDs com alto I/O Wait ou limitaria o potencial de SSDs.
 - **Consequências:** Stack adaptável instantaneamente a qualquer hardware de Homelab apenas alterando o `.env`.
 
+### 2026-09-05 — Calibração de Lote no Vector para HD Único no Proxmox (batch.timeout_secs = 15s)
+- **Contexto:** Em servidores Proxmox onde todo o sistema operacional, Docker e containers residem no mesmo e único disco rígido mecânico (HD), a concorrência na agulha mecânica é severa. O timeout anterior de 2 segundos disparava micro-lotes constantes (até 30 escritas por minuto), mesmo com baixíssimo tráfego de logs.
+- **Decisão:** Elevar `batch.timeout_secs` de 2s para 15s no perfil de HD (`vector.hdd.yaml` e `vector.yaml`).
+- **Consequências:** Redução de até ~87% na frequência de I/O em disco (de 30 para no máximo 4 gravações por minuto em períodos ociosos), permitindo consolidação em memória RAM antes da escrita sequencial contínua no VictoriaLogs sem impacto perceptível na experiência de observabilidade.
+
 ### 2026-09-02 — Agregação Multilinha e Automação de Operações (Backup e Smoke Test)
 - **Contexto:** Logs de erros com stack traces (Python, Go, Java) estavam sendo fragmentados pelo Docker em múltiplas linhas avulsas, dificultando diagnósticos. Além disso, backups manuais por cópia crua de pastas em HDs mecânicos arriscavam inconsistências de partição.
 - **Decisão:**

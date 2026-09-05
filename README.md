@@ -232,7 +232,7 @@ O projeto inclui perfis dinâmicos selecionáveis através da variável `STORAGE
 |---|---|---|
 | **Foco Operacional** | **Minimizar IOPS e evitar I/O Wait** | **Baixa latência de busca e persistência** |
 | **Buffer do Vector** | `memory` (RAM, máx 10.000 eventos) — *Zero escrita dupla no HD mecânico* | `disk` (256 MB persistentes no volume) — *Máxima resiliência contra quedas* |
-| **Lotes de Envio (`batch`)** | `2 MB` / `2s` — *Gera gravações sequenciais longas no disco* | `1 MB` / `1s` — *Logs disponíveis para busca quase instantaneamente* |
+| **Lotes de Envio (`batch`)** | `2 MB` / `15s` — *Gera gravações sequenciais consolidadas e corta I/O contínuo* | `1 MB` / `1s` — *Logs disponíveis para busca quase instantaneamente* |
 | **Filtro de Ruído no Edge** | **Ativo** — *Descarta pings vazios (`/health`, `/ping`) para poupar disco* | **Desativado** — *Ingestão de 100% dos logs* |
 | **Concorrência de Busca (VL)**| `2 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=2`) | `4 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=4`) |
 
