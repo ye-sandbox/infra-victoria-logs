@@ -66,6 +66,32 @@ class TestMcpErrorEnricher(unittest.TestCase):
         self.assertIn("💡 **Dica LogsQL (Caracteres Especiais):**", result)
         self.assertIn('query=\'"120363421617257978@g.us"\'', result)
 
+    @patch("mcp.server.make_request")
+    def test_tool_query_logs_with_service(self, mock_request):
+        mock_request.return_value = '{"_time":"2026-09-04T22:00:00Z","container_name":"evolution-api","level":"info","_msg":"ok"}'
+        result = tool_query_logs({"query": '"120363421617257978@g.us"', "service": "evolution-api", "time_range": "30m"})
+        
+        # Verifica se o endpoint foi chamado com _stream:{container_name="evolution-api"}
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertIn('_stream:{container_name="evolution-api"}', called_query)
+        self.assertIn('"120363421617257978@g.us"', called_query)
+        # Não deve exibir a dica global porque o serviço foi informado
+        self.assertNotIn("Consulta executada globalmente em todo o homelab", result)
+
+    @patch("mcp.server.make_request")
+    def test_tool_query_logs_global_hint(self, mock_request):
+        mock_request.return_value = (
+            '{"_time":"2026-09-04T22:00:00Z","container_name":"evolution-api","level":"info","_msg":"msg1"}\n'
+            '{"_time":"2026-09-04T22:00:01Z","container_name":"nginx","level":"info","_msg":"msg2"}'
+        )
+        # Chamada sem service
+        result = tool_query_logs({"query": "status:200", "time_range": "30m"})
+        self.assertIn("💡 **Dica de SRE:** Consulta executada globalmente em todo o homelab", result)
+        self.assertIn("`evolution-api`", result)
+        self.assertIn("`nginx`", result)
+
 
 if __name__ == "__main__":
     unittest.main()
+

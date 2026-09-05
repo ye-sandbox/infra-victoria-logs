@@ -9,15 +9,19 @@ Esta skill orienta agentes de IA (Claude, Antigravity, Cursor, Roo Code) a atuar
 
 ---
 
-## 🎯 Protocolo de Investigação de Incidentes em 3 Etapas
+## 🎯 Protocolo de Investigação de Incidentes
 
 Quando o usuário relatar um erro ("a API caiu", "o worker parou", "estou recebendo erro 500"):
 
 ```text
-  [Etapa 1: Triagem Temporal]
-  get_log_hits(query="level:error", time_range="1h", step="5m")
+  [Etapa 0: Identificação do Serviço Alvo]
+  Inspecionar docker-compose.yml local ou chamar list_streams(time_range="1h")
             │
-            ▼ (Identificou o pico exato de erros)
+            ▼ (Identificou o nome do container/aplicação, ex: "meu-app")
+  [Etapa 1: Triagem Temporal]
+  get_log_hits(query='_stream:{container_name="meu-app"} AND level:error', time_range="1h", step="5m")
+            │
+            ▼ (Identificou o pico exato de erros na aplicação)
   [Etapa 2: Isolamento do Erro e Traceback com Deduplicação]
   get_errors(service="meu-app", time_range="30m", limit=10)
             │
@@ -25,6 +29,8 @@ Quando o usuário relatar um erro ("a API caiu", "o worker parou", "estou recebe
   [Etapa 3: Correlação com o Código-Fonte]
   Ler arquivo do workspace (ex: api/routes.py:L42) -> Propor Correção
 ```
+
+> ⚠️ **Regra de Ouro de SRE:** NUNCA faça consultas genéricas sem informar `service="nome-do-app"`. Consultas globais trazem ruído de outros containers do homelab e gastam tokens de contexto inutilmente. Se não souber o nome exato, use `list_streams()` primeiro.
 
 ---
 
@@ -39,7 +45,7 @@ O servidor MCP nativo do repositório (`mcp/server.py`) expõe **8 ferramentas o
 ### 2. `get_log_hits`
 - **Quando usar:** Para responder *"quando o problema começou?"* ou *"quantas falhas ocorreram por minuto?"*.
 - **Parâmetros:**
-  - `query`: `level:error` ou `_stream:{service="pagamentos"} AND level:error`
+  - `query`: `_stream:{service="pagamentos"} AND level:error`
   - `time_range`: `"30m"`, `"1h"`, `"6h"`, `"24h"`
   - `step`: `"1m"`, `"5m"`, `"1h"`
 
@@ -47,7 +53,7 @@ O servidor MCP nativo do repositório (`mcp/server.py`) expõe **8 ferramentas o
 - **Quando usar:** Extrai erros e stack traces multilinha formatadas em blocos de código sem ruído de logs `info`.
 - **Deduplicação Inteligente:** Por padrão (`deduplicate=true`), agrupa tempestades de erros repetidos exibindo a quantidade de ocorrências e o intervalo (`[34x] Primeira: 11:20 | Última: 11:25`), mantendo a stack trace integral da causa-raiz.
 - **Parâmetros:**
-  - `service`: `"nome-do-container"` (opcional; se omitido, busca em todos)
+  - `service`: `"nome-da-aplicacao"` (**RECOMENDADO:** preencha sempre com o serviço alvo da sua tarefa; só omita para auditoria global)
   - `time_range`: `"30m"`, `"1h"` (padrão: `"1h"`)
   - `limit`: `10` ou `20`
   - `deduplicate`: `true` (padrão) ou `false` (para lista sequencial crua)
@@ -56,7 +62,8 @@ O servidor MCP nativo do repositório (`mcp/server.py`) expõe **8 ferramentas o
 ### 4. `query_logs`
 - **Quando usar:** Consultas flexíveis com LogsQL (ex: buscar um `request_id`, usuário ou texto).
 - **Parâmetros:**
-  - `query`: `_stream:{container_name="nginx"} AND status:500`
+  - `query`: `"120363421617257978@g.us"` ou `status:500`
+  - `service`: `"nome-da-aplicacao"` (**RECOMENDADO:** injeta automaticamente particionamento por stream `_stream:{container_name="..."}`)
   - `time_range`: `"1h"`
   - `limit`: `20`
   - `format`: `"markdown"` (padrão compacto com ícones) ou `"json"` (ndjson bruto)

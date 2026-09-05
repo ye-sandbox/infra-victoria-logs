@@ -164,8 +164,8 @@ curl -s -G "http://localhost:9428/select/logsql/hits" \
 O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py)) em Pure Python 3 (zero dependências extras, < 22 MB de RAM). Ele permite que Claude Code, Cursor, Roo Code ou Antigravity investiguem logs diretamente sem rodar comandos manuais, com deduplicação de erros e economizando até 99.8% dos tokens em relação a APIs brutas:
 
 #### Ferramentas MCP Disponíveis (8 Ferramentas Especializadas):
-- `get_errors`: Extrai erros e stack traces limpas com **deduplicação inteligente** de falhas repetidas (`deduplicate=true`, `full=false`).
-- `query_logs`: Executa buscas flexíveis com LogsQL com sanitização de quebras de linha, dicas contextuais automáticas de sintaxe (como tokens especiais sem aspas) e saída compacta em Markdown (`| keep`).
+- `get_errors`: Extrai erros e stack traces limpas com **deduplicação inteligente** de falhas repetidas, filtro de escopo por aplicação (`service`) e dicas proativas de SRE em consultas globais.
+- `query_logs`: Executa buscas flexíveis com LogsQL com suporte a filtro por aplicação (`service`), sanitização de quebras de linha, dicas contextuais de sintaxe e saída compacta em Markdown (`| keep`).
 - `get_log_hits`: Gráfico temporal/histograma de eventos agrupados por minuto/hora para triagem de anomalias.
 - `list_streams`: Lista containers, serviços e hosts ativos instantaneamente via endpoint nativo do VictoriaLogs.
 - `field_names`: Descobre os nomes de campos indexados no storage (ex: `service`, `userId`, `status`).

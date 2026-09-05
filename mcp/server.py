@@ -199,6 +199,7 @@ def tool_health_check(_args: Dict[str, Any]) -> str:
 def tool_query_logs(args: Dict[str, Any]) -> str:
     """Executa consultas LogsQL formatadas e compactas."""
     raw_query = clean_query(args.get("query", ""))
+    service = clean_query(args.get("service", ""))
     time_range = clean_query(args.get("time_range", "1h"))
     limit = min(int(args.get("limit", 20)), 100)
     output_format = args.get("format", "markdown").lower()
@@ -207,8 +208,12 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
     if not raw_query:
         return "Erro: parâmetro 'query' obrigatório."
 
-    # Injetar filtro temporal se omitido
+    # Se 'service' foi especificado e a query não possui filtro explícito de stream/serviço, injetar
     query = raw_query
+    if service and "_stream:" not in query and "container_name:" not in query and "service:" not in query:
+        query = f'_stream:{{container_name="{service}"}} AND ({query})'
+
+    # Injetar filtro temporal se omitido
     if time_range and "_time:" not in query:
         query = f"_time:{time_range} AND ({query})"
 
@@ -223,13 +228,15 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
 
     lines = [l.strip() for l in resp.splitlines() if l.strip()]
     if not lines:
-        return f"ℹ️ Nenhum log encontrado para a query: `{raw_query}` (janela: {time_range})"
+        target = f" para o serviço `{service}`" if service else ""
+        return f"ℹ️ Nenhum log encontrado para a query: `{raw_query}`{target} (janela: {time_range})"
 
     if output_format == "json":
         return resp
 
     # Formatação compacta em Markdown
     out = [f"### 🪵 Logs ({len(lines)} registros encontrados na janela de {time_range})\n"]
+    seen_containers = set()
     for line in lines:
         try:
             item = json.loads(line)
@@ -238,6 +245,9 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
                 ts = ts.replace("T", " ").split(".")[0]
             lvl = (item.get("level") or "info").upper()
             svc = item.get("service") or item.get("container_name") or "app"
+            c_name = item.get("container_name") or svc
+            if c_name and c_name != "-":
+                seen_containers.add(c_name)
             msg = item.get("_msg") or item.get("message", "")
 
             # Truncamento inteligente se a mensagem for excessivamente longa
@@ -250,6 +260,16 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
             out.append(f"- {line}")
 
     out.append(f"\n*Exibindo {len(lines)} logs. Parâmetro 'full': {full_output}. Ajuste 'limit' se precisar de mais dados.*")
+
+    # Dica de SRE proativa quando a busca foi global para educar o agente a filtrar por aplicação
+    if not service and seen_containers:
+        detected = ", ".join(f"`{c}`" for c in sorted(seen_containers)[:5])
+        out.append(
+            f"\n> 💡 **Dica de SRE:** Consulta executada globalmente em todo o homelab sem especificar aplicação. "
+            f"Para focar no serviço da sua tarefa e evitar ruído de outros containers, informe o parâmetro: `service=\"nome-do-app\"`. "
+            f"Containers detectados nesta amostra: {detected}."
+        )
+
     return "\n".join(out)
 
 
@@ -282,6 +302,8 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
         target = f"no serviço '{service}'" if service else "no homelab"
         return f"✅ Nenhum erro encontrado {target} na janela de {time_range}!"
 
+    seen_containers = set()
+
     # Caso deduplicação esteja desativada, listar tradicionalmente
     if not deduplicate:
         out = [f"### 🚨 Erros Detectados ({len(lines)} ocorrências na janela de {time_range})\n"]
@@ -290,12 +312,23 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
                 item = json.loads(line)
                 ts = item.get("_time") or item.get("timestamp", "")
                 svc = item.get("service") or item.get("container_name") or "app"
+                c_name = item.get("container_name") or svc
+                if c_name and c_name != "-":
+                    seen_containers.add(c_name)
                 msg = item.get("_msg") or item.get("message", "")
                 if not full_output and len(msg) > 1000:
                     msg = msg[:1000] + f"\n... [truncado: +{len(msg) - 1000} chars. Use full=true]"
                 out.append(f"#### {i}. [{ts}] Serviço: `{svc}`\n```text\n{msg}\n```\n")
             except Exception:
                 out.append(f"- {line}")
+
+        if not service and seen_containers:
+            detected = ", ".join(f"`{c}`" for c in sorted(seen_containers)[:5])
+            out.append(
+                f"\n> 💡 **Dica de SRE:** Consulta de erros executada globalmente em todo o homelab. "
+                f"Para focar no serviço da sua tarefa e evitar ruído, informe o parâmetro: `service=\"nome-do-app\"`. "
+                f"Containers com erros nesta amostra: {detected}."
+            )
         return "\n".join(out)
 
     # Agrupamento inteligente de erros idênticos ou com a mesma assinatura
@@ -305,6 +338,9 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
             item = json.loads(line)
             ts = item.get("_time") or item.get("timestamp", "")
             svc = item.get("service") or item.get("container_name") or "app"
+            c_name = item.get("container_name") or svc
+            if c_name and c_name != "-":
+                seen_containers.add(c_name)
             msg = item.get("_msg") or item.get("message", "")
             
             # Assinatura: (serviço, primeira linha da mensagem de erro)
@@ -350,6 +386,15 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
         out.append("```\n")
 
     out.append(f"*Total analisado: {len(lines)} registros consolidados em {len(groups)} grupos. Use full=true ou deduplicate=false se desejar logs brutos.*")
+
+    if not service and seen_containers:
+        detected = ", ".join(f"`{c}`" for c in sorted(seen_containers)[:5])
+        out.append(
+            f"\n> 💡 **Dica de SRE:** Consulta de erros executada globalmente em todo o homelab. "
+            f"Para focar no serviço da sua tarefa e evitar ruído, informe o parâmetro: `service=\"nome-do-app\"`. "
+            f"Containers com erros nesta amostra: {detected}."
+        )
+
     return "\n".join(out)
 
 
@@ -550,7 +595,11 @@ TOOLS = [
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Filtro LogsQL (ex: 'level:error', '_stream:{service=\"backend\"}', 'timeout OR panic').",
+                    "description": "Filtro LogsQL (ex: 'level:error', '\"timeout exceeded\"', 'status:500'). Importante: termos com caracteres especiais (@, :, /, .) devem estar entre aspas duplas.",
+                },
+                "service": {
+                    "type": "string",
+                    "description": "Nome da aplicação ou container alvo no homelab (ex: 'evolution-api', 'api-gateway', 'nginx'). RECOMENDADO: sempre preencha com o container/serviço da sua tarefa para não misturar logs de outros serviços do homelab.",
                 },
                 "time_range": {
                     "type": "string",
@@ -586,7 +635,7 @@ TOOLS = [
             "properties": {
                 "service": {
                     "type": "string",
-                    "description": "Nome do container ou serviço (ex: 'nginx', 'api'). Se omitido, busca em todo o homelab.",
+                    "description": "Nome da aplicação ou container alvo no homelab (ex: 'evolution-api', 'api-gateway', 'nginx'). RECOMENDADO: sempre preencha com o container/serviço da sua tarefa para não misturar logs de outros serviços do homelab. Só omita se a solicitação for expressamente uma auditoria global de infraestrutura.",
                 },
                 "time_range": {
                     "type": "string",

@@ -154,4 +154,8 @@ Todo log processado pelo Vector e ingerido no VictoriaLogs segue a seguinte estr
 - **Tokens com Caracteres Especiais no LogsQL (JIDs WhatsApp, E-mails, URLs):**
   - *Armadilha:* O parser do LogsQL não aceita tokens sem aspas contendo caracteres especiais (`@`, `:`, `/`, `-`, `.`, espaços). Por exemplo, consultar `120363421617257978@g.us` diretamente faz o VictoriaLogs interpretar `120363421617257978` como identificador esperando um separador `:`, falhando com HTTP 400 (`probably, the whole string must be put into quotes`).
   - *Mitigação:* Queries com caracteres especiais devem obrigatoriamente ser envolvidas em aspas duplas (`"120363421617257978@g.us"` ou `_msg:~"120363421617257978@g.us"`). Além disso, o servidor MCP (`mcp/server.py`) normaliza quebras de linha e detecta esse erro automaticamente, injetando uma dica contextual (`💡 Dica LogsQL`) para que agentes de IA se auto-corrijam imediatamente na chamada seguinte.
+- **Conscientização de Escopo de Aplicação em Agentes de IA:**
+  - *Armadilha:* Modelos de IA tendem a realizar buscas globais sem especificar o container ou aplicação alvo (`service`), sobrecarregando o contexto com logs de múltiplos containers do homelab e dificultando o diagnóstico.
+  - *Mitigação:* Adicionado o parâmetro `service` diretamente no schema de `query_logs` (injetando `_stream:{container_name="..."}`) e implementada uma nota proativa de SRE no rodapé (`💡 Dica de SRE`) sempre que uma busca global for executada, listando os containers detectados na amostra para incentivar a IA a afunilar na próxima chamada.
+
 
