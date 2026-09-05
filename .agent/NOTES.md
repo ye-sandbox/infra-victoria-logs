@@ -55,6 +55,11 @@
 - **Decisão:** Desenvolver `scripts/tune-docker-host.sh` e documentar a configuração de `/etc/docker/daemon.json` com `mode: non-blocking` e `max-buffer-size: 4m`.
 - **Consequências:** O Docker descarrega logs em ring-buffers na RAM (4 MB por container) e segue processando requisições sem esperar o HD mecânico responder. Em caso de saturação extrema prolongada de I/O, o Docker descarta logs excedentes no ring-buffer mais antigo em vez de travar a aplicação, priorizando a estabilidade e a disponibilidade dos serviços do homelab.
 
+### 2026-09-05 — Otimizações de Kernel e Filesystem no Host Proxmox (noatime, mq-deadline e APM)
+- **Contexto:** Ambientes de Homelab rodando em disco mecânico único sofrem severamente com três características padrão do Linux moderno: (1) `relatime/atime` gerando escritas de metadados durante leituras de logs, (2) I/O scheduler `none` (herança de NVMe) enviando I/O caótico para a agulha móvel sem algoritmo de elevador, e (3) políticas de gerenciamento de energia que forçam ciclos contínuos de aceleração/parada do motor (*spin-up/spindown*).
+- **Decisão:** Desenvolver `scripts/tune-disk-host.sh` para diagnóstico não-invasivo de discos, suporte a geração de regras udev para fixar `mq-deadline` em discos rotacionais (`queue/rotational == 1`) e documentação de `noatime,nodiratime` para `/etc/fstab`.
+- **Consequências:** Leituras e consultas LogsQL tornam-se puramente passivas sem alterar metadados em disco, a cabeça de leitura move-se linearmente em trilhas contíguas (evitando *head thrashing*), e o motor opera estável 24/7 sem estresse mecânico no braço ativador.
+
 ### 2026-09-02 — Agregação Multilinha e Automação de Operações (Backup e Smoke Test)
 - **Contexto:** Logs de erros com stack traces (Python, Go, Java) estavam sendo fragmentados pelo Docker em múltiplas linhas avulsas, dificultando diagnósticos. Além disso, backups manuais por cópia crua de pastas em HDs mecânicos arriscavam inconsistências de partição.
 - **Decisão:**
