@@ -12,9 +12,9 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 11.2: Guia e Configuração do Docker Daemon em Modo Non-Blocking no Host Proxmox
+### 📌 Tarefa 11.3: Guia e Assistente de Otimização do Host (noatime, I/O Scheduler e APM)
 
-- **Descrição:** Elaborar guia operacional e script auxiliar para configurar `/etc/docker/daemon.json` no Proxmox em modo `non-blocking` com ring-buffer de 4 MB em RAM (`log-opts.mode: non-blocking`), desacoplando o I/O dos containers Docker da velocidade física do HD mecânico e prevenindo lentidão em aplicações locais.
+- **Descrição:** Desenvolver guia operacional e script auxiliar (`scripts/tune-disk-host.sh`) para inspecionar e auxiliar na configuração do sistema de arquivos (`noatime,nodiratime` no `/etc/fstab`), scheduler de I/O de disco (`mq-deadline` / `bfq`) e políticas de APM/Spindown (`hdparm`) no Proxmox, eliminando escritas de metadados durante consultas e estabilizando a rotação mecânica.
 - **Sistema(s) Envolvido(s):** `docs`, `scripts`, `host`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
@@ -23,9 +23,9 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Guia prático de configuração e teste documentado no `README.md`.
-- [ ] Script utilitário em `scripts/tune-docker-host.sh` para validação e assistência opcional de configuração do daemon.
-- [ ] Documentação de armadilhas e mitigação de I/O Wait no `.agent/NOTES.md`.
+- [ ] Script `scripts/tune-disk-host.sh` para verificação não-invasiva de scheduler, atime e spindown.
+- [ ] Guia prático passo a passo documentado no `README.md`.
+- [ ] Documentação de boas práticas e armadilhas registrada no `.agent/NOTES.md`.
 - [ ] Commit semântico em inglês registrado no Git.
 
 ---
@@ -50,6 +50,7 @@
 | 10.2 | Conscientização e Escopo de Aplicação (service) no MCP e SKILLs | `6c2a6b3` | 2026-09-04 |
 | 11.0 | Otimização de Lote no Vector para HD Único (batch 15s) | `dd22816` | 2026-09-05 |
 | 11.1 | Calibração de Flush em Memória do VictoriaLogs (15s) | `11205b5` | 2026-09-05 |
+| 11.2 | Docker Daemon em Modo Non-Blocking no Host | `be9870e` | 2026-09-05 |
 
 ---
 
