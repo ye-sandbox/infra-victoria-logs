@@ -53,6 +53,7 @@
 | 11.2 | Docker Daemon em Modo Non-Blocking no Host | `be9870e` | 2026-09-05 |
 | 11.3 | Otimização do Host (noatime, mq-deadline e APM) | `c8bc25d` | 2026-09-05 |
 | 12.0 | Contrato JSON na skill de integração e descoberta Cursor | `3a69f85` | 2026-09-06 |
+| 13.0 | Skill github-bug-issue (fila GitHub + ponteiro VictoriaLogs) | `62e9535` | 2026-09-06 |
 
 ---
 
