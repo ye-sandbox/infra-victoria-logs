@@ -65,8 +65,6 @@ flowchart LR
 │   ├── vector.hdd.yaml      # Perfil HD mecânico (buffer em RAM, 2MB batch, filtro de pings)
 │   ├── vector.ssd.yaml      # Perfil SSD/NVMe (buffer em disco, 1MB batch, 100% retenção)
 │   └── vector.yaml          # Perfil base / fallback de configuração
-├── .cursor/
-│   └── mcp.json             # MCP do Cursor apontando para a VM Proxmox (192.168.0.201:9428)
 ├── mcp/
 │   └── server.py            # Servidor MCP stdio nativo para integração direta com Agentes de IA
 ├── scripts/
@@ -82,7 +80,7 @@ flowchart LR
 ├── tests/
 │   └── test_mcp_error_enricher.py     # Testes unitários de sanitização e dicas contextuais do MCP
 ├── .env.example             # Template documentado de variáveis de ambiente e segurança
-├── .gitignore               # Ignora dados locais, volumes, backups e segredos
+├── .gitignore               # Ignora .env, .cursor/, volumes, backups e segredos
 ├── AGENTS.md                # Diretrizes de engenharia, governança e regras dos agentes
 ├── .agent/                  # Documentação de contexto do agente (TASK.md, NOTES.md)
 └── README.md                # Guia técnico e operacional completo da stack
@@ -185,11 +183,10 @@ O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py))
 
 #### Como Configurar no seu Cliente de IA:
 
-**Cursor (recomendado neste repositório):** o arquivo [`.cursor/mcp.json`](./.cursor/mcp.json) já registra o servidor `victorialogs` e aponta para a VM Proxmox (`http://192.168.0.201:9428`). Recarregue a janela do Cursor (`Developer: Reload Window`) e confira o status verde em **Customize → MCP**.
+`.cursor/` é **local e está no `.gitignore`**. Não versione `mcp.json`: ele aponta para o host onde *você* alcança o VictoriaLogs e pode receber credenciais de Basic Auth.
 
-Para disponibilizar as mesmas ferramentas em **todos** os projetos, copie a configuração para `~/.cursor/mcp.json` (WSL) ou para `%USERPROFILE%\.cursor\mcp.json` (Windows, via `wsl.exe`).
+Crie `.cursor/mcp.json` neste workspace (ou `~/.cursor/mcp.json` / `%USERPROFILE%\.cursor\mcp.json` para todos os projetos). O mesmo bloco serve no Claude Desktop (`claude_desktop_config.json`):
 
-**Claude Desktop (`claude_desktop_config.json`) / outros clientes stdio:**
 ```json
 {
   "mcpServers": {
@@ -198,12 +195,14 @@ Para disponibilizar as mesmas ferramentas em **todos** os projetos, copie a conf
       "command": "/usr/bin/python3",
       "args": ["/caminho/absoluto/para/infra-victoria-logs/mcp/server.py"],
       "env": {
-        "VICTORIALOGS_URL": "http://192.168.0.201:9428"
+        "VICTORIALOGS_URL": "http://<IP_DO_MINI_PC>:9428"
       }
     }
   }
 }
 ```
+
+Use `http://127.0.0.1:9428` só se o VictoriaLogs estiver no mesmo host do cliente. Se a stack roda numa VM e o Cursor na sua workstation, `localhost` falha — copie `VICTORIALOGS_URL` do seu `.env` local. Recarregue a janela do Cursor e confira o status em **Customize → MCP**.
 
 **Testar o servidor MCP manualmente:**
 ```bash

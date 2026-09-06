@@ -90,10 +90,10 @@
   - **VictoriaLogs:** Expor o endpoint nativo `/metrics` na porta configurada `9428`.
   - **Vector:** Adicionar a fonte `internal_metrics` e o sink `prometheus_exporter` na porta registrada `9598` (`VECTOR_METRICS_PORT`), servindo telemetria em tempo real no padrão Prometheus sob demanda de scraping.
 
-### 2026-09-06 — MCP do Cursor aponta para a VM Proxmox, não para localhost
-- **Contexto:** O VictoriaLogs de produção roda numa VM no Proxmox (`192.168.0.201:9428`). Consultas MCP a `127.0.0.1:9428` a partir da estação WSL/Windows falham porque a stack não está no host local do Cursor.
-- **Decisão:** Pin de `VICTORIALOGS_URL=http://192.168.0.201:9428` no `.cursor/mcp.json` do repositório e nas configs globais do Cursor (`~/.cursor/mcp.json` no WSL e `%USERPROFILE%\.cursor\mcp.json` no Windows via `wsl.exe -d Ubuntu`).
-- **Consequências:** Agentes no Cursor consultam a mesma instância indexada pelo homelab. Se o IP da VM mudar, atualizar `.cursor/mcp.json`, `.env` e `.env.example` em conjunto.
+### 2026-09-06 — MCP do Cursor é config local; IP de LAN não entra no Git
+- **Contexto:** O VictoriaLogs frequentemente roda numa VM (Proxmox) enquanto o Cursor roda na workstation. Consultas MCP a `127.0.0.1:9428` a partir do WSL/Windows falham porque a stack não está no host do cliente. Um `.cursor/mcp.json` versionado com o IP da LAN vazaria topologia de rede e, no futuro, credenciais de Basic Auth.
+- **Decisão:** Ignorar `.cursor/` no Git. O `VICTORIALOGS_URL` real vive só em arquivos locais (`.env`, `.cursor/mcp.json`, `~/.cursor/mcp.json`). O `.env.example` e o README usam placeholders (`127.0.0.1` / `<IP_DO_MINI_PC>`).
+- **Consequências:** Quem clona o repositório precisa criar o `mcp.json` local apontando para o host onde *ele* alcança a porta 9428. Se o IP da VM mudar, atualizar apenas `.env` e o `mcp.json` local — nunca o template público.
 
 ### 2026-09-03 — Servidor MCP Nativo para Agentes de IA (Pure Python 3 / stdio)
 - **Contexto:** Agentes de IA (Claude, Cursor, Antigravity) precisavam de comandos manuais de shell `curl` com queries LogsQL cruas, o que causava alto consumo de tokens de contexto, erros frequentes de escape/URL encoding e necessidade de aprovação de comandos pelo usuário.
@@ -186,6 +186,9 @@ Todo log processado pelo Vector e ingerido no VictoriaLogs segue a seguinte estr
 - **Tokens com Caracteres Especiais no LogsQL (JIDs WhatsApp, E-mails, URLs):**
   - *Armadilha:* O parser do LogsQL não aceita tokens sem aspas contendo caracteres especiais (`@`, `:`, `/`, `-`, `.`, espaços). Por exemplo, consultar `120363421617257978@g.us` diretamente faz o VictoriaLogs interpretar `120363421617257978` como identificador esperando um separador `:`, falhando com HTTP 400 (`probably, the whole string must be put into quotes`).
   - *Mitigação:* Queries com caracteres especiais devem obrigatoriamente ser envolvidas em aspas duplas (`"120363421617257978@g.us"` ou `_msg:~"120363421617257978@g.us"`). Além disso, o servidor MCP (`mcp/server.py`) normaliza quebras de linha e detecta esse erro automaticamente, injetando uma dica contextual (`💡 Dica LogsQL`) para que agentes de IA se auto-corrijam imediatamente na chamada seguinte.
+- **MCP apontando para localhost a partir da workstation:**
+  - *Armadilha:* O default do servidor MCP (`VICTORIALOGS_URL` → `http://127.0.0.1:9428`) só funciona se o VictoriaLogs estiver no mesmo host do cliente. No Cursor em WSL/Windows contra uma VM, `health_check` falha com conexão recusada.
+  - *Mitigação:* Definir `VICTORIALOGS_URL` no `.cursor/mcp.json` local (gitignored) ou no `.env` local com o IP/hostname alcançável da VM. Não versionar esse valor.
 - **Conscientização de Escopo de Aplicação em Agentes de IA:**
   - *Armadilha:* Modelos de IA tendem a realizar buscas globais sem especificar o container ou aplicação alvo (`service`), sobrecarregando o contexto com logs de múltiplos containers do homelab e dificultando o diagnóstico.
   - *Mitigação:* Adicionado o parâmetro `service` diretamente no schema de `query_logs` (injetando `_stream:{container_name="..."}`) e implementada uma nota proativa de SRE no rodapé (`💡 Dica de SRE`) sempre que uma busca global for executada, listando os containers detectados na amostra para incentivar a IA a afunilar na próxima chamada.
