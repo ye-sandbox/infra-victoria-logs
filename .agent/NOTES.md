@@ -90,6 +90,11 @@
   - **VictoriaLogs:** Expor o endpoint nativo `/metrics` na porta configurada `9428`.
   - **Vector:** Adicionar a fonte `internal_metrics` e o sink `prometheus_exporter` na porta registrada `9598` (`VECTOR_METRICS_PORT`), servindo telemetria em tempo real no padrão Prometheus sob demanda de scraping.
 
+### 2026-09-06 — MCP do Cursor aponta para a VM Proxmox, não para localhost
+- **Contexto:** O VictoriaLogs de produção roda numa VM no Proxmox (`192.168.0.201:9428`). Consultas MCP a `127.0.0.1:9428` a partir da estação WSL/Windows falham porque a stack não está no host local do Cursor.
+- **Decisão:** Pin de `VICTORIALOGS_URL=http://192.168.0.201:9428` no `.cursor/mcp.json` do repositório e nas configs globais do Cursor (`~/.cursor/mcp.json` no WSL e `%USERPROFILE%\.cursor\mcp.json` no Windows via `wsl.exe -d Ubuntu`).
+- **Consequências:** Agentes no Cursor consultam a mesma instância indexada pelo homelab. Se o IP da VM mudar, atualizar `.cursor/mcp.json`, `.env` e `.env.example` em conjunto.
+
 ### 2026-09-03 — Servidor MCP Nativo para Agentes de IA (Pure Python 3 / stdio)
 - **Contexto:** Agentes de IA (Claude, Cursor, Antigravity) precisavam de comandos manuais de shell `curl` com queries LogsQL cruas, o que causava alto consumo de tokens de contexto, erros frequentes de escape/URL encoding e necessidade de aprovação de comandos pelo usuário.
 - **Decisão:** Implementar `mcp/server.py` em Pure Python 3 (zero dependências externas) utilizando o protocolo MCP sobre `stdio` (JSON-RPC 2.0).
@@ -119,6 +124,13 @@
   - Tornar cláusula explícita no DoD (`AGENTS.md`) que o `README.md` (árvore de arquivos, comandos, tabelas e guias) DEVE ser atualizado a cada nova entrega ou ajuste arquitetural.
   - Atualizada a árvore estrutural do `README.md` refletindo os diretórios `mcp/`, `scripts/`, `skills/` e perfis de armazenamento.
 - **Consequências:** O `README.md` reflete rigorosamente a verdade operacional da stack em qualquer commit.
+
+### 2026-09-06 — Fronteira de Repositório e Coabitação de Host com `yegear1/homelab`
+- **Contexto:** O repositório de infraestrutura [`yegear1/homelab`](https://github.com/yegear1/homelab) provisiona os demais serviços do mesmo host Docker e declarava um serviço `victorialogs` próprio no seu `compose.yaml.example` e no seu catálogo canônico `SERVICES.md`. As duas declarações divergiam em imagem, limites de memória e caminho de storage, mas coincidiam em `container_name`, volume nomeado e porta `9428` — colisão garantida caso ambas subissem no host.
+- **Decisão:** Manter esta stack como repositório independente (ela não é só deploy: entrega o servidor MCP e as SKILLs consumidos por outros repositórios da organização `ye-sandbox`) e desregistrá-la do `homelab`, que passou a reservar os recursos ocupados numa seção de serviços externos em vez de declará-los.
+- **Alternativas consideradas:**
+  - *Migrar a stack para `homelab/victorialogs/`:* daria fonte única de topologia do host, mas misturaria um artefato distribuível org-wide com infraestrutura pessoal de um único nó, e forçaria os limites de RAM daqui (80 MB / 60 MB) a conviver com o padrão de 512 MB-1 GB daquele repositório.
+- **Consequências:** As quatro portas expostas por esta stack (`9428`, `5140/udp`, `8686`, `9598`), os volumes `victorialogs_data` e `vector_data` e os nomes de contêiner `victorialogs` e `vector` viraram contrato entre repositórios. **Qualquer alteração de porta, volume ou nome de contêiner aqui exige atualizar a seção 2 do `.agent/SERVICES.md` do `homelab` no mesmo ciclo**, sob pena de um agente daquele repositório realocar um recurso já ocupado. As redes permanecem isoladas (`logging-network` aqui, `monitoring_internal` lá): serviços do `homelab` que precisarem enviar logs devem usar a ingestão HTTP em `:8686` até que essa reconciliação seja decidida.
 
 ---
 

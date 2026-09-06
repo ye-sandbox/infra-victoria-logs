@@ -9,6 +9,12 @@ Stack de observabilidade e centralização de logs minimalista, projetada para *
 
 Focada em **baixíssimo consumo de CPU e RAM (< 150 MB no total)**, esta solução substitui com folga pilhas pesadas como Grafana Loki/Promtail ou Elastic/Logstash, sendo otimizada tanto para inspeção humana (Web UI nativa) quanto para **consultas automatizadas por Agentes de IA** (Claude Code, Antigravity, Cursor, Roo Code) durante diagnósticos de erros e incidentes.
 
+> 🔗 **Coabitação de Host:** esta stack roda no mesmo host Docker que o repositório de infraestrutura
+> [`yegear1/homelab`](https://github.com/yegear1/homelab), que provisiona os demais serviços (Portainer, Dockge, Uptime Kuma, Homepage).
+> As portas `9428`, `5140/udp`, `8686` e `9598`, os volumes `victorialogs_data` e `vector_data` e os nomes de contêiner
+> `victorialogs` e `vector` estão **reservados na seção 2 do `.agent/SERVICES.md` daquele repositório**.
+> Ao adicionar, remover ou renumerar qualquer porta ou volume aqui, atualize aquela seção no mesmo ciclo para evitar colisão de bind no host.
+
 ---
 
 ## 🏗️ Arquitetura e Fluxo de Dados
@@ -59,6 +65,8 @@ flowchart LR
 │   ├── vector.hdd.yaml      # Perfil HD mecânico (buffer em RAM, 2MB batch, filtro de pings)
 │   ├── vector.ssd.yaml      # Perfil SSD/NVMe (buffer em disco, 1MB batch, 100% retenção)
 │   └── vector.yaml          # Perfil base / fallback de configuração
+├── .cursor/
+│   └── mcp.json             # MCP do Cursor apontando para a VM Proxmox (192.168.0.201:9428)
 ├── mcp/
 │   └── server.py            # Servidor MCP stdio nativo para integração direta com Agentes de IA
 ├── scripts/
@@ -177,15 +185,20 @@ O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py))
 
 #### Como Configurar no seu Cliente de IA:
 
-**Claude Desktop (`claude_desktop_config.json`) / Cursor:**
+**Cursor (recomendado neste repositório):** o arquivo [`.cursor/mcp.json`](./.cursor/mcp.json) já registra o servidor `victorialogs` e aponta para a VM Proxmox (`http://192.168.0.201:9428`). Recarregue a janela do Cursor (`Developer: Reload Window`) e confira o status verde em **Customize → MCP**.
+
+Para disponibilizar as mesmas ferramentas em **todos** os projetos, copie a configuração para `~/.cursor/mcp.json` (WSL) ou para `%USERPROFILE%\.cursor\mcp.json` (Windows, via `wsl.exe`).
+
+**Claude Desktop (`claude_desktop_config.json`) / outros clientes stdio:**
 ```json
 {
   "mcpServers": {
     "victorialogs": {
-      "command": "python3",
+      "type": "stdio",
+      "command": "/usr/bin/python3",
       "args": ["/caminho/absoluto/para/infra-victoria-logs/mcp/server.py"],
       "env": {
-        "VICTORIALOGS_URL": "http://127.0.0.1:9428"
+        "VICTORIALOGS_URL": "http://192.168.0.201:9428"
       }
     }
   }
