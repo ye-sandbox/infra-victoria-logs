@@ -97,8 +97,13 @@
 
 ### 2026-09-06 — Skills canônicas neste repo; Cursor descobre via symlink pessoal
 - **Contexto:** O Cursor só carrega skills de `.cursor/skills/` ou `~/.cursor/skills/`. A pasta `skills/` na raiz não dispara sozinha. Copiar o SKILL.md para cada app da `ye-sandbox` dessincroniza o contrato quando o Vector muda.
-- **Decisão:** Manter só `victorialogs-integration` e `victorialogs-troubleshooting` neste repositório. Não criar uma terceira skill de “JSON logging”. Outros repos apontam no `AGENTS.md`. Descoberta no Cursor: `ln -sfn` de `~/.cursor/skills/<nome>` para `skills/<nome>` deste clone.
+- **Decisão:** Manter as skills canônicas neste repositório (`victorialogs-integration`, `victorialogs-troubleshooting`, `github-bug-issue`). Não criar uma skill irmã de “JSON logging” — isso é contrato da integration. Outros repos apontam no `AGENTS.md`. Descoberta no Cursor: `ln -sfn` de `~/.cursor/skills/<nome>` para `skills/<nome>` deste clone.
 - **Consequências:** Atualizar NDJSON/stream fields neste Git atualiza todos os agentes que usam o symlink. `.cursor/` continua gitignored por causa do `mcp.json` local.
+
+### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
+- **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
+- **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.
+- **Consequências:** Agentes futuros no `whatsapp-api` (ou no caller) abrem a issue, rodam `victorialogs-troubleshooting` e não dependem do chat original.
 
 ### 2026-09-03 — Servidor MCP Nativo para Agentes de IA (Pure Python 3 / stdio)
 - **Contexto:** Agentes de IA (Claude, Cursor, Antigravity) precisavam de comandos manuais de shell `curl` com queries LogsQL cruas, o que causava alto consumo de tokens de contexto, erros frequentes de escape/URL encoding e necessidade de aprovação de comandos pelo usuário.

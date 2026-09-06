@@ -7,6 +7,8 @@ description: Playbook de SRE e investigação de incidentes para agentes de IA d
 
 Esta skill orienta agentes de IA (Claude, Antigravity, Cursor, Roo Code) a atuarem como **especialistas em SRE** para diagnosticar erros, quedas e anomalias no homelab consumindo a stack **VictoriaLogs + Vector**.
 
+Se o usuário quiser **anotar o problema para depois** (não corrigir agora), use a skill `github-bug-issue`: issue no GitHub do repo dono com ponteiro VictoriaLogs, sem virar tarefa ativa.
+
 ---
 
 ## 🎯 Protocolo de Investigação de Incidentes

@@ -75,6 +75,7 @@ flowchart LR
 │   ├── tune-docker-host.sh  # Otimização do Docker daemon (modo non-blocking para HD)
 │   └── tune-disk-host.sh    # Assistente de diagnóstico e tuning de HD (noatime, scheduler)
 ├── skills/
+│   ├── github-bug-issue/              # Skill para abrir issue GitHub com ponteiro VictoriaLogs (fila, não TASK.md)
 │   ├── victorialogs-integration/      # Skill ensinando IA a plugar aplicações (Python, Node, Go, Docker)
 │   └── victorialogs-troubleshooting/  # Skill ensinando IA o playbook de investigação de erros/SRE
 ├── tests/
@@ -421,13 +422,15 @@ scrape_configs:
 
 ## 🤖 Skills para Agentes de IA (`skills/`)
 
-O repositório inclui duas SKILLs canônicas, versionadas **neste** Git. Não as duplique em outros repositórios da `ye-sandbox`: no `AGENTS.md` de cada app, coloque só um ponteiro. Procedimentos do produto (`bot-command`, `compose-service`) continuam no `.agent/skills/` de cada repo.
+O repositório inclui SKILLs canônicas, versionadas **neste** Git. Não as duplique em outros repositórios da `ye-sandbox`: no `AGENTS.md` de cada app, coloque só um ponteiro. Procedimentos do produto (`bot-command`, `compose-service`) continuam no `.agent/skills/` de cada repo.
 
 1. **[`skills/victorialogs-integration`](./skills/victorialogs-integration/SKILL.md):**
    - Contrato de emissão: NDJSON (um JSON por linha), campos canônicos, stream fields vs IDs de alta cardinalidade, traceback, syslog e anti-padrões (`pino-pretty`, healthchecks no HDD).
    - Snippets para **Docker Compose**, **Python**, **Node.js** (`pino`), **Go** (`slog`), **Bash** (`curl`) e **Proxmox** (`rsyslog`).
 2. **[`skills/victorialogs-troubleshooting`](./skills/victorialogs-troubleshooting/SKILL.md):**
    - Playbook de SRE para investigar incidentes via MCP e LogsQL (consulta, não emissão).
+3. **[`skills/github-bug-issue`](./skills/github-bug-issue/SKILL.md):**
+   - Abre uma issue no GitHub do **repo dono** para estacionar um bug (visto noutro app, na API do WhatsApp, etc.) com âncoras do VictoriaLogs. `TASK.md` só entra quando for executar o conserto.
 
 O Cursor **não** carrega a pasta `skills/` da raiz sozinho. Para descoberta em qualquer workspace:
 
@@ -435,6 +438,7 @@ O Cursor **não** carrega a pasta `skills/` da raiz sozinho. Para descoberta em 
 mkdir -p ~/.cursor/skills
 ln -sfn "$(pwd)/skills/victorialogs-integration" ~/.cursor/skills/victorialogs-integration
 ln -sfn "$(pwd)/skills/victorialogs-troubleshooting" ~/.cursor/skills/victorialogs-troubleshooting
+ln -sfn "$(pwd)/skills/github-bug-issue" ~/.cursor/skills/github-bug-issue
 ```
 
 Recarregue a janela do Cursor depois. A fonte da verdade continua neste repositório; o symlink só espelha.
