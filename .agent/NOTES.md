@@ -95,6 +95,11 @@
 - **Decisão:** Ignorar `.cursor/` no Git. O `VICTORIALOGS_URL` real vive só em arquivos locais (`.env`, `.cursor/mcp.json`, `~/.cursor/mcp.json`). O `.env.example` e o README usam placeholders (`127.0.0.1` / `<IP_DO_MINI_PC>`).
 - **Consequências:** Quem clona o repositório precisa criar o `mcp.json` local apontando para o host onde *ele* alcança a porta 9428. Se o IP da VM mudar, atualizar apenas `.env` e o `mcp.json` local — nunca o template público.
 
+### 2026-09-06 — Skills canônicas neste repo; Cursor descobre via symlink pessoal
+- **Contexto:** O Cursor só carrega skills de `.cursor/skills/` ou `~/.cursor/skills/`. A pasta `skills/` na raiz não dispara sozinha. Copiar o SKILL.md para cada app da `ye-sandbox` dessincroniza o contrato quando o Vector muda.
+- **Decisão:** Manter só `victorialogs-integration` e `victorialogs-troubleshooting` neste repositório. Não criar uma terceira skill de “JSON logging”. Outros repos apontam no `AGENTS.md`. Descoberta no Cursor: `ln -sfn` de `~/.cursor/skills/<nome>` para `skills/<nome>` deste clone.
+- **Consequências:** Atualizar NDJSON/stream fields neste Git atualiza todos os agentes que usam o symlink. `.cursor/` continua gitignored por causa do `mcp.json` local.
+
 ### 2026-09-03 — Servidor MCP Nativo para Agentes de IA (Pure Python 3 / stdio)
 - **Contexto:** Agentes de IA (Claude, Cursor, Antigravity) precisavam de comandos manuais de shell `curl` com queries LogsQL cruas, o que causava alto consumo de tokens de contexto, erros frequentes de escape/URL encoding e necessidade de aprovação de comandos pelo usuário.
 - **Decisão:** Implementar `mcp/server.py` em Pure Python 3 (zero dependências externas) utilizando o protocolo MCP sobre `stdio` (JSON-RPC 2.0).
@@ -155,6 +160,8 @@ Todo log processado pelo Vector e ingerido no VictoriaLogs segue a seguinte estr
 | `structured` | `object (opcional)`| Objeto com chaves extras caso a mensagem seja JSON | `{"userId": 123}` |
 | `stack_trace` | `string (opcional)`| Rastreamento da pilha em caso de erro | `Error: ...\n at ...` |
 
+Aplicações **emitem** NDJSON (um objeto JSON por linha) em stdout ou POST `/logs`. O VictoriaLogs **não** é um dump JSON em disco. Dimensões de stream são só `host,container_name,service,app,env,stream`. Qualquer outro identificador (`userId`, `request_id`, JID, URL) permanece campo do evento.
+
 ---
 
 ## Armadilhas e Comportamentos Não-Óbvios
@@ -189,6 +196,12 @@ Todo log processado pelo Vector e ingerido no VictoriaLogs segue a seguinte estr
 - **MCP apontando para localhost a partir da workstation:**
   - *Armadilha:* O default do servidor MCP (`VICTORIALOGS_URL` → `http://127.0.0.1:9428`) só funciona se o VictoriaLogs estiver no mesmo host do cliente. No Cursor em WSL/Windows contra uma VM, `health_check` falha com conexão recusada.
   - *Mitigação:* Definir `VICTORIALOGS_URL` no `.cursor/mcp.json` local (gitignored) ou no `.env` local com o IP/hostname alcançável da VM. Não versionar esse valor.
+- **Alta cardinalidade em VL-Stream-Fields:**
+  - *Armadilha:* Promover `userId`, `request_id`, JID ou URL a stream field cria uma stream por valor único e degrada o Mini PC.
+  - *Mitigação:* Manter o cabeçalho canônico `VL-Stream-Fields: "host,container_name,service,app,env,stream"`. IDs dinâmicos são campos do evento; o contrato está na skill `victorialogs-integration`.
+- **NDJSON vs JSON pretty-printed:**
+  - *Armadilha:* Array JSON ou objeto quebrado em várias linhas faz o `parse_json` do Vector falhar; o evento vira texto e o `level` cai na heurística.
+  - *Mitigação:* Um objeto por linha (`json.dumps` / pino / slog JSONHandler), com `message` no topo. Pretty-printers (`pino-pretty`) ficam fora de produção.
 - **Conscientização de Escopo de Aplicação em Agentes de IA:**
   - *Armadilha:* Modelos de IA tendem a realizar buscas globais sem especificar o container ou aplicação alvo (`service`), sobrecarregando o contexto com logs de múltiplos containers do homelab e dificultando o diagnóstico.
   - *Mitigação:* Adicionado o parâmetro `service` diretamente no schema de `query_logs` (injetando `_stream:{container_name="..."}`) e implementada uma nota proativa de SRE no rodapé (`💡 Dica de SRE`) sempre que uma busca global for executada, listando os containers detectados na amostra para incentivar a IA a afunilar na próxima chamada.

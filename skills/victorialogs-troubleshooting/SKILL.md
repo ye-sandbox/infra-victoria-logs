@@ -156,3 +156,5 @@ _msg:~"120363421617257978@g.us"
 "/api/v1/auth/login"
 ```
 
+IDs de alta cardinalidade (`userId`, `request_id`, JID, e-mail, URL) são **campos do evento**, não dimensões de `_stream`. Filtre-os no LogsQL (com aspas) ou via `query_logs`; nunca peça para uma aplicação promover esses campos a stream (`VL-Stream-Fields`). O contrato de emissão está em `victorialogs-integration`.
+

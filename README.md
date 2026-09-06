@@ -421,13 +421,23 @@ scrape_configs:
 
 ## 🤖 Skills para Agentes de IA (`skills/`)
 
-O repositório inclui duas SKILLs completas e reutilizáveis, preparadas para serem consumidas por assistentes de IA (Claude, Antigravity, Cursor, Roo Code) em qualquer repositório da organização `ye-sandbox`:
+O repositório inclui duas SKILLs canônicas, versionadas **neste** Git. Não as duplique em outros repositórios da `ye-sandbox`: no `AGENTS.md` de cada app, coloque só um ponteiro. Procedimentos do produto (`bot-command`, `compose-service`) continuam no `.agent/skills/` de cada repo.
 
 1. **[`skills/victorialogs-integration`](./skills/victorialogs-integration/SKILL.md):**
-   - Ensina a IA a plugar e configurar novas aplicações para enviarem logs para o pipeline.
-   - Contém snippets prontos para **Docker Compose**, **Python** (`logging`/`structlog`), **Node.js** (`pino`), **Go** (`slog`), **Bash** (`curl`) e **Proxmox** (`rsyslog`).
+   - Contrato de emissão: NDJSON (um JSON por linha), campos canônicos, stream fields vs IDs de alta cardinalidade, traceback, syslog e anti-padrões (`pino-pretty`, healthchecks no HDD).
+   - Snippets para **Docker Compose**, **Python**, **Node.js** (`pino`), **Go** (`slog`), **Bash** (`curl`) e **Proxmox** (`rsyslog`).
 2. **[`skills/victorialogs-troubleshooting`](./skills/victorialogs-troubleshooting/SKILL.md):**
-   - Playbook de SRE e investigação de incidentes para a IA diagnosticar falhas no homelab via servidor MCP e LogsQL com **máxima economia de tokens**.
+   - Playbook de SRE para investigar incidentes via MCP e LogsQL (consulta, não emissão).
+
+O Cursor **não** carrega a pasta `skills/` da raiz sozinho. Para descoberta em qualquer workspace:
+
+```bash
+mkdir -p ~/.cursor/skills
+ln -sfn "$(pwd)/skills/victorialogs-integration" ~/.cursor/skills/victorialogs-integration
+ln -sfn "$(pwd)/skills/victorialogs-troubleshooting" ~/.cursor/skills/victorialogs-troubleshooting
+```
+
+Recarregue a janela do Cursor depois. A fonte da verdade continua neste repositório; o symlink só espelha.
 
 ---
 
