@@ -76,6 +76,7 @@ Thumbs.db
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
+.cursor/
 *.sublime-project
 *.sublime-workspace
 
