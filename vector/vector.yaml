@@ -21,7 +21,7 @@ sources:
     multiline:
       start_pattern: '^[\S]'
       condition_pattern: '^[\s]'
-      mode: halt_before
+      mode: continue_through
       timeout_ms: 1000
 
   syslog_udp:

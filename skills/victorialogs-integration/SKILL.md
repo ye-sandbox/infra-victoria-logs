@@ -66,8 +66,8 @@ Cabeçalho canônico do sink: `VL-Stream-Fields: "host,container_name,service,ap
 - **Nunca vire stream field:** `userId`, `request_id`, JID de WhatsApp, URL, e-mail, path. Isso é **campo do evento** (ou `context`). Alta cardinalidade em stream explode o índice no Mini PC. Consulte com LogsQL no campo (`"1203…@g.us"`, `userId:123`), não criando uma stream nova.
 
 ### Stack traces
-- **JSON:** um único evento. Coloque o traceback em `message` (com `\n`) ou em `stack_trace`. O agregador multilinha do Vector **não** junta linhas de um JSON quebrado.
-- **Texto puro (stdout indentado):** o Vector agrega linhas que começam com espaço/tab (`^[\\s]`) na linha anterior. Python/Java/Go panic indentados viram um evento. Linhas de traceback na coluna 0 viram eventos soltos.
+- **JSON:** um único evento. Coloque o traceback em `message` (com `\n`) ou em `stack_trace`. O agregador multilinha do Vector **não** junta linhas de um JSON quebrado. Cada linha NDJSON (`{...}`) é um evento; o modo é `continue_through` (não `halt_before`), senão rajadas no mesmo segundo colam vários JSON num `_msg` e o `parse_json` falha.
+- **Texto puro (stdout indentado):** o Vector (`mode: continue_through`, `condition_pattern: '^[\\s]'`) agrega linhas que começam com espaço/tab na linha anterior. Python/Java/Go panic indentados viram um evento. Linhas de traceback na coluna 0 viram eventos soltos.
 
 ### O que não emitir (ou não neste formato)
 - **Syslog do host / rsyslog / journald:** use UDP `:5140`. Não converta o journal do Proxmox para JSON.

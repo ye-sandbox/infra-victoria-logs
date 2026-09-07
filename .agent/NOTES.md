@@ -63,7 +63,7 @@
 ### 2026-09-02 — Agregação Multilinha e Automação de Operações (Backup e Smoke Test)
 - **Contexto:** Logs de erros com stack traces (Python, Go, Java) estavam sendo fragmentados pelo Docker em múltiplas linhas avulsas, dificultando diagnósticos. Além disso, backups manuais por cópia crua de pastas em HDs mecânicos arriscavam inconsistências de partição.
 - **Decisão:**
-  - Configurar bloco `multiline` nativo no Vector (`start_pattern: '^[\S]'`, `condition_pattern: '^[\s]'`, `mode: halt_before`) para agregar tracebacks em um único log antes do envio.
+  - Configurar bloco `multiline` nativo no Vector (`start_pattern: '^[\S]'`, `condition_pattern: '^[\s]'`, `mode: continue_through`) para agregar tracebacks indentados em um único log antes do envio.
   - Implementar `scripts/backup.sh` usando a API atômica de snapshots (`/snapshot/create`) do VictoriaLogs com deleção e rotação posterior.
   - Implementar `scripts/test-pipeline.sh` para smoke test ponta a ponta com injeção sintética e query LogsQL.
   - Suportar autenticação básica HTTP opcional parametrizada em VictoriaLogs e Vector via `${VICTORIALOGS_AUTH_USERNAME:+...}`.
@@ -99,6 +99,11 @@
 - **Contexto:** O Cursor só carrega skills de `.cursor/skills/` ou `~/.cursor/skills/`. A pasta `skills/` na raiz não dispara sozinha. Copiar o SKILL.md para cada app da `ye-sandbox` dessincroniza o contrato quando o Vector muda.
 - **Decisão:** Manter as skills canônicas neste repositório (`victorialogs-integration`, `victorialogs-troubleshooting`, `github-bug-issue`). Não criar uma skill irmã de “JSON logging” — isso é contrato da integration. Outros repos apontam no `AGENTS.md`. Descoberta no Cursor: `ln -sfn` de `~/.cursor/skills/<nome>` para `skills/<nome>` deste clone.
 - **Consequências:** Atualizar NDJSON/stream fields neste Git atualiza todos os agentes que usam o symlink. `.cursor/` continua gitignored por causa do `mcp.json` local.
+
+### 2026-09-07 — Multiline `continue_through` (não `halt_before`) para NDJSON
+- **Contexto:** `halt_before` com `condition_pattern: '^[\s]'` acumula **todas** as linhas que não são indentadas até `timeout_ms`. Rajadas NDJSON (`{...}` por linha) no mesmo segundo viravam um único `_msg` com `}\n{`; `parse_json` falhava e a heurística de `level` herdava `error`/`warn` de um membro qualquer da rajada ([issue #1](https://github.com/ye-sandbox/infra-victoria-logs/issues/1)).
+- **Decisão:** Nos três perfis (`vector.yaml`, `vector.hdd.yaml`, `vector.ssd.yaml`), `mode: continue_through`. Linhas indentadas continuam anexadas à linha-mãe (traceback); a próxima linha não-indentada fecha o grupo imediatamente.
+- **Consequências:** Um objeto JSON por linha de stdout Docker vira um evento. Eventos já colados no VictoriaLogs não se reparam; só a ingestão nova após restart do Vector.
 
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.

@@ -348,9 +348,10 @@ O VictoriaLogs exigirá HTTP Basic Auth para todas as consultas e o Vector se au
 
 ## 📑 Suporte a Logs Multilinha (Stack Traces)
 
-O coletor Vector possui agregação multilinha configurada nativamente para containers Docker:
-- Linhas que começam com espaços ou tabulações (como tracebacks do Python, *panics* do Go ou exceções Java) são agrupadas no mesmo evento do log original.
-- Evita que um único erro seja fatiado em dezenas de registros desconexos.
+O coletor Vector possui agregação multilinha nativa na fonte `docker_logs` (`mode: continue_through`):
+- Linhas que começam com espaços ou tabulações (tracebacks Python, *panics* Go, exceções Java) são agrupadas no mesmo evento da linha-mãe.
+- Cada linha NDJSON (`{...}`) é um evento próprio. O modo `halt_before` (legado) colava rajadas JSON no mesmo segundo num único `_msg` e quebrava o parse — ver [issue #1](https://github.com/ye-sandbox/infra-victoria-logs/issues/1).
+- Evita que um único erro em texto puro seja fatiado em dezenas de registros desconexos.
 
 ---
 
