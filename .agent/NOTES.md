@@ -109,7 +109,11 @@
 - **Decisão:** Desenvolver `scripts/ship-docker-stats.sh` convertendo a saída de `docker stats --no-stream` em eventos estruturados no stream `service="docker-stats"` e enviando em lote para o endpoint HTTP do Vector (`:8686/logs`). No Vector, o source `http_logs` espera formato `encoding: json` (aceitando array JSON `[...]` para lote pontual).
 - **Consequências:** Agentes de IA correlacionam quedas e lentidões diretamente no LogsQL (`_stream:{service="docker-stats",container_name="..."}` ou `mem_percent:>85`) com impacto nulo na memória da stack.
 
-- **Consequências:** Um objeto JSON por linha de stdout Docker vira um evento. Eventos já colados no VictoriaLogs não se reparam; só a ingestão nova após restart do Vector.
+### 2026-09-10 — Captura de Ciclo de Vida do Daemon Docker (`ship-docker-events.sh`)
+- **Contexto:** Mortes de containers por OOM (`SIGKILL` / Exit Code 137) ou terminação anômala do processo não geram logs em `stdout`. Os agentes executavam `get_errors()` e concluíam incorretamente que não havia ocorrido erro na aplicação.
+- **Decisão:** Desenvolver `scripts/ship-docker-events.sh` escutando o stream de eventos do Docker Engine (`docker events --filter 'type=container'`) e normalizando ações críticas (`die`, `oom`, `kill`, `restart`) no stream `service="docker-events"`. Eventos de `die` com código 137 ou ação `oom` são automaticamente elevados a `level: "error"` com `oom_killed: true`.
+- **Consequências:** Agentes de IA diagnosticam instantaneamente quedas silenciosas e estouro de memória sem ambiguidade.
+
 
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.

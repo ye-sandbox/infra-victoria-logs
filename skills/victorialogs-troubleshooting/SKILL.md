@@ -171,6 +171,19 @@ _stream:{service="docker-stats"} AND mem_percent:>85
 _stream:{service="docker-stats"} AND cpu_percent:>80
 ```
 
+### 7. Detecção de Crashes e OOMKilled (`docker-events`)
+Com o coletor `scripts/ship-docker-events.sh` ativo, eventos de ciclo de vida do daemon Docker residem no stream `service="docker-events"`:
+```text
+# Detectar todos os containers que morreram com erro ou OOM:
+_stream:{service="docker-events"} AND level:error
+
+# Confirmar se um container específico sofreu OOMKilled:
+_stream:{service="docker-events",container_name="meu-app"} AND oom_killed:true
+
+# Consultar histórico de paradas e reinicializações de um container:
+_stream:{service="docker-events",container_name="meu-app"} | sort by (_time) desc | limit 10
+```
+
 IDs de alta cardinalidade (`userId`, `request_id`, JID, e-mail, URL) são **campos do evento**, não dimensões de `_stream`. Filtre-os no LogsQL (com aspas) ou via `query_logs`; nunca peça para uma aplicação promover esses campos a stream (`VL-Stream-Fields`). O contrato de emissão está em `victorialogs-integration`.
 
 

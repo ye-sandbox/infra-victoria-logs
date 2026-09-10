@@ -73,6 +73,7 @@ flowchart LR
 │   ├── test-pipeline.sh     # Smoke test ponta a ponta de ingestão e LogsQL em 1 comando
 │   ├── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
 │   ├── ship-docker-stats.sh # Coleta e envio de CPU/memória de containers locais para o Vector
+│   ├── ship-docker-events.sh# Captura contínua de eventos do Docker Engine (OOM, die, crash)
 │   ├── tune-docker-host.sh  # Otimização do Docker daemon (modo non-blocking para HD)
 │   └── tune-disk-host.sh    # Assistente de diagnóstico e tuning de HD (noatime, scheduler)
 ├── skills/
@@ -385,6 +386,17 @@ O coletor Vector possui agregação multilinha nativa na fonte `docker_logs` (`m
 
   # Modo teste/dry-run (apenas gera o JSON sem enviar via HTTP)
   ./scripts/ship-docker-stats.sh --dry-run
+  ```
+- **Coletor de eventos do daemon Docker (Crashes, Restarts e OOMKilled):**
+  ```bash
+  # Escuta contínua em streaming (ideal para rodar como serviço/daemon)
+  ./scripts/ship-docker-events.sh
+
+  # Coleta retrospectiva de eventos históricos (ex: última 1 hora)
+  ./scripts/ship-docker-events.sh --since 1h
+
+  # Modo teste/dry-run
+  ./scripts/ship-docker-events.sh --since 15m --dry-run
   ```
 - **Ver logs internos da stack:**
   ```bash
