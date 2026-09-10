@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 16.0: Promoção de Campos Canônicos de Correlação no VRL (`trace_id`, `request_id`, `http_status`)
+### 📌 Tarefa 17.0: Nova Ferramenta MCP `get_context_logs` (Logs de Contexto Vizinhos ao Erro)
 
-- **Descrição:** Ajustar as configurações do Vector (`vector.yaml`, `vector.hdd.yaml`, `vector.ssd.yaml`) nos transforms `remap_docker` e `remap_http` para promover automaticamente campos de rastreabilidade comuns (`trace_id`, `requestId`, `correlation_id`, `http_status`, `duration_ms`) ao primeiro nível do payload no VictoriaLogs caso venham no JSON da aplicação, facilitando filtros LogsQL diretos pelos agentes sem parsing de texto.
-- **Sistema(s) Envolvido(s):** `vector`, `skills`
+- **Descrição:** Implementar uma 9ª ferramenta no servidor MCP (`mcp/server.py`): `get_context_logs(service, target_timestamp, window_seconds=10, limit=20)`. Ela busca automaticamente os eventos imediatamente anteriores e posteriores a um determinado timestamp/erro (incluindo logs de `info` e `debug`), permitindo que a IA entenda exatamente o que o usuário ou sistema estava fazendo nos segundos que antecederam um crash, sem a IA precisar calcular timestamps manuais com regex ou queries LogsQL complexas.
+- **Sistema(s) Envolvido(s):** `mcp`, `skills`, `tests`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,10 +23,11 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] VRL dos 3 arquivos de perfil atualizado para mapear variantes de `trace_id`, `request_id`, `status` / `http_status` e `duration_ms` como campos de primeiro nível.
-- [ ] Validação de sintaxe VRL via `vector validate` em todos os perfis.
-- [ ] Atualização do contrato na skill `victorialogs-integration` e cheat-sheet na skill `victorialogs-troubleshooting`.
-- [ ] Teste de ingestão de evento com campos de correlação e consulta via LogsQL.
+- [ ] Ferramenta `get_context_logs` implementada no MCP com schema JSON-RPC documentado.
+- [ ] Tratamento inteligente de janelas de tempo UTC em torno de `target_timestamp` (± `window_seconds`).
+- [ ] Destaque visual no output Markdown do log alvo (o ponto central do incidente).
+- [ ] Atualização do catálogo de ferramentas em `skills/victorialogs-troubleshooting/SKILL.md` e no `README.md`.
+- [ ] Testes automatizados adicionados em `scripts/test-mcp.sh` e executados com 100% de sucesso.
 
 ---
 
@@ -34,6 +35,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 16.0 | Promoção de Campos Canônicos de Correlação no VRL (`trace_id`, `request_id`, `http_status`) | `1134593` | 2026-09-10 |
 | 15.0 | Captura de Eventos do Daemon Docker (Crashes, Restarts, OOMKilled) | `10d3ffd` | 2026-09-10 |
 | 09.0 | Coletor de Consumo de Recursos Docker (`docker stats` periódico para o Vector) | `6d74351` | 2026-09-10 |
 | 14.0 | Multiline Vector: `continue_through` para não colar NDJSON ([#1](https://github.com/ye-sandbox/infra-victoria-logs/issues/1)) | `a84aa11` | 2026-09-07 |
