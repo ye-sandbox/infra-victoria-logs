@@ -75,6 +75,7 @@ flowchart LR
 │   ├── ship-docker-stats.sh # Coleta e envio de CPU/memória de containers locais para o Vector
 │   ├── ship-docker-events.sh# Captura contínua de eventos do Docker Engine (OOM, die, crash)
 │   ├── install-agent-skills.sh # Sincroniza symlinks de SKILLs com Cursor, Antigravity e outros clientes
+│   ├── install-host-collectors.sh # Registra e gerencia os coletores como serviços systemd no host
 │   ├── tune-docker-host.sh  # Otimização do Docker daemon (modo non-blocking para HD)
 │   └── tune-disk-host.sh    # Assistente de diagnóstico e tuning de HD (noatime, scheduler)
 ├── skills/
@@ -410,6 +411,17 @@ O coletor Vector possui agregação multilinha nativa na fonte `docker_logs` (`m
 
   # Pré-visualizar sem alterar o disco
   ./scripts/install-agent-skills.sh --all --dry-run
+  ```
+- **Executar coletores 24/7 no host via systemd (Stats e Events contínuos):**
+  ```bash
+  # Instalar e habilitar na inicialização do host (requer sudo)
+  sudo ./scripts/install-host-collectors.sh --install
+
+  # Ver status dos serviços dos coletores
+  ./scripts/install-host-collectors.sh --status
+
+  # Desinstalar unidades
+  sudo ./scripts/install-host-collectors.sh --uninstall
   ```
 - **Ver logs internos da stack:**
   ```bash

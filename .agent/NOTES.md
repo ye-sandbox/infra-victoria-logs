@@ -129,6 +129,12 @@
 - **Decisão:** Desenvolver `scripts/install-agent-skills.sh` com suporte a `--all`, `--cursor`, `--antigravity` e `--dry-run`, criando symlinks idempotentes (`ln -sfn`) para todas as pastas de `skills/`.
 - **Consequências:** Com 1 único comando, qualquer cliente de IA passa a enxergar as 3 skills canônicas atualizadas em tempo real a partir deste clone.
 
+### 2026-09-10 — Serviço Daemon e Automação no Host dos Coletores de Recursos e Eventos
+- **Contexto:** Os scripts `ship-docker-stats.sh` e `ship-docker-events.sh` coletam telemetria essencial de CPU/RAM e eventos de ciclo de vida (OOM kills/restarts). Se executados apenas em sessões manuais ou screen/tmux, qualquer reboot do host Proxmox ou encerramento acidental interrompia a coleta de métricas e auditoria.
+- **Decisão:** Criar `scripts/install-host-collectors.sh` para gerenciar o ciclo de vida systemd (`victoria-docker-stats.service` e `victoria-docker-events.service`), com opções de instalação (`--install`), remoção (`--uninstall`), status (`--status`) e simulação segura (`--dry-run`). As unidades configuram `Restart=always`, `RestartSec=5s`, e isolamento de segurança básico com path absoluto inferido automaticamente.
+- **Consequências:** Coleta 24/7 resiliente a reinicializações no Proxmox/Mini PC com footprint de CPU e memória desprezível (< 10 MB para os dois processos combinados).
+
+
 
 
 
