@@ -74,6 +74,7 @@ flowchart LR
 │   ├── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
 │   ├── ship-docker-stats.sh # Coleta e envio de CPU/memória de containers locais para o Vector
 │   ├── ship-docker-events.sh# Captura contínua de eventos do Docker Engine (OOM, die, crash)
+│   ├── install-agent-skills.sh # Sincroniza symlinks de SKILLs com Cursor, Antigravity e outros clientes
 │   ├── tune-docker-host.sh  # Otimização do Docker daemon (modo non-blocking para HD)
 │   └── tune-disk-host.sh    # Assistente de diagnóstico e tuning de HD (noatime, scheduler)
 ├── skills/
@@ -398,6 +399,17 @@ O coletor Vector possui agregação multilinha nativa na fonte `docker_logs` (`m
 
   # Modo teste/dry-run
   ./scripts/ship-docker-events.sh --since 15m --dry-run
+  ```
+- **Instalar e sincronizar SKILLs nos ambientes de IA (Cursor, Antigravity, etc.):**
+  ```bash
+  # Instala links simbólicos em todos os clientes detectados
+  ./scripts/install-agent-skills.sh --all
+
+  # Instalar especificamente para o Cursor IDE (~/.cursor/skills)
+  ./scripts/install-agent-skills.sh --cursor
+
+  # Pré-visualizar sem alterar o disco
+  ./scripts/install-agent-skills.sh --all --dry-run
   ```
 - **Ver logs internos da stack:**
   ```bash

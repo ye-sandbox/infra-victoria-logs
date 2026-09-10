@@ -124,6 +124,12 @@
 - **Decisão:** Implementar a 9ª ferramenta `get_context_logs(target_timestamp, service, window_seconds=15)` no MCP Server, calculando `_time:[start, end]` automaticamente, ordenando cronologicamente (`_time asc`) e aplicando marcação visual (`🎯 [ALVO / INCIDENTE]`) no segundo exato da ocorrência.
 - **Consequências:** Diagnóstico de causa-raiz imediato em 1 passo após a detecção de um traceback.
 
+### 2026-09-10 — Sincronização Automatizada de SKILLs via `install-agent-skills.sh`
+- **Contexto:** A interoperabilidade de outros repositórios da `ye-sandbox` depende de as skills canônicas deste repositório estarem disponíveis nos diretórios globais de IA do desenvolvedor (`~/.cursor/skills`, `~/.gemini/antigravity/skills`). Fazer symlinks manuais por terminal a cada atualização gerava atrito e risco de apontamentos quebrados.
+- **Decisão:** Desenvolver `scripts/install-agent-skills.sh` com suporte a `--all`, `--cursor`, `--antigravity` e `--dry-run`, criando symlinks idempotentes (`ln -sfn`) para todas as pastas de `skills/`.
+- **Consequências:** Com 1 único comando, qualquer cliente de IA passa a enxergar as 3 skills canônicas atualizadas em tempo real a partir deste clone.
+
+
 
 
 
