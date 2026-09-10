@@ -158,5 +158,19 @@ _msg:~"120363421617257978@g.us"
 "/api/v1/auth/login"
 ```
 
+### 6. Diagnóstico de Recursos de Containers (`docker-stats`)
+Com o coletor `scripts/ship-docker-stats.sh` ativo, métricas instantâneas de CPU, RAM e Limits residem no stream `service="docker-stats"`:
+```text
+# Histórico recente de consumo de um container específico:
+_stream:{service="docker-stats",container_name="meu-app"} | sort by (_time) desc | limit 20
+
+# Detectar containers com alto consumo de memória (> 85% do limite atribuído):
+_stream:{service="docker-stats"} AND mem_percent:>85
+
+# Detectar picos de CPU (> 80% de utilização):
+_stream:{service="docker-stats"} AND cpu_percent:>80
+```
+
 IDs de alta cardinalidade (`userId`, `request_id`, JID, e-mail, URL) são **campos do evento**, não dimensões de `_stream`. Filtre-os no LogsQL (com aspas) ou via `query_logs`; nunca peça para uma aplicação promover esses campos a stream (`VL-Stream-Fields`). O contrato de emissão está em `victorialogs-integration`.
+
 

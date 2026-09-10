@@ -103,6 +103,12 @@
 ### 2026-09-07 — Multiline `continue_through` (não `halt_before`) para NDJSON
 - **Contexto:** `halt_before` com `condition_pattern: '^[\s]'` acumula **todas** as linhas que não são indentadas até `timeout_ms`. Rajadas NDJSON (`{...}` por linha) no mesmo segundo viravam um único `_msg` com `}\n{`; `parse_json` falhava e a heurística de `level` herdava `error`/`warn` de um membro qualquer da rajada ([issue #1](https://github.com/ye-sandbox/infra-victoria-logs/issues/1)).
 - **Decisão:** Nos três perfis (`vector.yaml`, `vector.hdd.yaml`, `vector.ssd.yaml`), `mode: continue_through`. Linhas indentadas continuam anexadas à linha-mãe (traceback); a próxima linha não-indentada fecha o grupo imediatamente.
+
+### 2026-09-10 — Telemetria de Recursos via `ship-docker-stats.sh`
+- **Contexto:** Diagnóstico de incidentes por agentes de IA necessita de visibilidade de CPU, RAM e limites dos containers sem incorrer no consumo de memória de Prometheus/Grafana (< 150 MB total da stack).
+- **Decisão:** Desenvolver `scripts/ship-docker-stats.sh` convertendo a saída de `docker stats --no-stream` em eventos estruturados no stream `service="docker-stats"` e enviando em lote para o endpoint HTTP do Vector (`:8686/logs`). No Vector, o source `http_logs` espera formato `encoding: json` (aceitando array JSON `[...]` para lote pontual).
+- **Consequências:** Agentes de IA correlacionam quedas e lentidões diretamente no LogsQL (`_stream:{service="docker-stats",container_name="..."}` ou `mem_percent:>85`) com impacto nulo na memória da stack.
+
 - **Consequências:** Um objeto JSON por linha de stdout Docker vira um evento. Eventos já colados no VictoriaLogs não se reparam; só a ingestão nova após restart do Vector.
 
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada

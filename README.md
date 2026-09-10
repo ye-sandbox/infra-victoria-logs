@@ -72,6 +72,7 @@ flowchart LR
 │   ├── health-dashboard.sh  # Dashboard CLI colorido de telemetria ao vivo via APIs nativas
 │   ├── test-pipeline.sh     # Smoke test ponta a ponta de ingestão e LogsQL em 1 comando
 │   ├── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
+│   ├── ship-docker-stats.sh # Coleta e envio de CPU/memória de containers locais para o Vector
 │   ├── tune-docker-host.sh  # Otimização do Docker daemon (modo non-blocking para HD)
 │   └── tune-disk-host.sh    # Assistente de diagnóstico e tuning de HD (noatime, scheduler)
 ├── skills/
@@ -373,6 +374,17 @@ O coletor Vector possui agregação multilinha nativa na fonte `docker_logs` (`m
   ```bash
   # Utiliza a API nativa de snapshot do VictoriaLogs e rotaciona as cópias
   ./scripts/backup.sh
+  ```
+- **Coletor de recursos dos containers (CPU/RAM para o VictoriaLogs):**
+  ```bash
+  # Execução única (ideal para crontab)
+  ./scripts/ship-docker-stats.sh
+
+  # Modo loop daemon (ex: a cada 60s)
+  ./scripts/ship-docker-stats.sh --loop 60
+
+  # Modo teste/dry-run (apenas gera o JSON sem enviar via HTTP)
+  ./scripts/ship-docker-stats.sh --dry-run
   ```
 - **Ver logs internos da stack:**
   ```bash
