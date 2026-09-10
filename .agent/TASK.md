@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 18.0: Script de Instalação e Sincronização Global de SKILLs (`scripts/install-agent-skills.sh`)
+### 📌 Tarefa 19.0: Suporte a Alertas Nativos via vmalert
 
-- **Descrição:** Desenvolver o script `scripts/install-agent-skills.sh` que cria symlinks atômicos das skills canônicas deste repositório (`skills/*`) para os diretórios globais de descoberta de IA do ambiente (`~/.cursor/skills`, `~/.gemini/antigravity/skills` ou `~/.config/agent/skills`), permitindo que qualquer assistente de IA operando em outros repositórios da organização descubra e utilize as skills de Observabilidade imediatamente.
-- **Sistema(s) Envolvido(s):** `scripts`, `skills`, `docs`
+- **Descrição:** Avaliar e configurar o componente `vmalert` de forma minimalista para avaliação contínua de regras LogsQL contra o VictoriaLogs, gerando notificações de anomalias (ex: picos de erros 5xx ou containers reiniciando continuamente).
+- **Sistema(s) Envolvido(s):** `vmalert`, `victorialogs`, `docker-compose`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,10 +23,9 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Script `scripts/install-agent-skills.sh` com suporte a flags `--cursor`, `--antigravity`, `--all` e `--dry-run`.
-- [ ] Criação de symlinks idempotentes (`ln -sfn`) apontando para as pastas reais de `skills/`.
-- [ ] Documentação de instalação adicionada ao `README.md` e referenciada nas diretrizes do `AGENTS.md`.
-- [ ] Validação da execução e verificação dos links simbólicos criados.
+- [ ] Pesquisa de viabilidade e impacto no teto de RAM (< 150 MB total).
+- [ ] Regras de alerta de exemplo definidas com base no contrato canônico (`level:error`, `oom_killed:true`).
+- [ ] Validação do compose e documentação.
 
 ---
 
@@ -34,6 +33,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 18.0 | Script de Instalação e Sincronização Global de SKILLs (`scripts/install-agent-skills.sh`) | `a801909` | 2026-09-10 |
 | 17.0 | Nova Ferramenta MCP `get_context_logs` (Logs de Contexto Vizinhos ao Erro) | `d6f32db` | 2026-09-10 |
 | 16.0 | Promoção de Campos Canônicos de Correlação no VRL (`trace_id`, `request_id`, `http_status`) | `1134593` | 2026-09-10 |
 | 15.0 | Captura de Eventos do Daemon Docker (Crashes, Restarts, OOMKilled) | `10d3ffd` | 2026-09-10 |
