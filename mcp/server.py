@@ -23,6 +23,7 @@ import base64
 import urllib.request
 import urllib.error
 import urllib.parse
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -398,6 +399,84 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
     return "\n".join(out)
 
 
+def tool_get_context_logs(args: Dict[str, Any]) -> str:
+    """Busca eventos imediatamente anteriores e posteriores a um timestamp de incidente (contexto forense)."""
+    target_timestamp = clean_query(args.get("target_timestamp", ""))
+    service = clean_query(args.get("service", ""))
+    window_seconds = max(1, min(int(args.get("window_seconds", 15)), 120))
+    limit = max(1, min(int(args.get("limit", 30)), 100))
+    full_output = bool(args.get("full", False))
+
+    if not target_timestamp:
+        return "Erro: parâmetro 'target_timestamp' obrigatório (ex: '2026-09-10T14:18:41Z')."
+
+    # Tentar converter target_timestamp para epoch UTC
+    clean_ts = target_timestamp.replace("Z", "+00:00")
+    try:
+        if "T" in clean_ts:
+            dt = datetime.fromisoformat(clean_ts)
+        else:
+            dt = datetime.strptime(clean_ts, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except Exception as e:
+        return f"❌ Erro ao decodificar 'target_timestamp' ({target_timestamp}): {e}. Use formato ISO-8601 (ex: '2026-09-10T14:18:41Z')."
+
+    t_start = dt - timedelta(seconds=window_seconds)
+    t_end = dt + timedelta(seconds=window_seconds)
+
+    start_iso = t_start.strftime("%Y-%m-%dT%H:%M:%SZ")
+    end_iso = t_end.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    query = f"_time:[{start_iso},{end_iso}]"
+    if service:
+        query = f'{query} AND (_stream:{{container_name="{service}"}} OR _stream:{{service="{service}"}})'
+
+    query = f"{query} | sort by (_time) asc"
+
+    try:
+        resp = make_request("/select/logsql/query", {"query": query, "limit": limit})
+    except Exception as e:
+        return f"❌ Erro ao consultar contexto no LogsQL: {enrich_logsql_error(str(e), query)}"
+
+    lines = [l.strip() for l in resp.splitlines() if l.strip()]
+    if not lines:
+        target_info = f" para o serviço `{service}`" if service else ""
+        return f"ℹ️ Nenhum log encontrado na janela de ±{window_seconds}s em torno de `{target_timestamp}`{target_info}."
+
+    target_sec = dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+    out = [
+        f"### ⏱️ Contexto Forense de Logs (Janela: ±{window_seconds}s em torno de `{target_timestamp}`)",
+        f"**Filtro:** `{service or 'todos os containers'}` | **Registros recuperados:** {len(lines)}\n",
+    ]
+
+    for idx, line in enumerate(lines, 1):
+        try:
+            item = json.loads(line)
+            ts = item.get("_time") or item.get("timestamp", "")
+            lvl = (item.get("level") or "info").upper()
+            svc = item.get("service") or item.get("container_name") or "app"
+            c_name = item.get("container_name") or svc
+            msg = item.get("_msg") or item.get("message") or ""
+
+            # Destaque se o evento coincidir com o segundo alvo do incidente
+            is_target = ts.startswith(target_sec)
+            prefix = "🎯 **[ALVO / INCIDENTE]**" if is_target else f"**[{lvl}]**"
+            
+            ts_display = ts.replace("T", " ").split(".")[0]
+            out.append(f"**{idx}.** `{ts_display}` | `{c_name}` | {prefix}")
+
+            if not full_output and len(msg) > 600:
+                msg = msg[:600] + f"\n... [mensagem truncada: {len(msg)} chars totais. Use full=true para ver tudo]"
+
+            out.append("```text")
+            out.append(msg)
+            out.append("```\n")
+        except Exception:
+            out.append(f"```text\n{line}\n```\n")
+
+    return "\n".join(out)
+
+
 def tool_get_log_hits(args: Dict[str, Any]) -> str:
     """Obtém série temporal agregada de contagem de eventos via /select/logsql/hits."""
     raw_query = clean_query(args.get("query", "*"))
@@ -660,6 +739,40 @@ TOOLS = [
             },
         },
         "handler": tool_get_errors,
+    },
+    {
+        "name": "get_context_logs",
+        "description": "Recupera os eventos cronológicos imediatamente anteriores e posteriores a um timestamp de incidente (contexto forense fore/aft) para entender a causa de crashes e anomalias.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target_timestamp": {
+                    "type": "string",
+                    "description": "Timestamp exato do evento ou erro (formato ISO-8601, ex: '2026-09-10T14:18:41Z').",
+                },
+                "service": {
+                    "type": "string",
+                    "description": "Nome da aplicação ou container para filtrar o contexto (ex: 'auth-api').",
+                },
+                "window_seconds": {
+                    "type": "integer",
+                    "description": "Janela em segundos antes e depois do timestamp alvo (padrão: 15s).",
+                    "default": 15,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Máximo de eventos de contexto a retornar (padrão 30).",
+                    "default": 30,
+                },
+                "full": {
+                    "type": "boolean",
+                    "description": "Se verdadeiro, não trunca mensagens longas.",
+                    "default": False,
+                },
+            },
+            "required": ["target_timestamp"],
+        },
+        "handler": tool_get_context_logs,
     },
     {
         "name": "get_log_hits",

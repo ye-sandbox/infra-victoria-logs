@@ -119,6 +119,12 @@
 - **Decisão:** Nos 3 perfis do Vector (`vector.hdd.yaml`, `vector.ssd.yaml`, `vector.yaml`), promover no primeiro nível: `trace_id`, `request_id`, `http_status` e `duration_ms` a partir de suas variantes mais comuns, mantendo-os fora do `VL-Stream-Fields` para evitar alta cardinalidade. Refinada também a severidade de `remap_syslog` com fallback de regex de falhas.
 - **Consequências:** Agentes rastreiam transações em 1 query pontual (`request_id:"..."`) e filtram latências e erros HTTP numericamente sem consumir tokens de leitura de strings brutas.
 
+### 2026-09-10 — Ferramenta Forense `get_context_logs` no MCP
+- **Contexto:** Ao isolar uma falha via `get_errors()`, a IA frequentemente precisa entender o que aconteceu nos instantes anteriores ao erro (logs `info` e `debug` da mesma transação ou do mesmo container). Calcular janelas de tempo manualmente no LogsQL é propenso a erros de formatação de data UTC e gasta chamadas de ferramentas desnecessárias.
+- **Decisão:** Implementar a 9ª ferramenta `get_context_logs(target_timestamp, service, window_seconds=15)` no MCP Server, calculando `_time:[start, end]` automaticamente, ordenando cronologicamente (`_time asc`) e aplicando marcação visual (`🎯 [ALVO / INCIDENTE]`) no segundo exato da ocorrência.
+- **Consequências:** Diagnóstico de causa-raiz imediato em 1 passo após a detecção de um traceback.
+
+
 
 
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada

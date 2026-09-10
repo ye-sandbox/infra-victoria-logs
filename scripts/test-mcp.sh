@@ -37,11 +37,11 @@ else
 fi
 
 # 2. Testar catálogo 'tools/list'
-echo "2️⃣  Testando método 'tools/list' com as 8 ferramentas..."
+echo "2️⃣  Testando método 'tools/list' com as 9 ferramentas..."
 TOOLS_REQ='{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 TOOLS_RESP=$(echo "${TOOLS_REQ}" | python3 "${SERVER_SCRIPT}")
 
-REQUIRED_TOOLS=("health_check" "query_logs" "get_errors" "get_log_hits" "list_streams" "field_names" "field_values" "documentation")
+REQUIRED_TOOLS=("health_check" "query_logs" "get_errors" "get_context_logs" "get_log_hits" "list_streams" "field_names" "field_values" "documentation")
 for tool in "${REQUIRED_TOOLS[@]}"; do
   if echo "${TOOLS_RESP}" | grep -q "\"name\": \"${tool}\""; then
     echo "   ✅ Ferramenta registrada: '${tool}'"
@@ -65,9 +65,23 @@ else
   exit 1
 fi
 
-# 4. Testar execução de tool 'documentation' (offline, não depende de rede)
-echo "4️⃣  Testando execução de tool 'documentation' via 'tools/call'..."
-DOC_REQ='{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"documentation","arguments":{"query":"stats"}}}'
+# 4. Testar execução de tool 'get_context_logs'
+echo "4️⃣  Testando execução de tool 'get_context_logs' via 'tools/call'..."
+CTX_REQ='{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"get_context_logs","arguments":{"target_timestamp":"2026-09-10T14:18:41Z","window_seconds":10}}}'
+CTX_RESP=$(echo "${CTX_REQ}" | python3 "${SERVER_SCRIPT}")
+
+if echo "${CTX_RESP}" | grep -q '"type": "text"'; then
+  echo "   ✅ Chamada de 'get_context_logs' executada com sucesso:"
+  echo "      $(echo "${CTX_RESP}" | head -c 160)..."
+else
+  echo "❌ Falha ao chamar a ferramenta 'get_context_logs'. Resposta:"
+  echo "${CTX_RESP}"
+  exit 1
+fi
+
+# 5. Testar execução de tool 'documentation' (offline, não depende de rede)
+echo "5️⃣  Testando execução de tool 'documentation' via 'tools/call'..."
+DOC_REQ='{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"documentation","arguments":{"query":"stats"}}}'
 DOC_RESP=$(echo "${DOC_REQ}" | python3 "${SERVER_SCRIPT}")
 
 if echo "${DOC_RESP}" | grep -q "stats"; then

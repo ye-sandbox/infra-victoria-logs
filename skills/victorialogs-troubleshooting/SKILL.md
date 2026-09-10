@@ -61,7 +61,17 @@ O servidor MCP nativo do repositório (`mcp/server.py`) expõe **8 ferramentas o
   - `deduplicate`: `true` (padrão) ou `false` (para lista sequencial crua)
   - `full`: `false` (padrão, truncando tracebacks gigantes após 1.200 chars) ou `true` (stack trace 100% sem cortes)
 
-### 4. `query_logs`
+### 4. `get_context_logs` ⭐ (Contexto Forense Fore/Aft)
+- **Quando usar:** Após identificar um erro via `get_errors()`, use o timestamp exato da falha para recuperar o histórico cronológico de logs imediatamente anteriores e posteriores (incluindo `info`, `debug`, etc.), descobrindo o que o usuário ou sistema estava fazendo logo antes do crash.
+- **Destaque Visual:** O evento central alvo do incidente é automaticamente identificado com `🎯 [ALVO / INCIDENTE]`.
+- **Parâmetros:**
+  - `target_timestamp`: `"2026-09-10T14:18:41Z"` (obrigatório, aceita formato ISO-8601)
+  - `service`: `"nome-da-aplicacao"` (recomendado)
+  - `window_seconds`: `15` (padrão: 15s antes e 15s depois)
+  - `limit`: `30` (máximo de registros)
+  - `full`: `false` (padrão) ou `true`
+
+### 5. `query_logs`
 - **Quando usar:** Consultas flexíveis com LogsQL (ex: buscar um `request_id`, usuário ou texto).
 - **Parâmetros:**
   - `query`: `"120363421617257978@g.us"` ou `status:500`
