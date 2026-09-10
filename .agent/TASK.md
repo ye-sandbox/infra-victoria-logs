@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 17.0: Nova Ferramenta MCP `get_context_logs` (Logs de Contexto Vizinhos ao Erro)
+### 📌 Tarefa 18.0: Script de Instalação e Sincronização Global de SKILLs (`scripts/install-agent-skills.sh`)
 
-- **Descrição:** Implementar uma 9ª ferramenta no servidor MCP (`mcp/server.py`): `get_context_logs(service, target_timestamp, window_seconds=10, limit=20)`. Ela busca automaticamente os eventos imediatamente anteriores e posteriores a um determinado timestamp/erro (incluindo logs de `info` e `debug`), permitindo que a IA entenda exatamente o que o usuário ou sistema estava fazendo nos segundos que antecederam um crash, sem a IA precisar calcular timestamps manuais com regex ou queries LogsQL complexas.
-- **Sistema(s) Envolvido(s):** `mcp`, `skills`, `tests`
+- **Descrição:** Desenvolver o script `scripts/install-agent-skills.sh` que cria symlinks atômicos das skills canônicas deste repositório (`skills/*`) para os diretórios globais de descoberta de IA do ambiente (`~/.cursor/skills`, `~/.gemini/antigravity/skills` ou `~/.config/agent/skills`), permitindo que qualquer assistente de IA operando em outros repositórios da organização descubra e utilize as skills de Observabilidade imediatamente.
+- **Sistema(s) Envolvido(s):** `scripts`, `skills`, `docs`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,11 +23,10 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Ferramenta `get_context_logs` implementada no MCP com schema JSON-RPC documentado.
-- [ ] Tratamento inteligente de janelas de tempo UTC em torno de `target_timestamp` (± `window_seconds`).
-- [ ] Destaque visual no output Markdown do log alvo (o ponto central do incidente).
-- [ ] Atualização do catálogo de ferramentas em `skills/victorialogs-troubleshooting/SKILL.md` e no `README.md`.
-- [ ] Testes automatizados adicionados em `scripts/test-mcp.sh` e executados com 100% de sucesso.
+- [ ] Script `scripts/install-agent-skills.sh` com suporte a flags `--cursor`, `--antigravity`, `--all` e `--dry-run`.
+- [ ] Criação de symlinks idempotentes (`ln -sfn`) apontando para as pastas reais de `skills/`.
+- [ ] Documentação de instalação adicionada ao `README.md` e referenciada nas diretrizes do `AGENTS.md`.
+- [ ] Validação da execução e verificação dos links simbólicos criados.
 
 ---
 
@@ -35,6 +34,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 17.0 | Nova Ferramenta MCP `get_context_logs` (Logs de Contexto Vizinhos ao Erro) | `d6f32db` | 2026-09-10 |
 | 16.0 | Promoção de Campos Canônicos de Correlação no VRL (`trace_id`, `request_id`, `http_status`) | `1134593` | 2026-09-10 |
 | 15.0 | Captura de Eventos do Daemon Docker (Crashes, Restarts, OOMKilled) | `10d3ffd` | 2026-09-10 |
 | 09.0 | Coletor de Consumo de Recursos Docker (`docker stats` periódico para o Vector) | `6d74351` | 2026-09-10 |
