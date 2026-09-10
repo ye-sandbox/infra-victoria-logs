@@ -78,6 +78,44 @@ transforms:
         } else if exists(parsed.msg) {
           .message = string(parsed.msg) ?? msg
         }
+
+        # Promoção Canônica de Campos de Correlação
+        if exists(parsed.trace_id) {
+          .trace_id = string(parsed.trace_id) ?? null
+        } else if exists(parsed.traceId) {
+          .trace_id = string(parsed.traceId) ?? null
+        } else if exists(parsed.trace) {
+          .trace_id = string(parsed.trace) ?? null
+        }
+
+        if exists(parsed.request_id) {
+          .request_id = string(parsed.request_id) ?? null
+        } else if exists(parsed.requestId) {
+          .request_id = string(parsed.requestId) ?? null
+        } else if exists(parsed.correlation_id) {
+          .request_id = string(parsed.correlation_id) ?? null
+        } else if exists(parsed.reqId) {
+          .request_id = string(parsed.reqId) ?? null
+        }
+
+        if exists(parsed.http_status) {
+          .http_status = to_int(parsed.http_status) ?? null
+        } else if exists(parsed.statusCode) {
+          .http_status = to_int(parsed.statusCode) ?? null
+        } else if exists(parsed.status) {
+          .http_status = to_int(parsed.status) ?? null
+        }
+
+        if exists(parsed.duration_ms) {
+          .duration_ms = to_float(parsed.duration_ms) ?? null
+        } else if exists(parsed.duration) {
+          .duration_ms = to_float(parsed.duration) ?? null
+        } else if exists(parsed.latency_ms) {
+          .duration_ms = to_float(parsed.latency_ms) ?? null
+        } else if exists(parsed.elapsed_ms) {
+          .duration_ms = to_float(parsed.elapsed_ms) ?? null
+        }
+
         .structured = parsed
       } else {
         if match(msg, r'(?i)\b(fatal|panic|error|exception)\b') {
@@ -107,7 +145,16 @@ transforms:
       .env = "production"
       .container_name = "syslog"
       .stream = "syslog"
-      .level = downcase(string(.severity) ?? "info")
+      
+      syslog_msg = string(.message) ?? ""
+      base_level = downcase(string(.severity) ?? "info")
+      if match(syslog_msg, r'(?i)\b(fatal|panic|error|failed|segfault)\b') {
+        .level = "error"
+      } else if match(syslog_msg, r'(?i)\b(warn|warning)\b') {
+        .level = "warn"
+      } else {
+        .level = base_level
+      }
 
   remap_http:
     type: remap
@@ -122,6 +169,38 @@ transforms:
       .container_name = .container_name || .service
       .stream = .stream || "http"
       .level = downcase(string(.level) ?? "info")
+
+      # Promoção Canônica de Campos de Correlação
+      if exists(.trace_id) {
+        .trace_id = string(.trace_id) ?? null
+      } else if exists(.traceId) {
+        .trace_id = string(.traceId) ?? null
+      }
+
+      if exists(.request_id) {
+        .request_id = string(.request_id) ?? null
+      } else if exists(.requestId) {
+        .request_id = string(.requestId) ?? null
+      } else if exists(.correlation_id) {
+        .request_id = string(.correlation_id) ?? null
+      }
+
+      if exists(.http_status) {
+        .http_status = to_int(.http_status) ?? null
+      } else if exists(.statusCode) {
+        .http_status = to_int(.statusCode) ?? null
+      } else if exists(.status) {
+        .http_status = to_int(.status) ?? null
+      }
+
+      if exists(.duration_ms) {
+        .duration_ms = to_float(.duration_ms) ?? null
+      } else if exists(.duration) {
+        .duration_ms = to_float(.duration) ?? null
+      } else if exists(.latency_ms) {
+        .duration_ms = to_float(.latency_ms) ?? null
+      }
+
       .message = string(.message) ?? encode_json(.)
 
 # ------------------------------------------------------------------------------

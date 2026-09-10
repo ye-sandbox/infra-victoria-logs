@@ -158,6 +158,25 @@ _msg:~"120363421617257978@g.us"
 "/api/v1/auth/login"
 ```
 
+### 5.1. Rastreabilidade Distribuída e Métricas HTTP (Campos Promovidos)
+Campos estruturados extraídos automaticamente no primeiro nível:
+```text
+# Rastrear uma transação ponta a ponta pelo ID do Gateway:
+request_id:"req-checkout-98765"
+
+# Rastrear fluxo distribuído por trace_id:
+trace_id:"trace-hex-445566"
+
+# Filtrar falhas HTTP 5xx em um microserviço:
+_stream:{service="checkout-api"} AND http_status:>=500
+
+# Descobrir requisições com alta latência (> 1.5s):
+_stream:{service="checkout-api"} AND duration_ms:>1500
+
+# Agrupar total de requisições por status HTTP:
+_stream:{service="checkout-api"} | stats by (http_status) count() as total
+```
+
 ### 6. Diagnóstico de Recursos de Containers (`docker-stats`)
 Com o coletor `scripts/ship-docker-stats.sh` ativo, métricas instantâneas de CPU, RAM e Limits residem no stream `service="docker-stats"`:
 ```text

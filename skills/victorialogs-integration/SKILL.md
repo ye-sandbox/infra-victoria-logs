@@ -43,10 +43,14 @@ Toda aplicação deve preferencialmente emitir **um objeto JSON por linha (NDJSO
 | `app` | `string` | App (senão copia `service`) | Identificador do repositório/serviço |
 | `env` | `string` | App (senão `production`) | `production` ou `development` |
 | `message` | `string` | App | Texto principal do evento |
+| `trace_id` | `string` opcional | App | ID de rastreamento distribuído (`traceId`/`trace_id`) |
+| `request_id` | `string` opcional | App | ID da requisição/transação (`requestId`/`correlation_id`) |
+| `http_status` | `int` opcional | App | Código de status HTTP (`statusCode`/`status`) |
+| `duration_ms` | `float`/`int` opcional | App | Latência/duração da requisição (`duration`/`latency_ms`) |
 | `stack_trace` | `string` opcional | App | Traceback com `\n` no mesmo evento |
-| `context` / extras | campos no topo | App | `userId`, `request_id`, `status` — **não** viram stream |
+| `context` / extras | campos no topo | App | `userId`, etc. — **não** viram stream |
 
-O Vector também injeta `host`, `container_name` e `stream` (`stdout` / `stderr` / `syslog` / `http`). Se a mensagem for JSON válido, o objeto original fica em `structured`.
+O Vector também injeta `host`, `container_name` e `stream` (`stdout` / `stderr` / `syslog` / `http`), além de promover automaticamente `trace_id`, `request_id`, `http_status` e `duration_ms` para primeiro nível. Se a mensagem for JSON válido, o objeto original fica em `structured`.
 
 > **Texto puro:** se a app não emitir JSON, o Vector infere `level` por regex (`error`, `warn`, `debug`) e usa o nome do container como `service`. Funciona, mas LogsQL e o MCP (`get_errors`, filtro por `service`) ficam piores. Prefira JSON nas aplicações; **não** force JSON no syslog do Proxmox.
 

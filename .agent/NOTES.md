@@ -114,6 +114,12 @@
 - **Decisão:** Desenvolver `scripts/ship-docker-events.sh` escutando o stream de eventos do Docker Engine (`docker events --filter 'type=container'`) e normalizando ações críticas (`die`, `oom`, `kill`, `restart`) no stream `service="docker-events"`. Eventos de `die` com código 137 ou ação `oom` são automaticamente elevados a `level: "error"` com `oom_killed: true`.
 - **Consequências:** Agentes de IA diagnosticam instantaneamente quedas silenciosas e estouro de memória sem ambiguidade.
 
+### 2026-09-10 — Promoção Canônica de Campos de Correlação no VRL
+- **Contexto:** Aplicações emitem identificadores distribuídos e métricas HTTP com nomes heterogêneos (`traceId`, `statusCode`, `correlation_id`, `duration`), confinando esses dados no objeto aninhado `.structured` e impossibilitando filtros numéricos ou comparativos diretos no LogsQL (`http_status:>=500` ou `duration_ms:>1000`).
+- **Decisão:** Nos 3 perfis do Vector (`vector.hdd.yaml`, `vector.ssd.yaml`, `vector.yaml`), promover no primeiro nível: `trace_id`, `request_id`, `http_status` e `duration_ms` a partir de suas variantes mais comuns, mantendo-os fora do `VL-Stream-Fields` para evitar alta cardinalidade. Refinada também a severidade de `remap_syslog` com fallback de regex de falhas.
+- **Consequências:** Agentes rastreiam transações em 1 query pontual (`request_id:"..."`) e filtram latências e erros HTTP numericamente sem consumir tokens de leitura de strings brutas.
+
+
 
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
