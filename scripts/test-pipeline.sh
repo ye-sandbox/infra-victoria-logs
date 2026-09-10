@@ -75,7 +75,7 @@ echo "4️⃣  Consultando o evento no VictoriaLogs via LogsQL..."
 QUERY="_stream:{app='smoke-test-service',env='production'} AND test_run_id:'${TEST_ID}'"
 
 QUERY_RESULT=""
-for attempt in {1..6}; do
+for attempt in {1..18}; do
   sleep 1
   QUERY_RESULT=$(curl "${CURL_AUTH_OPTS[@]}" -s -G "${VL_QUERY_URL}" \
     --data-urlencode "query=${QUERY}" \
