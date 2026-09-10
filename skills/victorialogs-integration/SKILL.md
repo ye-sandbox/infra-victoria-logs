@@ -105,48 +105,76 @@ services:
 
 ## 🐍 Padrão 2: Aplicações Python (`py-*`)
 
-Utilize a biblioteca padrão `logging` com formatação JSON ou `structlog`. Um objeto por linha; traceback no mesmo evento:
+Para microsserviços e automações Python na `ye-sandbox`, disponibilizamos templates prontos em [`skills/victorialogs-integration/examples/`](./examples/):
+- **Loguru (Recomendado para FastAPI/scripts modernos):** [`examples/python-loguru/`](./examples/python-loguru/)
+- **Standard Library (Zero dependências):** [`examples/python-stdlib/`](./examples/python-stdlib/)
+
+### Opção A: Com `loguru` (Recomendado)
+Configure um sink customizado para garantir NDJSON canônico sem quebras de linha em stack traces:
 
 ```python
-import json
-import logging
-import sys
+import json, os, sys
+from datetime import datetime, timezone
+from loguru import logger
+
+logger.remove()
+CANONICAL = {"trace_id", "request_id", "http_status", "duration_ms", "user_id"}
+
+def _sink(msg):
+    rec = msg.record
+    dt = rec["time"].astimezone(timezone.utc)
+    event = {
+        "timestamp": dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+        "level": rec["level"].name.lower(),
+        "service": rec["extra"].get("service", os.getenv("SERVICE_NAME", "minha-app-python")),
+        "app": rec["extra"].get("app", rec["extra"].get("service", os.getenv("SERVICE_NAME", "minha-app-python"))),
+        "env": rec["extra"].get("env", os.getenv("ENV", "production")),
+        "message": rec["message"],
+    }
+    if rec["exception"]:
+        event["stack_trace"] = msg.format().strip()
+    for k, v in rec["extra"].items():
+        if k in CANONICAL:
+            event[k] = v
+    sys.stdout.write(json.dumps(event, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+
+logger.add(_sink, format="{message}")
+
+# Uso com rastreamento e métricas:
+req_log = logger.bind(trace_id="tr-123", request_id="req-456")
+req_log.bind(http_status=200, duration_ms=45.2).info("Requisição processada com sucesso")
+```
+
+### Opção B: Com biblioteca padrão (`logging`)
+```python
+import json, logging, os, sys
 from datetime import datetime, timezone
 
-class JsonFormatter(logging.Formatter):
+class VictoriaLogsJsonFormatter(logging.Formatter):
     def format(self, record):
-        log_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+        dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
+        event = {
+            "timestamp": dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
             "level": record.levelname.lower(),
-            "service": "minha-app-python",
-            "app": "minha-app-python",
-            "env": "production",
+            "service": getattr(record, "service", os.getenv("SERVICE_NAME", "minha-app-python")),
+            "app": getattr(record, "app", getattr(record, "service", os.getenv("SERVICE_NAME", "minha-app-python"))),
+            "env": getattr(record, "env", os.getenv("ENV", "production")),
             "message": record.getMessage(),
         }
         if record.exc_info:
-            log_entry["stack_trace"] = self.formatException(record.exc_info)
-            log_entry["message"] += "\n" + log_entry["stack_trace"]
-        reserved = {
-            "name", "msg", "args", "levelname", "levelno", "pathname", "filename",
-            "module", "exc_info", "exc_text", "stack_info", "lineno", "funcName",
-            "created", "msecs", "relativeCreated", "thread", "threadName",
-            "processName", "process", "message", "taskName",
-        }
-        for key, value in record.__dict__.items():
-            if key not in reserved and key not in log_entry:
-                log_entry[key] = value
-        return json.dumps(log_entry, ensure_ascii=False)
+            event["stack_trace"] = self.formatException(record.exc_info)
+            event["message"] += "\n" + event["stack_trace"]
+        for key in ("trace_id", "request_id", "http_status", "duration_ms"):
+            if hasattr(record, key):
+                event[key] = getattr(record, key)
+        return json.dumps(event, ensure_ascii=False)
 
 handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(JsonFormatter())
+handler.setFormatter(VictoriaLogsJsonFormatter())
 logging.basicConfig(level=logging.INFO, handlers=[handler])
-
 logger = logging.getLogger("app")
-logger.info("Servidor iniciado com sucesso")
-try:
-    1 / 0
-except Exception:
-    logger.error("Erro no processamento da requisição", extra={"request_id": "abc"}, exc_info=True)
+logger.info("Servidor iniciado", extra={"request_id": "abc", "trace_id": "xyz"})
 ```
 
 ---
@@ -154,6 +182,7 @@ except Exception:
 ## 🟨 Padrão 3: Aplicações Node.js / TypeScript (`js-*`)
 
 Utilize `pino` em JSON puro. **Não** configure `pino-pretty` em produção.
+Template completo disponível em [`examples/nodejs-pino/`](./examples/nodejs-pino/).
 
 ```typescript
 import pino from 'pino';
@@ -165,22 +194,26 @@ export const logger = pino({
     level: (label) => ({ level: label }),
   },
   base: {
-    service: 'minha-app-node',
-    app: 'minha-app-node',
+    service: process.env.SERVICE_NAME || 'minha-app-node',
+    app: process.env.SERVICE_NAME || 'minha-app-node',
     env: process.env.NODE_ENV === 'development' ? 'development' : 'production',
   },
-  timestamp: pino.stdTimeFunctions.isoTime,
+  timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
 });
 
-logger.info('Serviço escutando na porta 3000');
-logger.error({ err: new Error('Falha de conexão com a API externa'), request_id: 'abc' }, 'Erro de integração');
+// Log com correlação de requisição
+logger.child({ request_id: 'req-123', trace_id: 'tr-abc' }).info(
+  { http_status: 200, duration_ms: 15.4 },
+  'Requisição finalizada'
+);
 ```
 
 ---
 
 ## 🔵 Padrão 4: Aplicações Go
 
-Utilize o pacote padrão `log/slog` com JSONHandler:
+Utilize o pacote padrão `log/slog` com `JSONHandler`.
+Template completo disponível em [`examples/go-slog/`](./examples/go-slog/).
 
 ```go
 package main
@@ -188,19 +221,22 @@ package main
 import (
     "log/slog"
     "os"
+    "strings"
+    "time"
 )
 
 func main() {
     handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
         ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-            if a.Key == slog.MessageKey {
+            switch a.Key {
+            case slog.MessageKey:
                 a.Key = "message"
-            }
-            if a.Key == slog.LevelKey {
+            case slog.LevelKey:
                 a.Key = "level"
-            }
-            if a.Key == slog.TimeKey {
+                a.Value = slog.StringValue(strings.ToLower(a.Value.String()))
+            case slog.TimeKey:
                 a.Key = "timestamp"
+                a.Value = slog.StringValue(a.Value.Time().UTC().Format(time.RFC3339Nano))
             }
             return a
         },
@@ -211,8 +247,12 @@ func main() {
     })
 
     logger := slog.New(handler)
-    logger.Info("Worker Go inicializado")
-    logger.Error("Conexão recusada ao banco", "db_host", "192.168.1.50", "request_id", "abc")
+    logger.Info("Transação concluída",
+        slog.String("trace_id", "tr-go-1"),
+        slog.String("request_id", "req-go-1"),
+        slog.Int("http_status", 200),
+        slog.Float64("duration_ms", 22.5),
+    )
 }
 ```
 

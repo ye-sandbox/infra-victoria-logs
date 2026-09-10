@@ -81,6 +81,7 @@ flowchart LR
 ├── skills/
 │   ├── github-bug-issue/              # Skill para abrir issue GitHub com ponteiro VictoriaLogs (fila, não TASK.md)
 │   ├── victorialogs-integration/      # Skill ensinando IA a plugar aplicações (Python, Node, Go, Docker)
+│   │   └── examples/                  # Templates plug-and-play (Python Loguru/stdlib, Node Pino, Go slog)
 │   └── victorialogs-troubleshooting/  # Skill ensinando IA o playbook de investigação de erros/SRE
 ├── tests/
 │   └── test_mcp_error_enricher.py     # Testes unitários de sanitização e dicas contextuais do MCP
@@ -476,7 +477,8 @@ O repositório inclui SKILLs canônicas, versionadas **neste** Git. Não as dupl
 
 1. **[`skills/victorialogs-integration`](./skills/victorialogs-integration/SKILL.md):**
    - Contrato de emissão: NDJSON (um JSON por linha), campos canônicos, stream fields vs IDs de alta cardinalidade, traceback, syslog e anti-padrões (`pino-pretty`, healthchecks no HDD).
-   - Snippets para **Docker Compose**, **Python**, **Node.js** (`pino`), **Go** (`slog`), **Bash** (`curl`) e **Proxmox** (`rsyslog`).
+   - **Templates Plug-and-Play (`examples/`):** Códigos completos e testados para **Python com Loguru**, **Python stdlib**, **Node.js com Pino** e **Go com Slog**, com suporte nativo a rastreamento distribuído (`trace_id`, `request_id`, `http_status`, `duration_ms`).
+   - Snippets para **Docker Compose**, **Bash** (`curl`) e **Proxmox** (`rsyslog`).
 2. **[`skills/victorialogs-troubleshooting`](./skills/victorialogs-troubleshooting/SKILL.md):**
    - Playbook de SRE para investigar incidentes via MCP e LogsQL (consulta, não emissão).
 3. **[`skills/github-bug-issue`](./skills/github-bug-issue/SKILL.md):**

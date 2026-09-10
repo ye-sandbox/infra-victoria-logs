@@ -1,0 +1,12 @@
+{
+  "name": "example-nodejs-pino",
+  "version": "1.0.0",
+  "description": "Template de logging Pino para VictoriaLogs + Vector",
+  "main": "logger.js",
+  "scripts": {
+    "start": "node example.js"
+  },
+  "dependencies": {
+    "pino": "^9.0.0"
+  }
+}

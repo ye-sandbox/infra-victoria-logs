@@ -132,12 +132,13 @@
 ### 2026-09-10 — Serviço Daemon e Automação no Host dos Coletores de Recursos e Eventos
 - **Contexto:** Os scripts `ship-docker-stats.sh` e `ship-docker-events.sh` coletam telemetria essencial de CPU/RAM e eventos de ciclo de vida (OOM kills/restarts). Se executados apenas em sessões manuais ou screen/tmux, qualquer reboot do host Proxmox ou encerramento acidental interrompia a coleta de métricas e auditoria.
 - **Decisão:** Criar `scripts/install-host-collectors.sh` para gerenciar o ciclo de vida systemd (`victoria-docker-stats.service` e `victoria-docker-events.service`), com opções de instalação (`--install`), remoção (`--uninstall`), status (`--status`) e simulação segura (`--dry-run`). As unidades configuram `Restart=always`, `RestartSec=5s`, e isolamento de segurança básico com path absoluto inferido automaticamente.
+
 - **Consequências:** Coleta 24/7 resiliente a reinicializações no Proxmox/Mini PC com footprint de CPU e memória desprezível (< 10 MB para os dois processos combinados).
 
-
-
-
-
+### 2026-09-10 — Templates de Logging Canônico Plug-and-Play (Loguru, Pino, Slog)
+- **Contexto:** Desenvolvedores e agentes de IA integrando novos microsserviços na organização `ye-sandbox` implementavam pipelines de logging com formatos inconsistentes (quebras de linha avulsas em traceback quebrando o parser JSON do Vector, níveis de log em maiúsculas, chaves de rastreamento com nomes divergentes como `cid`, `traceId`, `statusCode`).
+- **Decisão:** Criar biblioteca de templates plug-and-play em `skills/victorialogs-integration/examples/` para Python (**Loguru** com sink customizado e stdlib pura), Node.js (**Pino**) e Go (**slog**). Todos garantem NDJSON rigoroso (1 linha JSON), timestamps UTC ISO-8601, injeção de `service`/`app`/`env`, e os campos canônicos promovidos (`trace_id`, `request_id`, `http_status`, `duration_ms`).
+- **Consequências:** Eliminação de erros de parsing no coletor e máxima agilidade para novas aplicações gerarem logs compatíveis com o ecossistema e ferramentas forenses do MCP em 1 clique.
 
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
