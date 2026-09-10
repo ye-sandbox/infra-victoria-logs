@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 15.0: Captura de Eventos do Daemon Docker (Crashes, Restarts, OOMKilled)
+### 📌 Tarefa 16.0: Promoção de Campos Canônicos de Correlação no VRL (`trace_id`, `request_id`, `http_status`)
 
-- **Descrição:** Desenvolver coletor contínuo de eventos do Docker Engine (`docker events --filter 'event=die' --filter 'event=oom' --filter 'event=restart'`) via script/sidecar (`scripts/ship-docker-events.sh`) enviando eventos para o Vector (`:8686/logs`), permitindo que agentes identifiquem instantaneamente containers mortos por OOM (Exit 137) ou crashes silenciosos que não emitem erro no stdout.
-- **Sistema(s) Envolvido(s):** `scripts`, `vector`, `docker`, `skills`
+- **Descrição:** Ajustar as configurações do Vector (`vector.yaml`, `vector.hdd.yaml`, `vector.ssd.yaml`) nos transforms `remap_docker` e `remap_http` para promover automaticamente campos de rastreabilidade comuns (`trace_id`, `requestId`, `correlation_id`, `http_status`, `duration_ms`) ao primeiro nível do payload no VictoriaLogs caso venham no JSON da aplicação, facilitando filtros LogsQL diretos pelos agentes sem parsing de texto.
+- **Sistema(s) Envolvido(s):** `vector`, `skills`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,10 +23,10 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Script `scripts/ship-docker-events.sh` desenvolvido para escutar `docker events` em streaming e enviar em formato JSON para o Vector.
-- [ ] Eventos de `oom` e `die` com código != 0 mapeados com `level: error` e detalhes do container e exitCode.
-- [ ] Documentação de uso adicionada ao `README.md` e referenciada nas SKILLs.
-- [ ] Testes de simulação de queda de container e validação via LogsQL.
+- [ ] VRL dos 3 arquivos de perfil atualizado para mapear variantes de `trace_id`, `request_id`, `status` / `http_status` e `duration_ms` como campos de primeiro nível.
+- [ ] Validação de sintaxe VRL via `vector validate` em todos os perfis.
+- [ ] Atualização do contrato na skill `victorialogs-integration` e cheat-sheet na skill `victorialogs-troubleshooting`.
+- [ ] Teste de ingestão de evento com campos de correlação e consulta via LogsQL.
 
 ---
 
@@ -34,6 +34,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 15.0 | Captura de Eventos do Daemon Docker (Crashes, Restarts, OOMKilled) | `10d3ffd` | 2026-09-10 |
 | 09.0 | Coletor de Consumo de Recursos Docker (`docker stats` periódico para o Vector) | `6d74351` | 2026-09-10 |
 | 14.0 | Multiline Vector: `continue_through` para não colar NDJSON ([#1](https://github.com/ye-sandbox/infra-victoria-logs/issues/1)) | `a84aa11` | 2026-09-07 |
 | 00.1 | Setup inicial da arquitetura e template do repositório | `67ed939` | 2026-09-01 |
