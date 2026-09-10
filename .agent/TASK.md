@@ -12,23 +12,21 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 20.0: Templates de Logging Canônico Plug-and-Play (Python com Loguru + Node.js Pino + Go Slog)
+### 📌 Tarefa 21.0: Suporte a Alertas Nativos via vmalert Conectado ao VictoriaLogs
 
-- **Descrição:** Criar biblioteca de exemplos e snippets de logging canônico plug-and-play em `skills/victorialogs-integration/examples/` cobrindo Python (com destaque e ênfase no **Loguru** + logging padrão/structlog), Node.js (Pino) e Go (slog). Os snippets devem configurar emissão NDJSON em stdout compatível com o Vector, preenchendo automaticamente `trace_id`, `request_id`, `http_status`, `duration_ms` e serialização correta de tracebacks/exceções para que desenvolvedores e agentes possam copiar e colar sem atrito em novos microsserviços.
-- **Sistema(s) Envolvido(s):** `skills`, `docs`, `python`, `nodejs`, `golang`
+- **Descrição:** Avaliar e configurar o componente oficial ultra-leve `vmalert` conectado ao VictoriaLogs (via LogsQL alerts) para emitir alertas automáticos em caso de picos de erro (`error > 10 em 5m`), falhas de containers (OOM / exit != 0 capturados pelo coletor de eventos) ou contenção de recursos, com webhook/notificação configurável e mantendo o limite estrito de memória da stack.
+- **Sistema(s) Envolvido(s):** `vmalert`, `docker-compose`, `docs`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
-- **Status:** EM PLANEJAMENTO
+- **Status:** PRONTO PARA PLANEJAMENTO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Template Python com **Loguru** (`skills/victorialogs-integration/examples/python-loguru/logger.py`) emitindo NDJSON formatado com campos canônicos (`timestamp`, `level`, `app`, `env`, `message`, `trace_id`, `request_id`, `http_status`, `duration_ms` e `stack_trace` serializado sem quebrar NDJSON).
-- [ ] Template Node.js com **Pino** (`skills/victorialogs-integration/examples/nodejs-pino/logger.js`) emitindo NDJSON canônico.
-- [ ] Template Go com **Slog** (`skills/victorialogs-integration/examples/go-slog/main.go`) emitindo NDJSON canônico com `slog.NewJSONHandler`.
-- [ ] Atualização e sincronização da skill `skills/victorialogs-integration/SKILL.md` referenciando os templates prontos.
-- [ ] Atualização do `README.md` refletindo a nova pasta de templates/exemplos.
-- [ ] Teste de execução/validação sintática dos templates (Python executa gerando NDJSON válido que passa pelo `json.loads`).
+- [ ] Configuração opcional/perfil do `vmalert` consumindo queries LogsQL de alertas no VictoriaLogs.
+- [ ] Regras de alerta essenciais (`high_error_rate`, `container_oom_killed`, `high_latency`).
+- [ ] Documentação completa no `README.md` e `.agent/NOTES.md`.
+- [ ] Validação de sintaxe e baixo consumo de recursos (< 25 MB de RAM).
 
 ---
 
@@ -36,6 +34,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 20.0 | Templates de Logging Canônico Plug-and-Play (Loguru, Stdlib, Pino, Slog) | `5c2b1c6` | 2026-09-10 |
 | 19.0 | Serviço Daemon e Automação no Host dos Coletores de Recursos e Eventos (`install-host-collectors.sh`) | `addaa90` | 2026-09-10 |
 | 18.0 | Script de Instalação e Sincronização Global de SKILLs (`scripts/install-agent-skills.sh`) | `a801909` | 2026-09-10 |
 | 17.0 | Nova Ferramenta MCP `get_context_logs` (Logs de Contexto Vizinhos ao Erro) | `d6f32db` | 2026-09-10 |
@@ -68,7 +67,6 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] Tarefa 21.0: Suporte a Alertas Nativos via vmalert conectado ao VictoriaLogs
 - [ ] Tarefa 22.0: Enriquecimento de logs com GeoIP para tráfego web Nginx/Traefik
 
 ---
