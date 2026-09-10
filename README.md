@@ -192,6 +192,7 @@ O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py))
 
 `.cursor/` é **local e está no `.gitignore`**. Não versione `mcp.json`: ele aponta para o host onde *você* alcança o VictoriaLogs e pode receber credenciais de Basic Auth.
 
+##### 1. No Cursor e Claude Desktop:
 Crie `.cursor/mcp.json` neste workspace (ou `~/.cursor/mcp.json` / `%USERPROFILE%\.cursor\mcp.json` para todos os projetos). O mesmo bloco serve no Claude Desktop (`claude_desktop_config.json`):
 
 ```json
@@ -209,7 +210,24 @@ Crie `.cursor/mcp.json` neste workspace (ou `~/.cursor/mcp.json` / `%USERPROFILE
 }
 ```
 
-Use `http://127.0.0.1:9428` só se o VictoriaLogs estiver no mesmo host do cliente. Se a stack roda numa VM e o Cursor na sua workstation, `localhost` falha — copie `VICTORIALOGS_URL` do seu `.env` local. Recarregue a janela do Cursor e confira o status em **Customize → MCP**.
+##### 2. No Antigravity:
+Configure o arquivo global `~/.gemini/config/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "victorialogs": {
+      "command": "/usr/bin/python3",
+      "args": ["/caminho/absoluto/para/infra-victoria-logs/mcp/server.py"],
+      "env": {
+        "VICTORIALOGS_URL": "http://<IP_DO_MINI_PC>:9428"
+      }
+    }
+  }
+}
+```
+
+Use `http://127.0.0.1:9428` só se o VictoriaLogs estiver no mesmo host do cliente. Se a stack roda numa VM e o cliente na sua workstation, `localhost` falha — copie `VICTORIALOGS_URL` do seu `.env` local. Recarregue a janela do cliente e confira o status das ferramentas MCP.
 
 **Testar o servidor MCP manualmente:**
 ```bash
