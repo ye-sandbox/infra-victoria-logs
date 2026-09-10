@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 09.0: Coletor de Consumo de Recursos Docker (`docker stats` periódico para o Vector)
+### 📌 Tarefa 15.0: Captura de Eventos do Daemon Docker (Crashes, Restarts, OOMKilled)
 
-- **Descrição:** Desenvolver um script/utilitário em shell ou container minúsculo (`scripts/ship-docker-stats.sh`) que captura métricas instantâneas de CPU e memória dos containers locais via `docker stats --no-stream` e envia como logs estruturados para o endpoint HTTP do Vector (`:8686/logs`), permitindo que VictoriaLogs e Agentes de IA monitorem o uso de recursos dos containers sem subir Prometheus/Grafana.
-- **Sistema(s) Envolvido(s):** `scripts`, `vector`, `docker`
+- **Descrição:** Desenvolver coletor contínuo de eventos do Docker Engine (`docker events --filter 'event=die' --filter 'event=oom' --filter 'event=restart'`) via script/sidecar (`scripts/ship-docker-events.sh`) enviando eventos para o Vector (`:8686/logs`), permitindo que agentes identifiquem instantaneamente containers mortos por OOM (Exit 137) ou crashes silenciosos que não emitem erro no stdout.
+- **Sistema(s) Envolvido(s):** `scripts`, `vector`, `docker`, `skills`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,10 +23,10 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Script `scripts/ship-docker-stats.sh` implementado para capturar `docker stats` em formato JSON e enviar para o Vector.
-- [ ] Suporte a execução em cron job ou em loop daemon com intervalo customizável (ex: a cada 60s).
+- [ ] Script `scripts/ship-docker-events.sh` desenvolvido para escutar `docker events` em streaming e enviar em formato JSON para o Vector.
+- [ ] Eventos de `oom` e `die` com código != 0 mapeados com `level: error` e detalhes do container e exitCode.
 - [ ] Documentação de uso adicionada ao `README.md` e referenciada nas SKILLs.
-- [ ] Testes de envio e consulta via LogsQL.
+- [ ] Testes de simulação de queda de container e validação via LogsQL.
 
 ---
 
@@ -34,6 +34,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 09.0 | Coletor de Consumo de Recursos Docker (`docker stats` periódico para o Vector) | `6d74351` | 2026-09-10 |
 | 14.0 | Multiline Vector: `continue_through` para não colar NDJSON ([#1](https://github.com/ye-sandbox/infra-victoria-logs/issues/1)) | `a84aa11` | 2026-09-07 |
 | 00.1 | Setup inicial da arquitetura e template do repositório | `67ed939` | 2026-09-01 |
 | 01.0 | Setup da Stack de Observabilidade Minimalista (VictoriaLogs + Vector) | `dba7608` | 2026-09-02 |
