@@ -76,6 +76,7 @@ flowchart LR
 │   ├── logsql-queries.sh    # Consultas analíticas pré-definidas (Top erros, latência, HTTP status)
 │   ├── manage-partitions.sh # Gestão, auditoria, projeção e purga emergencial de partições
 │   ├── check-disk-growth.sh # Checagem periódica (cron) e alerta de crescimento em disco
+│   ├── run-maintenance-pipeline.sh # Orquestrador diário unificado (checagem + backup + smoke test)
 │   ├── test-pipeline.sh     # Smoke test ponta a ponta de ingestão e LogsQL em 1 comando
 │   ├── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
 │   ├── ship-docker-stats.sh # Coleta e envio de CPU/memória de containers locais para o Vector
@@ -452,6 +453,21 @@ O coletor Vector possui agregação multilinha nativa na fonte `docker_logs` (`m
   # Verificar status ou remover agendamento
   ./scripts/check-disk-growth.sh --status-cron
   ./scripts/check-disk-growth.sh --uninstall-cron
+  ```
+- **Orquestrador Unificado de Manutenção Diária (`run-maintenance-pipeline.sh`):**
+  ```bash
+  # Executar rotina completa (checagem de disco + snapshot atômico + smoke test)
+  ./scripts/run-maintenance-pipeline.sh
+
+  # Simulação sem escrita em disco (dry-run)
+  ./scripts/run-maintenance-pipeline.sh --dry-run
+
+  # Registrar no crontab para execução diária automática (às 03:00 UTC)
+  ./scripts/run-maintenance-pipeline.sh --install-cron
+
+  # Consultar ou desinstalar agendamento
+  ./scripts/run-maintenance-pipeline.sh --status-cron
+  ./scripts/run-maintenance-pipeline.sh --uninstall-cron
   ```
 - **Validar saúde do pipeline (Smoke Test):**
   ```bash

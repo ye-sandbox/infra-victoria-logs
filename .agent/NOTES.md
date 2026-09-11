@@ -175,6 +175,11 @@
 - **Decisão:** Criar modelo JSON oficial modular (`dashboards/grafana-victorialogs.json`) com variável dinâmica de data source (`${DS_PROMETHEUS}`), organizado em 3 linhas colapsáveis: 1) Visão Geral & Saúde da Stack (Status Online/Offline, volume total, linhas ingeridas); 2) Vazão e Performance (Logs/s e Bytes/s no VictoriaLogs e Vector); 3) Pipeline Vector & Concorrência (Buscas LogsQL ativas vs capacidade máxima, e contagem de erros de pipeline).
 - **Consequências:** Importação em 1 clique em qualquer Grafana existente com visualização rica e zero configuração manual.
 
+### 2026-09-11 — Rotina de Teste Automatizado de Integridade e Snapshot Diário (`run-maintenance-pipeline.sh`)
+- **Contexto:** Evitar a dispersão de múltiplas rotinas no crontab e garantir que os 3 pilares de governança (auditoria de disco, backup consistente e validação de buscas LogsQL) rodem de forma coordenada e sequencial.
+- **Decisão:** Implementar o orquestrador `scripts/run-maintenance-pipeline.sh` que encadeia `check-disk-growth.sh` -> `backup.sh` -> `test-pipeline.sh`, abortando preventivamente o backup caso o disco esteja em nível crítico, e emitindo evento estruturado de telemetria consolidada para o Vector na porta 8686. O utilitário inclui comandos de instalação no crontab (`--install-cron` às 03:00 UTC) e simulação (`--dry-run`).
+- **Consequências:** Operação 100% autônoma e resiliente no homelab com rastreabilidade completa e zero manutenção manual diária.
+
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
 - **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.
