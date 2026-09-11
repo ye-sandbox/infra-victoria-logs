@@ -64,6 +64,7 @@ flowchart LR
 ├── vector/
 │   ├── vector.hdd.yaml      # Perfil HD mecânico (buffer em RAM, 2MB batch, filtro de pings)
 │   ├── vector.ssd.yaml      # Perfil SSD/NVMe (buffer em disco, 1MB batch, 100% retenção)
+│   ├── vector.geoip.yaml    # Perfil GeoIP (enriquecimento com MaxMind GeoLite2 para tráfego web)
 │   └── vector.yaml          # Perfil base / fallback de configuração
 ├── mcp/
 │   └── server.py            # Servidor MCP stdio nativo para integração direta com Agentes de IA
@@ -74,6 +75,7 @@ flowchart LR
 │   ├── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
 │   ├── ship-docker-stats.sh # Coleta e envio de CPU/memória de containers locais para o Vector
 │   ├── ship-docker-events.sh# Captura contínua de eventos do Docker Engine (OOM, die, crash)
+│   ├── download-geolite2.sh # Download e atualização da base MaxMind GeoLite2 City (.mmdb)
 │   ├── install-agent-skills.sh # Sincroniza symlinks de SKILLs com Cursor, Antigravity e outros clientes
 │   ├── install-host-collectors.sh # Registra e gerencia os coletores como serviços systemd no host
 │   ├── tune-docker-host.sh  # Otimização do Docker daemon (modo non-blocking para HD)
@@ -269,14 +271,20 @@ curl -X POST http://<IP_DO_MINI_PC>:8686/logs \
 
 O projeto inclui perfis dinâmicos selecionáveis através da variável `STORAGE_PROFILE` no `.env`. Essa escolha calibra automaticamente o pipeline para a mídia de armazenamento do seu Mini PC / servidor:
 
-| Recurso / Comportamento | 💾 Modo HD (`STORAGE_PROFILE=hdd`) | ⚡ Modo SSD (`STORAGE_PROFILE=ssd`) |
-|---|---|---|
-| **Foco Operacional** | **Minimizar IOPS e evitar I/O Wait** | **Baixa latência de busca e persistência** |
-| **Buffer do Vector** | `memory` (RAM, máx 10.000 eventos) — *Zero escrita dupla no HD mecânico* | `disk` (256 MB persistentes no volume) — *Máxima resiliência contra quedas* |
-| **Lotes de Envio (`batch`)** | `2 MB` / `15s` — *Gera gravações sequenciais consolidadas e corta I/O contínuo* | `1 MB` / `1s` — *Logs disponíveis para busca quase instantaneamente* |
-| **Filtro de Ruído no Edge** | **Ativo** — *Descarta pings vazios (`/health`, `/ping`) para poupar disco* | **Desativado** — *Ingestão de 100% dos logs* |
-| **Flush em Memória (VL)** | `15s` (`VL_INMEMORY_FLUSH_INTERVAL=15s`) — *Reduz merges e fragmentação no HD* | `5s` (`VL_INMEMORY_FLUSH_INTERVAL=5s`) — *Disponibilização rápida no disco* |
-| **Concorrência de Busca (VL)**| `2 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=2`) | `4 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=4`) |
+| Recurso / Comportamento | 💾 Modo HD (`STORAGE_PROFILE=hdd`) | ⚡ Modo SSD (`STORAGE_PROFILE=ssd`) | 🌍 Modo GeoIP (`STORAGE_PROFILE=geoip`) |
+|---|---|---|---|
+| **Foco Operacional** | **Minimizar IOPS e evitar I/O Wait** | **Baixa latência de busca e persistência** | **Enriquecimento com MaxMind GeoLite2** |
+| **Buffer do Vector** | `memory` (RAM, máx 10.000 eventos) — *Zero escrita dupla no HD mecânico* | `disk` (256 MB persistentes no volume) — *Máxima resiliência contra quedas* | `memory` (5.000 eventos) — *Lookup em RAM de alta velocidade* |
+| **Lotes de Envio (`batch`)** | `2 MB` / `15s` — *Gera gravações sequenciais consolidadas e corta I/O contínuo* | `1 MB` / `1s` — *Logs disponíveis para busca quase instantaneamente* | `1 MB` / `2s` — *Equilíbrio entre latência e throughput* |
+| **Enriquecimento GeoIP** | Desativado (economia de memória) | Desativado (economia de memória) | **Ativo** (extrai país, cidade e ISO de `client_ip`) |
+| **Filtro de Ruído no Edge** | **Ativo** — *Descarta pings vazios (`/health`, `/ping`) para poupar disco* | **Desativado** — *Ingestão de 100% dos logs* | **Desativado** — *Ingestão integral de tráfego web* |
+| **Flush em Memória (VL)** | `15s` (`VL_INMEMORY_FLUSH_INTERVAL=15s`) — *Reduz merges e fragmentação no HD* | `5s` (`VL_INMEMORY_FLUSH_INTERVAL=5s`) — *Disponibilização rápida no disco* | `15s` |
+| **Concorrência de Busca (VL)**| `2 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=2`) | `4 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=4`) | `2 buscas simultâneas` |
+
+> **Como ativar o perfil GeoIP:**
+> 1. Baixe o banco MaxMind: `./scripts/download-geolite2.sh`
+> 2. No `.env`, configure `STORAGE_PROFILE=geoip`
+> 3. Reinicie a stack: `docker compose up -d`
 
 > **Dica para usuários de HD mecânico:** Mantenha o modo `hdd` ativo para evitar que a agulha do disco sofra com *head thrashing* por concorrência entre o buffer e o banco.
 

@@ -60,6 +60,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./vector/vector.${STORAGE_PROFILE:-hdd}.yaml:/etc/vector/vector.yaml:ro
+      - ./vector:/etc/vector:ro
       - vector_data:/var/lib/vector
     networks:
       - logging-network

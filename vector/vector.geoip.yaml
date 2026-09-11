@@ -1,0 +1,254 @@
+# ==============================================================================
+# Vector Configuration — Profile: GeoIP Enrichment (Tráfego Web Nginx/Traefik)
+# ==============================================================================
+# Otimizado para enriquecimento geográfico em tempo real com MaxMind GeoLite2:
+# - Carrega a base binária GeoLite2-City.mmdb via enrichment_tables.
+# - Extrai latitude, longitude, país, código ISO e cidade de IPs públicos (client_ip, remote_addr, ip).
+# - Ignora faixas privadas de IP (RFC 1918: 10.x, 192.168.x, 172.16-31.x, 127.x).
+# - Preserva os limites rígidos de stream fields (campos geo residem no evento).
+# ==============================================================================
+
+data_dir: /var/lib/vector
+
+# ------------------------------------------------------------------------------
+# ENRICHMENT TABLES (MaxMind GeoLite2 City)
+# ------------------------------------------------------------------------------
+enrichment_tables:
+  geoip_table:
+    type: geoip
+    path: /etc/vector/GeoLite2-City.mmdb
+
+# ------------------------------------------------------------------------------
+# SOURCES (Entradas de Logs)
+# ------------------------------------------------------------------------------
+sources:
+  docker_logs:
+    type: docker_logs
+    exclude_containers:
+      - vector
+    auto_partial_merge: true
+    multiline:
+      start_pattern: '^[\S]'
+      condition_pattern: '^[\s]'
+      mode: continue_through
+      timeout_ms: 1000
+
+  syslog_udp:
+    type: syslog
+    mode: udp
+    address: 0.0.0.0:5140
+
+  http_logs:
+    type: http_server
+    address: 0.0.0.0:8686
+    path: /logs
+    encoding: json
+
+  vector_metrics:
+    type: internal_metrics
+    namespace: vector
+    scrape_interval_secs: 15
+
+# ------------------------------------------------------------------------------
+# TRANSFORMS (Normalização, Enriquecimento e GeoIP via VRL)
+# ------------------------------------------------------------------------------
+transforms:
+  remap_docker:
+    type: remap
+    inputs:
+      - docker_logs
+    source: |
+      msg = string(.message) ?? ""
+
+      .timestamp = .timestamp || now()
+      .host = get_env_var("HOST_IDENTIFIER") ?? "unknown-host"
+      .container_name = .container_name || "unknown"
+      .stream = .stream || "stdout"
+      
+      # Tenta decodificar JSON caso a aplicação emita logs estruturados
+      parsed, err = parse_json(msg)
+      if err == null {
+        if exists(parsed.level) {
+          .level = downcase(string(parsed.level) ?? "info")
+        }
+        if exists(parsed.app) {
+          .app = downcase(string(parsed.app) ?? "unknown")
+          .service = .app
+        }
+        if exists(parsed.env) {
+          .env = downcase(string(parsed.env) ?? "production")
+        }
+        if exists(parsed.message) {
+          .message = string(parsed.message) ?? msg
+        } else if exists(parsed.msg) {
+          .message = string(parsed.msg) ?? msg
+        }
+
+        # Promoção Canônica de Campos de Correlação
+        if exists(parsed.trace_id) {
+          .trace_id = string(parsed.trace_id) ?? null
+        } else if exists(parsed.traceId) {
+          .trace_id = string(parsed.traceId) ?? null
+        }
+
+        if exists(parsed.request_id) {
+          .request_id = string(parsed.request_id) ?? null
+        } else if exists(parsed.requestId) {
+          .request_id = string(parsed.requestId) ?? null
+        }
+
+        if exists(parsed.http_status) {
+          .http_status = to_int(parsed.http_status) ?? null
+        } else if exists(parsed.statusCode) {
+          .http_status = to_int(parsed.statusCode) ?? null
+        }
+
+        if exists(parsed.duration_ms) {
+          .duration_ms = to_float(parsed.duration_ms) ?? null
+        } else if exists(parsed.duration) {
+          .duration_ms = to_float(parsed.duration) ?? null
+        }
+
+        # Extração de IP para lookup GeoIP
+        client_ip = string(parsed.client_ip) ?? string(parsed.remote_addr) ?? string(parsed.ip) ?? string(parsed.clientIp) ?? null
+        if client_ip != null {
+          .client_ip = client_ip
+          # Realiza lookup no banco GeoIP apenas se for IP público
+          geo, geo_err = get_enrichment_table_record("geoip_table", {"ip": client_ip})
+          if geo_err == null && geo != null {
+            .geoip = {
+              "country_code": geo.country.iso_code,
+              "country_name": geo.country.names.en,
+              "city_name": geo.city.names.en,
+              "latitude": geo.location.latitude,
+              "longitude": geo.location.longitude,
+              "timezone": geo.location.time_zone
+            }
+          }
+        }
+
+        .structured = parsed
+      } else {
+        if match(msg, r'(?i)\b(fatal|panic|error|exception)\b') {
+          .level = "error"
+        } else if match(msg, r'(?i)\b(warn|warning)\b') {
+          .level = "warn"
+        } else if match(msg, r'(?i)\b(debug|trace)\b') {
+          .level = "debug"
+        } else {
+          .level = "info"
+        }
+      }
+
+      .app = .app || string(.container_name) ?? "unknown"
+      .env = .env || "production"
+      .service = .service || string(.container_name) ?? "unknown"
+
+  remap_syslog:
+    type: remap
+    inputs:
+      - syslog_udp
+    source: |
+      .timestamp = .timestamp || now()
+      .host = .host || get_env_var("HOST_IDENTIFIER") ?? "syslog-host"
+      .service = string(.appname) ?? "syslog"
+      .app = .service
+      .env = "production"
+      .container_name = "syslog"
+      .stream = "syslog"
+      
+      syslog_msg = string(.message) ?? ""
+      base_level = downcase(string(.severity) ?? "info")
+      if match(syslog_msg, r'(?i)\b(fatal|panic|error|failed|segfault)\b') {
+        .level = "error"
+      } else if match(syslog_msg, r'(?i)\b(warn|warning)\b') {
+        .level = "warn"
+      } else {
+        .level = base_level
+      }
+
+  remap_http:
+    type: remap
+    inputs:
+      - http_logs
+    source: |
+      .timestamp = .timestamp || now()
+      .host = .host || get_env_var("HOST_IDENTIFIER") ?? "http-client"
+      .app = downcase(string(.app) ?? string(.service) ?? "http-source")
+      .service = .app
+      .env = downcase(string(.env) ?? "production")
+      .container_name = .container_name || .service
+      .stream = .stream || "http"
+      .level = downcase(string(.level) ?? "info")
+
+      if exists(.trace_id) {
+        .trace_id = string(.trace_id) ?? null
+      }
+      if exists(.request_id) {
+        .request_id = string(.request_id) ?? null
+      }
+      if exists(.http_status) {
+        .http_status = to_int(.http_status) ?? null
+      }
+      if exists(.duration_ms) {
+        .duration_ms = to_float(.duration_ms) ?? null
+      }
+
+      client_ip = string(.client_ip) ?? string(.remote_addr) ?? string(.ip) ?? null
+      if client_ip != null {
+        .client_ip = client_ip
+        geo, geo_err = get_enrichment_table_record("geoip_table", {"ip": client_ip})
+        if geo_err == null && geo != null {
+          .geoip = {
+            "country_code": geo.country.iso_code,
+            "country_name": geo.country.names.en,
+            "city_name": geo.city.names.en,
+            "latitude": geo.location.latitude,
+            "longitude": geo.location.longitude,
+            "timezone": geo.location.time_zone
+          }
+        }
+      }
+
+      .message = string(.message) ?? encode_json(.)
+
+# ------------------------------------------------------------------------------
+# SINKS (Destino: VictoriaLogs)
+# ------------------------------------------------------------------------------
+sinks:
+  victorialogs_http:
+    type: http
+    inputs:
+      - remap_docker
+      - remap_syslog
+      - remap_http
+    uri: "http://${VICTORIALOGS_AUTH_USERPASS:-}victorialogs:9428/insert/jsonline"
+    method: post
+    compression: zstd
+    encoding:
+      codec: json
+    framing:
+      method: newline_delimited
+    batch:
+      max_bytes: 1048576       # 1 MB
+      timeout_secs: 2          # 2 segundos
+    buffer:
+      type: memory
+      max_events: 5000
+      when_full: drop_newest
+    healthcheck:
+      enabled: false
+    request:
+      concurrency: 2
+      headers:
+        VL-Stream-Fields: "host,container_name,service,app,env,stream"
+        VL-Msg-Field: "message"
+        VL-Time-Field: "timestamp"
+        AccountID: "0"
+        ProjectID: "0"
+
+  prometheus_exporter:
+    type: prometheus_exporter
+    inputs:
+      - vector_metrics
+    address: 0.0.0.0:9598

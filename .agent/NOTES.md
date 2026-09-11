@@ -145,6 +145,12 @@
 - **Decisão:** Incorporar o binário ultra-leve `vmalert` como serviço opcional no `docker-compose.yml` utilizando Docker Compose Profiles (`profiles: ["alerting"]`), com limite estrito de `memory: 25M` e `cpus: 0.20`. O `vmalert` consome regras nativas em LogsQL (`type: vlogs`) em `vmalert/rules.yaml` consultando diretamente o VictoriaLogs (`-datasource.url=http://victorialogs:9428`), com suporte a HTTP Basic Auth e encaminhamento de alertas para webhook/Alertmanager (`-notifier.url`).
 - **Consequências:** Monitoramento ativo 24/7 com consumo inferior a 20 MB de RAM quando ativo, zero overhead para quem roda apenas a stack básica (inativo por padrão), e regras LogsQL prontas para detecção de incidentes críticos.
 
+### 2026-09-10 — Enriquecimento Opcional de Logs com GeoIP para Tráfego Web
+- **Contexto:** Tráfego de internet para webservers e proxies reversos (Nginx, Traefik, Caddy) gera logs com endereços IP públicos de clientes. Analisar ataques ou tráfego sem localização geográfica exige consultas manuais lentas. Por outro lado, carregar obrigatoriamente a base MaxMind GeoLite2 City (.mmdb ~70 MB) inflaria a memória do Vector nos perfis padrão de homelab sem exposição web.
+- **Decisão:** Criar perfil dedicado `vector/vector.geoip.yaml` selecionável via `STORAGE_PROFILE=geoip` e utilitário `scripts/download-geolite2.sh`. O perfil utiliza o bloco `enrichment_tables` com `type: geoip` nativo do Vector, enriquecendo o evento com `geoip.country_code`, `geoip.country_name`, `geoip.city_name`, `latitude` e `longitude`.
+- **Armadilha Evitada:** Esses campos de geolocalização **NUNCA** devem ser inseridos em `VL-Stream-Fields` (isso causaria explosão incontrolável de streams por cidade/país). Eles residem como campos estruturados normais do evento no primeiro nível / objeto `geoip`.
+- **Consequências:** Capacidade forense geo-espacial instantânea sem violar os tetos de memória dos usuários que não precisam de GeoIP.
+
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
 - **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.

@@ -65,6 +65,7 @@ vector_data/
 victoria-logs-data/
 backups/
 *.tar.gz
+*.mmdb
 *.pid
 *.seed
 
