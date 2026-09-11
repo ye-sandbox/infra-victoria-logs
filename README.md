@@ -100,6 +100,7 @@ flowchart LR
 │   └── test_mcp_error_enricher.py     # Testes unitários de sanitização e dicas contextuais do MCP
 ├── .env.example             # Template documentado de variáveis de ambiente e segurança
 ├── .gitignore               # Ignora .env, .cursor/, volumes, backups e segredos
+├── CHANGELOG.md             # Histórico de versões e notas de lançamento (Keep a Changelog)
 ├── AGENTS.md                # Diretrizes de engenharia, governança e regras dos agentes
 ├── .agent/                  # Documentação de contexto do agente (TASK.md, NOTES.md)
 └── README.md                # Guia técnico e operacional completo da stack
