@@ -151,6 +151,11 @@
 - **Armadilha Evitada:** Esses campos de geolocalização **NUNCA** devem ser inseridos em `VL-Stream-Fields` (isso causaria explosão incontrolável de streams por cidade/país). Eles residem como campos estruturados normais do evento no primeiro nível / objeto `geoip`.
 - **Consequências:** Capacidade forense geo-espacial instantânea sem violar os tetos de memória dos usuários que não precisam de GeoIP.
 
+### 2026-09-10 — Painel de Consultas LogsQL Pré-configuradas via Terminal (`logsql-queries.sh`)
+- **Contexto:** Operadores no host Proxmox e agentes em sessões de troubleshooting precisavam frequentemente de queries recorrentes (Top erros por serviço, análise de latência `duration_ms:>1000`, distribuição de status HTTP e auditoria de crashes do Docker). Construir chamadas de `curl` longas com URL-encoding e parsing de JSON consumia tempo e gerava erros de sintaxe.
+- **Decisão:** Desenvolver `scripts/logsql-queries.sh` com comandos canônicos (`top-errors`, `slow-requests`, `http-status`, `crashes`, `trace <ID>`, `stats-summary`, `raw "<QUERY>"`), com suporte a flags de janela de tempo (`--time 24h`), filtro por serviço (`--service`) e opção `--json` para integração com pipes ou scripts.
+- **Consequências:** Visibilidade forense e analítica imediata no shell com tabelas alinhadas para humanos ou JSON estruturado para automações e LLMs.
+
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
 - **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.

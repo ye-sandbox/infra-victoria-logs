@@ -71,6 +71,7 @@ flowchart LR
 ├── scripts/
 │   ├── backup.sh            # Backup atômico via API de snapshots com rotação de cópias
 │   ├── health-dashboard.sh  # Dashboard CLI colorido de telemetria ao vivo via APIs nativas
+│   ├── logsql-queries.sh    # Consultas analíticas pré-definidas (Top erros, latência, HTTP status)
 │   ├── test-pipeline.sh     # Smoke test ponta a ponta de ingestão e LogsQL em 1 comando
 │   ├── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
 │   ├── ship-docker-stats.sh # Coleta e envio de CPU/memória de containers locais para o Vector
@@ -398,6 +399,26 @@ O coletor Vector possui agregação multilinha nativa na fonte `docker_logs` (`m
 
   # Modo contínuo (atualização a cada 5s)
   ./scripts/health-dashboard.sh --watch
+  ```
+- **Consultas Rápidas e Diagnósticos via Terminal (`logsql-queries.sh`):**
+  ```bash
+  # Top serviços com mais erros nas últimas 24h
+  ./scripts/logsql-queries.sh top-errors --time 24h
+
+  # Requisições HTTP lentas (> 1s) ordenadas por latência
+  ./scripts/logsql-queries.sh slow-requests -l 10
+
+  # Distribuição de status code HTTP (2xx, 4xx, 5xx)
+  ./scripts/logsql-queries.sh http-status --time 1h
+
+  # Containers finalizados por OOM (Exit 137) ou saídas anômalas
+  ./scripts/logsql-queries.sh crashes --time 24h
+
+  # Rastrear logs de uma transação distribuída por ID
+  ./scripts/logsql-queries.sh trace "req-abc-12345"
+
+  # Saída JSON para pipes ou agentes
+  ./scripts/logsql-queries.sh top-errors --time 1h --json
   ```
 - **Validar saúde do pipeline (Smoke Test):**
   ```bash
