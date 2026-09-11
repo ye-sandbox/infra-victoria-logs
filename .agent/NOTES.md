@@ -156,6 +156,15 @@
 - **Decisão:** Desenvolver `scripts/logsql-queries.sh` com comandos canônicos (`top-errors`, `slow-requests`, `http-status`, `crashes`, `trace <ID>`, `stats-summary`, `raw "<QUERY>"`), com suporte a flags de janela de tempo (`--time 24h`), filtro por serviço (`--service`) e opção `--json` para integração com pipes ou scripts.
 - **Consequências:** Visibilidade forense e analítica imediata no shell com tabelas alinhadas para humanos ou JSON estruturado para automações e LLMs.
 
+### 2026-09-10 — Gestão, Auditoria e Purga Emergencial de Partições Físicas (Retenção de 1 Ano)
+- **Contexto:** O operador definiu o requisito de governança para manter 1 ano completo de logs (`RETENTION_PERIOD=1y`). A auditoria com dados reais do cluster comprovou que a compressão Zstandard do VictoriaLogs gera apenas ~540 KB comprimidos por dia de operação, totalizando menos de 200 MB por ano (menos de 0.02% do disco de 1 TB). No entanto, fazia-se necessário um utilitário para auditar partições diárias ativas, calcular a capacidade projetada e agir como freio emergencial contra tempestades acidentais de logs.
+- **Decisão:** Criar `scripts/manage-partitions.sh` com suporte a:
+  1. `list`: Inventaria partições diárias no banco e espaço físico ocupado no volume.
+  2. `estimate`: Projeta o consumo para 30d, 90d, 180d e 365d com base na média histórica real.
+  3. `purge`: Purga atômica e emergencial via API nativa (`/internal/partition/delete?path=...`) por idade (`--older-than Nd`), data (`--before YYYYMMDD`) ou excedente (`--keep-last N`), com `--dry-run` preventivo e confirmação interativa.
+  4. Atualizar `RETENTION_PERIOD=1y` como padrão no `.env.example` e `.env`.
+- **Consequências:** Tranquilidade operacional para manter 1 ano de histórico sem qualquer risco de surpresa por falta de espaço em disco no homelab.
+
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
 - **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.

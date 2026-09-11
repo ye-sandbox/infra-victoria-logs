@@ -72,6 +72,7 @@ flowchart LR
 │   ├── backup.sh            # Backup atômico via API de snapshots com rotação de cópias
 │   ├── health-dashboard.sh  # Dashboard CLI colorido de telemetria ao vivo via APIs nativas
 │   ├── logsql-queries.sh    # Consultas analíticas pré-definidas (Top erros, latência, HTTP status)
+│   ├── manage-partitions.sh # Gestão, auditoria, projeção e purga emergencial de partições
 │   ├── test-pipeline.sh     # Smoke test ponta a ponta de ingestão e LogsQL em 1 comando
 │   ├── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
 │   ├── ship-docker-stats.sh # Coleta e envio de CPU/memória de containers locais para o Vector
@@ -419,6 +420,20 @@ O coletor Vector possui agregação multilinha nativa na fonte `docker_logs` (`m
 
   # Saída JSON para pipes ou agentes
   ./scripts/logsql-queries.sh top-errors --time 1h --json
+  ```
+- **Gestão, Auditoria e Purga Emergencial de Partições (`manage-partitions.sh`):**
+  ```bash
+  # Auditar todas as partições diárias no banco e tamanho em disco
+  ./scripts/manage-partitions.sh list
+
+  # Calcular taxa de ingestão e projetar capacidade para 1 ano (365d)
+  ./scripts/manage-partitions.sh estimate
+
+  # Simulação de purga emergencial por idade (sem apagar nada)
+  ./scripts/manage-partitions.sh purge --older-than 60d --dry-run
+
+  # Purga emergencial efetiva de partições anteriores a uma data
+  ./scripts/manage-partitions.sh purge --before 20260801
   ```
 - **Validar saúde do pipeline (Smoke Test):**
   ```bash
