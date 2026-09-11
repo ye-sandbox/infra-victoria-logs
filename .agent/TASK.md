@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 24.0: Script de Rotação e Expiração Forçada de Logs Antigos por Partição Física
+### 📌 Tarefa 25.0: Auditoria e Alerta Periódico de Capacidade de Partições por Cron
 
-- **Descrição:** Desenvolver utilitário (`scripts/purge-partitions.sh`) consumindo as APIs de partição do VictoriaLogs (`/internal/partition/list` e `/internal/partition/delete`) para gerenciar retenção emergencial em caso de disco cheio no homelab, com opção de simulação segura (`--dry-run`), retenção por idade (`--older-than 15d`) e liberação imediata de espaço em disco sem reiniciar os serviços.
-- **Sistema(s) Envolvido(s):** `scripts`, `victorialogs`, `docs`
+- **Descrição:** Configurar script ou entrada cron periódica no host para executar auditoria semanal de capacidade (`scripts/manage-partitions.sh estimate`), alertando via webhook/log se o consumo diário exceder um limite crítico estabelecido de segurança.
+- **Sistema(s) Envolvido(s):** `scripts`, `docs`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,9 +23,8 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Script `scripts/purge-partitions.sh` com suporte a listar partições diárias e tamanho em disco.
-- [ ] Suporte a deletar partições mais antigas que N dias com confirmação e `--dry-run`.
-- [ ] Documentação no `README.md` e `.agent/NOTES.md`.
+- [ ] Validação periódica de crescimento de disco.
+- [ ] Documentação de integração.
 
 ---
 
@@ -33,6 +32,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 24.0 | Gestão, Auditoria e Purga Emergencial de Partições Físicas (Retenção de 1 Ano) | `b2c6538` | 2026-09-10 |
 | 23.0 | Painéis de Consulta LogsQL Salvos para Terminal (`scripts/logsql-queries.sh`) | `d9290d5` | 2026-09-10 |
 | 22.0 | Enriquecimento Opcional de Logs com GeoIP para Tráfego Web (`vector.geoip.yaml`) | `6e2dae1` | 2026-09-10 |
 | 21.0 | Suporte a Alertas Nativos via vmalert Conectado ao VictoriaLogs | `d44393b` | 2026-09-10 |
@@ -69,7 +69,7 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] Tarefa 25.0: Auditoria e limpeza periódica automatizada de logs antigos por cron
+- [ ] Tarefa 26.0: Dashboard Grafana pré-construído (JSON provisioning) para visualização rápida
 
 ---
 
