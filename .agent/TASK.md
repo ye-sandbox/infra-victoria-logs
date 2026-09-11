@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 27.0: Rotina de Teste Automatizado de Integridade e Snapshot Diário via Cron
+### 📌 Tarefa 28.0: Script de Auditoria de Segurança e Permissões de Arquivos no Host
 
-- **Descrição:** Desenvolver script unificado e automatizável (`scripts/run-maintenance-pipeline.sh`) para ser executado periodicamente via cron no host, englobando snapshot atômico consistente com rotação de cópias (`scripts/backup.sh`), verificação de integridade LogsQL (`scripts/test-pipeline.sh`) e auditoria de crescimento de disco (`scripts/check-disk-growth.sh`), emitindo relatório único de telemetria para o VictoriaLogs.
-- **Sistema(s) Envolvido(s):** `scripts`, `backup`, `docs`
+- **Descrição:** Desenvolver script (`scripts/audit-security.sh`) para validar permissões restritivas de arquivos sensíveis no host (`.env` em `600`, sockets Docker protegidos, portas expostas somente em interfaces seguras, verificação de limites de memória aplicados e ausência de senhas default nos compose files), gerando relatório de conformidade de segurança para ambientes de produção e homelab.
+- **Sistema(s) Envolvido(s):** `security`, `scripts`, `docs`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,8 +23,7 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Pipeline unificado de manutenção periódica (`scripts/run-maintenance-pipeline.sh`).
-- [ ] Opções `--install-cron`, `--dry-run` e emissão de telemetria consolidada.
+- [ ] Script `scripts/audit-security.sh` com checklist de segurança do host e containers.
 - [ ] Documentação no `README.md` e `.agent/NOTES.md`.
 
 ---
@@ -33,6 +32,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 27.0 | Rotina de Teste Automatizado de Integridade e Snapshot Diário (`run-maintenance-pipeline.sh`) | `5381a9e` | 2026-09-11 |
 | 26.0 | Dashboard Grafana Pré-construído (`dashboards/grafana-victorialogs.json`) | `4693fc7` | 2026-09-11 |
 | 25.0 | Auditoria e Alerta Periódico de Capacidade de Partições por Cron (`check-disk-growth.sh`) | `e31be5c` | 2026-09-10 |
 | 24.0 | Gestão, Auditoria e Purga Emergencial de Partições Físicas (Retenção de 1 Ano) | `b2c6538` | 2026-09-10 |
@@ -72,7 +72,7 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] Tarefa 28.0: Script de auditoria de segurança e permissões de arquivos no host
+- [ ] Tarefa 29.0: Guia consolidado de hardening e boas práticas operacionais do host Proxmox
 
 ---
 
