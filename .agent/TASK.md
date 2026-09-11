@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 21.0: Suporte a Alertas Nativos via vmalert Conectado ao VictoriaLogs
+### 📌 Tarefa 22.0: Enriquecimento de Logs com GeoIP para Tráfego Web Nginx/Traefik
 
-- **Descrição:** Avaliar e configurar o componente oficial ultra-leve `vmalert` conectado ao VictoriaLogs (via LogsQL alerts) para emitir alertas automáticos em caso de picos de erro (`error > 10 em 5m`), falhas de containers (OOM / exit != 0 capturados pelo coletor de eventos) ou contenção de recursos, com webhook/notificação configurável e mantendo o limite estrito de memória da stack.
-- **Sistema(s) Envolvido(s):** `vmalert`, `docker-compose`, `docs`
+- **Descrição:** Adicionar suporte opcional/modular no Vector para enriquecimento de logs de acesso web (Nginx / Traefik / Caddy) com localização geográfica (país, cidade, código ISO) via banco MaxMind GeoLite2 no VRL, sem impactar o consumo de memória em homelabs sem tráfego HTTP público.
+- **Sistema(s) Envolvido(s):** `vector`, `vrl`, `docs`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,10 +23,8 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Configuração opcional/perfil do `vmalert` consumindo queries LogsQL de alertas no VictoriaLogs.
-- [ ] Regras de alerta essenciais (`high_error_rate`, `container_oom_killed`, `high_latency`).
-- [ ] Documentação completa no `README.md` e `.agent/NOTES.md`.
-- [ ] Validação de sintaxe e baixo consumo de recursos (< 25 MB de RAM).
+- [ ] Transform VRL para enriquecimento de IP de clientes web com GeoIP.
+- [ ] Documentação e validação de compatibilidade.
 
 ---
 
@@ -34,6 +32,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 21.0 | Suporte a Alertas Nativos via vmalert Conectado ao VictoriaLogs | `d44393b` | 2026-09-10 |
 | 20.0 | Templates de Logging Canônico Plug-and-Play (Loguru, Stdlib, Pino, Slog) | `5c2b1c6` | 2026-09-10 |
 | 19.0 | Serviço Daemon e Automação no Host dos Coletores de Recursos e Eventos (`install-host-collectors.sh`) | `addaa90` | 2026-09-10 |
 | 18.0 | Script de Instalação e Sincronização Global de SKILLs (`scripts/install-agent-skills.sh`) | `a801909` | 2026-09-10 |
@@ -67,7 +66,7 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] Tarefa 22.0: Enriquecimento de logs com GeoIP para tráfego web Nginx/Traefik
+- [ ] Tarefa 23.0: Painéis de consulta LogsQL salvos para diagnósticos recorrentes via terminal
 
 ---
 
