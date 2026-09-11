@@ -85,6 +85,48 @@ services:
       retries: 3
       start_period: 10s
 
+  vmalert:
+    image: victoriametrics/vmalert:${VMALERT_VERSION:-latest}
+    container_name: vmalert
+    restart: unless-stopped
+    profiles:
+      - alerting
+    command:
+      - "-rule=/etc/vmalert/rules.yaml"
+      - "-datasource.url=http://victorialogs:9428"
+      - "-datasource.basicAuth.username=${VICTORIALOGS_AUTH_USERNAME:-}"
+      - "-datasource.basicAuth.password=${VICTORIALOGS_AUTH_PASSWORD:-}"
+      - "-notifier.url=${VMALERT_NOTIFIER_URL:-http://127.0.0.1:9093}"
+      - "-evaluationInterval=30s"
+      - "-httpListenAddr=:${VMALERT_HTTP_PORT:-8880}"
+    ports:
+      - "${VMALERT_HTTP_PORT:-8880}:8880"
+    volumes:
+      - ./vmalert/rules.yaml:/etc/vmalert/rules.yaml:ro
+    networks:
+      - logging-network
+    depends_on:
+      victorialogs:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    deploy:
+      resources:
+        limits:
+          memory: 25M
+          cpus: "0.20"
+        reservations:
+          memory: 10M
+    healthcheck:
+      test: ["CMD", "/vmalert-prod", "-version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 networks:
   logging-network:
     name: logging-network

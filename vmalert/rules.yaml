@@ -1,0 +1,47 @@
+# Regras de Alerta para VictoriaLogs via vmalert
+# Documentação oficial: https://docs.victoriametrics.com/victoriametrics/vmalert/#rules-with-type-vlogs
+
+groups:
+  - name: homelab-observability-alerts
+    type: vlogs
+    interval: 30s
+    rules:
+      # Alerta 1: Taxa elevada de erros em serviços por mais de 1 minuto
+      - alert: HighErrorRate
+        expr: 'level:"error" | stats by (service) count() as error_count | filter error_count:>10'
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Taxa de erro elevada detectada no serviço {{ $labels.service }}"
+          description: "O serviço {{ $labels.service }} registrou mais de 10 mensagens de erro nos últimos 5 minutos."
+
+      # Alerta 2: Container encerrado por OOMKilled ou crash (capturado pelo coletor de eventos)
+      - alert: ContainerOOMKilled
+        expr: '_stream:{service="docker-events"} AND (oom_killed:"true" OR exit_code:"137") | stats by (container_name) count() as kill_count | filter kill_count:>0'
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container {{ $labels.container_name }} sofreu OOMKilled (Out Of Memory)"
+          description: "O container {{ $labels.container_name }} foi finalizado pelo kernel do host devido a estouro de limite de memória RAM (Exit Code 137)."
+
+      # Alerta 3: Falha de saúde ou crash no host Proxmox / containers
+      - alert: ContainerCrashOrDie
+        expr: '_stream:{service="docker-events"} AND action:"die" AND NOT exit_code:"0" AND NOT exit_code:"137" | stats by (container_name) count() as crash_count | filter crash_count:>0'
+        for: 0s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.container_name }} encerrou com falha (crash/restart)"
+          description: "O container {{ $labels.container_name }} morreu inesperadamente com código de saída diferente de 0."
+
+      # Alerta 4: Latência HTTP excessiva em endpoints de aplicação
+      - alert: ElevatedHttpLatency
+        expr: 'duration_ms:>3000 | stats by (service) count() as slow_requests | filter slow_requests:>5'
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Lentidão acentuada detectada no serviço {{ $labels.service }}"
+          description: "Foram detectadas requisições com tempo de resposta superior a 3000ms no serviço {{ $labels.service }}."

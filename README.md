@@ -83,6 +83,8 @@ flowchart LR
 │   ├── victorialogs-integration/      # Skill ensinando IA a plugar aplicações (Python, Node, Go, Docker)
 │   │   └── examples/                  # Templates plug-and-play (Python Loguru/stdlib, Node Pino, Go slog)
 │   └── victorialogs-troubleshooting/  # Skill ensinando IA o playbook de investigação de erros/SRE
+├── vmalert/
+│   └── rules.yaml           # Regras de alerta LogsQL (erros, OOM kills, latência)
 ├── tests/
 │   └── test_mcp_error_enricher.py     # Testes unitários de sanitização e dicas contextuais do MCP
 ├── .env.example             # Template documentado de variáveis de ambiente e segurança
@@ -486,6 +488,26 @@ scrape_configs:
   - `vector_component_received_events_total`: Vazão de eventos recebidos por source/transform/sink.
   - `vector_buffer_byte_size`: Ocupação atual do buffer (em RAM ou SSD).
   - `vector_component_errors_total`: Contagem de erros internos de parsing ou roteamento.
+
+---
+
+## 🚨 Alertas Automáticos com `vmalert` (Opcional)
+
+Para homelabs que necessitam de alertas pró-ativos sem estourar os limites de memória da stack, o projeto disponibiliza integração nativa com o **`vmalert`** via Docker Compose Profile.
+
+O `vmalert` avalia expressões LogsQL (`type: vlogs`) diretamente no VictoriaLogs consumindo **< 25 MB de RAM**, notificando webhooks, Alertmanager ou n8n/Telegram.
+
+### Como Ativar:
+```bash
+# Iniciar a stack com o perfil de alerta habilitado
+docker compose --profile alerting up -d
+```
+
+### Regras Pré-configuradas em [`vmalert/rules.yaml`](./vmalert/rules.yaml):
+1. **`HighErrorRate`:** Dispara se um serviço emitir mais de 10 mensagens de erro em 5 minutos.
+2. **`ContainerOOMKilled`:** Dispara imediatamente quando o coletor `docker-events` detecta terminação por OOM (Exit 137).
+3. **`ContainerCrashOrDie`:** Dispara quando um container encerra com status de saída diferente de 0.
+4. **`ElevatedHttpLatency`:** Dispara quando requisições com `duration_ms:>3000` ocorrem repetidamente.
 
 ---
 

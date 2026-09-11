@@ -140,6 +140,11 @@
 - **Decisão:** Criar biblioteca de templates plug-and-play em `skills/victorialogs-integration/examples/` para Python (**Loguru** com sink customizado e stdlib pura), Node.js (**Pino**) e Go (**slog**). Todos garantem NDJSON rigoroso (1 linha JSON), timestamps UTC ISO-8601, injeção de `service`/`app`/`env`, e os campos canônicos promovidos (`trace_id`, `request_id`, `http_status`, `duration_ms`).
 - **Consequências:** Eliminação de erros de parsing no coletor e máxima agilidade para novas aplicações gerarem logs compatíveis com o ecossistema e ferramentas forenses do MCP em 1 clique.
 
+### 2026-09-10 — Suporte a Alertas Nativos via vmalert Conectado ao VictoriaLogs
+- **Contexto:** Necessidade de alertas automatizados em tempo real (picos de erro, containers finalizados por OOM, mortes anômalas, latência HTTP elevada) sem incorrer no consumo de memória de stacks pesadas de monitoramento, preservando a restrição rígida de hardware do homelab (< 150 MB de RAM).
+- **Decisão:** Incorporar o binário ultra-leve `vmalert` como serviço opcional no `docker-compose.yml` utilizando Docker Compose Profiles (`profiles: ["alerting"]`), com limite estrito de `memory: 25M` e `cpus: 0.20`. O `vmalert` consome regras nativas em LogsQL (`type: vlogs`) em `vmalert/rules.yaml` consultando diretamente o VictoriaLogs (`-datasource.url=http://victorialogs:9428`), com suporte a HTTP Basic Auth e encaminhamento de alertas para webhook/Alertmanager (`-notifier.url`).
+- **Consequências:** Monitoramento ativo 24/7 com consumo inferior a 20 MB de RAM quando ativo, zero overhead para quem roda apenas a stack básica (inativo por padrão), e regras LogsQL prontas para detecção de incidentes críticos.
+
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
 - **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.
