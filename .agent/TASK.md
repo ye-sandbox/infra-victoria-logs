@@ -12,20 +12,15 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 29.0: Guia Consolidado de Hardening e Boas Práticas Operacionais do Host Proxmox
+### 📌 Ciclo Atual Concluído — Aguardando Novas Demandas / Backlog
 
-- **Descrição:** Elaborar guia técnico consolidado e operacional de hardening e boas práticas para hosts Proxmox VE rodando containers de observabilidade (configurações de kernel/sysctl `vm.max_map_count`, montagens `noatime`, isolamento de rede, políticas de segurança do Docker socket, governança de backups e checklists de verificação periódica).
-- **Sistema(s) Envolvido(s):** `security`, `docs`, `proxmox`
+- **Descrição:** Todas as tarefas prioritárias de arquitetura, otimização de I/O em HD/SSD, governança de retenção de 1 ano, telemetria de containers, auditoria de segurança do host e hardening no Proxmox VE foram concluídas e validadas com 100% de sucesso.
+- **Sistema(s) Envolvido(s):** `core`, `scripts`, `security`, `docs`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [ ] Escrita de código-fonte
-- **Status:** PRONTO PARA PLANEJAMENTO
-  *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
-
-### Critérios de Aceite
-- [ ] Documentação detalhada em `docs/proxmox-hardening.md` (ou seção dedicada no `README.md`).
-- [ ] Checklists operacionais de segurança do host Proxmox integrados com `scripts/audit-security.sh`.
-- [ ] Atualização do `README.md` e `.agent/NOTES.md`.
+- **Status:** CONCLUÍDO
+  *(Aguardando definição de nova tarefa pelo usuário ou promoção a partir de ideias futuras)*
 
 ---
 
@@ -33,6 +28,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 29.0 | Guia Consolidado de Hardening e Boas Práticas Operacionais do Host Proxmox (`docs/proxmox-hardening.md`) | `b6d8fb3` | 2026-09-11 |
 | 28.0 | Script de Auditoria de Segurança e Permissões de Arquivos no Host (`scripts/audit-security.sh`) | `3920bfb` | 2026-09-11 |
 | 27.0 | Rotina de Teste Automatizado de Integridade e Snapshot Diário (`run-maintenance-pipeline.sh`) | `5381a9e` | 2026-09-11 |
 | 26.0 | Dashboard Grafana Pré-construído (`dashboards/grafana-victorialogs.json`) | `4693fc7` | 2026-09-11 |
@@ -74,17 +70,7 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] Tarefa 29.0: Guia consolidado de hardening e boas práticas operacionais do host Proxmox
-
----
-
-## Backlog Futuro / Ideias (não priorizadas)
-
-> Itens de escopo maior ou ainda não maduros o suficiente para entrar no backlog
-> ordenado. Uma linha cada.
-
-- [ ] [Ideia / feature futura 1]
-- [ ] [Ideia / feature futura 2]
+*(Nenhuma tarefa pendente no momento)*
 
 ---
 
