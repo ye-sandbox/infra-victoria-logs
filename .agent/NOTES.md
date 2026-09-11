@@ -180,6 +180,16 @@
 - **Decisão:** Implementar o orquestrador `scripts/run-maintenance-pipeline.sh` que encadeia `check-disk-growth.sh` -> `backup.sh` -> `test-pipeline.sh`, abortando preventivamente o backup caso o disco esteja em nível crítico, e emitindo evento estruturado de telemetria consolidada para o Vector na porta 8686. O utilitário inclui comandos de instalação no crontab (`--install-cron` às 03:00 UTC) e simulação (`--dry-run`).
 - **Consequências:** Operação 100% autônoma e resiliente no homelab com rastreabilidade completa e zero manutenção manual diária.
 
+### 2026-09-11 — Auditoria de Segurança do Host e Isolamento de Containers (`audit-security.sh`)
+- **Contexto:** Em servidores homelab e Proxmox, permissões excessivas de arquivos (como `.env` legível por outros usuários do host), montagem com escrita do socket do Docker (`/var/run/docker.sock`) e omissão de limites de memória representam riscos severos de vazamento de credenciais, escape de container e travamento do host por OOM.
+- **Decisão:** Desenvolver `scripts/audit-security.sh` inspecionando 4 pilares:
+  1. *Host & Filesystem:* Permissões restritas no `.env` (`600`/`400`), ausência no Git e bloqueio de escrita pública em scripts.
+  2. *Docker Compose Hardening:* Socket Docker estritamente somente leitura (`:ro`), limites rígidos de RAM (<= 80M e <= 60M), prevenção de loop (`exclude_containers: ["vector"]`) e healthchecks ativos.
+  3. *Rede & Autenticação:* Auditoria de portas em `0.0.0.0` vs ativação de HTTP Basic Auth.
+  4. *Runtime:* Verificação dos limites efetivamente aplicados no kernel via `docker inspect`.
+  O utilitário oferece auto-reparo com `--fix` (`chmod 600 .env`, `chmod 755 scripts/*.sh`), saída `--json` para agentes e código de saída semântico.
+- **Consequências:** Postura de segurança do host blindada com capacidade de auditoria e correção em 1 clique.
+
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
 - **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.

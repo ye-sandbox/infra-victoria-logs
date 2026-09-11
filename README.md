@@ -71,6 +71,7 @@ flowchart LR
 ├── mcp/
 │   └── server.py            # Servidor MCP stdio nativo para integração direta com Agentes de IA
 ├── scripts/
+│   ├── audit-security.sh    # Auditoria de segurança do host, permissões restritas e isolamento Compose
 │   ├── backup.sh            # Backup atômico via API de snapshots com rotação de cópias
 │   ├── health-dashboard.sh  # Dashboard CLI colorido de telemetria ao vivo via APIs nativas
 │   ├── logsql-queries.sh    # Consultas analíticas pré-definidas (Top erros, latência, HTTP status)
@@ -384,6 +385,30 @@ VICTORIALOGS_AUTH_PASSWORD=coloque_sua_senha_segura
 ```
 O VictoriaLogs exigirá HTTP Basic Auth para todas as consultas e o Vector se autenticará automaticamente.
 
+### 🛡️ Auditoria Automatizada de Segurança do Host (`audit-security.sh`)
+
+Para garantir conformidade contínua e prevenir vulnerabilidades ou permissões permissivas, utilize o script de auditoria:
+
+```bash
+# Auditoria interativa com relatório visual
+./scripts/audit-security.sh
+
+# Auto-reparo automático de permissões de arquivos (.env em 600, scripts em 755)
+./scripts/audit-security.sh --fix
+
+# Saída estruturada em JSON para pipelines de CI/CD ou agentes de IA
+./scripts/audit-security.sh --json
+
+# Modo estrito para gates de validação (falha se houver avisos)
+./scripts/audit-security.sh --strict
+```
+
+#### Pilares Inspecionados:
+1. **Permissões do Host:** `.env` protegido com `600`/`400`, bloqueio de commit no Git e scripts executáveis sem permissão de escrita pública (`o+w`).
+2. **Hardening do Docker Compose:** Socket Docker (`/var/run/docker.sock`) montado estritamente como somente leitura (`:ro`), limites de memória aplicados (`<= 80M` e `<= 60M`, total `<= 150M`), prevenção de loops de log (`exclude_containers: ["vector"]`) e healthchecks ativos.
+3. **Exposição de Rede:** Auditoria de portas abertas em `0.0.0.0` desprotegidas e verificação de HTTP Basic Auth.
+4. **Runtime Real:** Validação de limites de memória e montagem `:ro` aplicados diretamente nos containers em execução.
+
 ---
 
 ## 📑 Suporte a Logs Multilinha (Stack Traces)
@@ -468,6 +493,17 @@ O coletor Vector possui agregação multilinha nativa na fonte `docker_logs` (`m
   # Consultar ou desinstalar agendamento
   ./scripts/run-maintenance-pipeline.sh --status-cron
   ./scripts/run-maintenance-pipeline.sh --uninstall-cron
+  ```
+- **Auditoria de Segurança e Conformidade do Host (`audit-security.sh`):**
+  ```bash
+  # Auditoria completa do host, Compose e containers
+  ./scripts/audit-security.sh
+
+  # Auto-reparo de permissões inseguras (.env 600, scripts 755)
+  ./scripts/audit-security.sh --fix
+
+  # Saída estruturada em JSON para pipelines
+  ./scripts/audit-security.sh --json
   ```
 - **Validar saúde do pipeline (Smoke Test):**
   ```bash
