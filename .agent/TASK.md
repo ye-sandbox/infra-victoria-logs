@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 22.0: Enriquecimento de Logs com GeoIP para Tráfego Web Nginx/Traefik
+### 📌 Tarefa 23.0: Painéis de Consulta LogsQL Salvos para Diagnósticos Recorrentes via Terminal
 
-- **Descrição:** Adicionar suporte opcional/modular no Vector para enriquecimento de logs de acesso web (Nginx / Traefik / Caddy) com localização geográfica (país, cidade, código ISO) via banco MaxMind GeoLite2 no VRL, sem impactar o consumo de memória em homelabs sem tráfego HTTP público.
-- **Sistema(s) Envolvido(s):** `vector`, `vrl`, `docs`
+- **Descrição:** Desenvolver script utilitário interativo e não-interativo (`scripts/logsql-queries.sh` ou catálogo de queries) com atalhos para investigações recorrentes (Top 10 containers com mais erros, análise de requisições lentas > 1s, distribuição de status HTTP, busca rápida por IP/JID/trace_id), facilitando consultas imediatas pelo desenvolvedor no shell do Proxmox ou por agentes em sessões de troubleshooting.
+- **Sistema(s) Envolvido(s):** `scripts`, `logsql`, `docs`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,8 +23,9 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Transform VRL para enriquecimento de IP de clientes web com GeoIP.
-- [ ] Documentação e validação de compatibilidade.
+- [ ] Utilitário de consultas pré-definidas LogsQL com saída formatada para terminal.
+- [ ] Suporte a filtros de serviço, janela de tempo (`5m`, `1h`, `24h`) e exportação JSON/tabela.
+- [ ] Documentação no `README.md`.
 
 ---
 
@@ -32,6 +33,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 22.0 | Enriquecimento Opcional de Logs com GeoIP para Tráfego Web (`vector.geoip.yaml`) | `6e2dae1` | 2026-09-10 |
 | 21.0 | Suporte a Alertas Nativos via vmalert Conectado ao VictoriaLogs | `d44393b` | 2026-09-10 |
 | 20.0 | Templates de Logging Canônico Plug-and-Play (Loguru, Stdlib, Pino, Slog) | `5c2b1c6` | 2026-09-10 |
 | 19.0 | Serviço Daemon e Automação no Host dos Coletores de Recursos e Eventos (`install-host-collectors.sh`) | `addaa90` | 2026-09-10 |
@@ -66,7 +68,7 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] Tarefa 23.0: Painéis de consulta LogsQL salvos para diagnósticos recorrentes via terminal
+- [ ] Tarefa 24.0: Script de rotação e expiração forçada de logs antigos por partição física
 
 ---
 
