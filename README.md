@@ -68,6 +68,8 @@ flowchart LR
 │   └── vector.yaml          # Perfil base / fallback de configuração
 ├── dashboards/
 │   └── grafana-victorialogs.json      # Modelo oficial pré-construído para Grafana (throughput, erros, status)
+├── docs/
+│   └── proxmox-hardening.md # Guia consolidado de hardening, sysctl e contenção de I/O no Proxmox VE
 ├── mcp/
 │   └── server.py            # Servidor MCP stdio nativo para integração direta com Agentes de IA
 ├── scripts/
@@ -357,6 +359,9 @@ Edite `/etc/fstab` no Proxmox e inclua `noatime,nodiratime` nas opções da part
 # Exemplo no /etc/fstab do Proxmox:
 UUID=xxxx-xxxx-xxxx  /  ext4  errors=remount-ro,noatime,nodiratime  0  1
 ```
+
+> [!TIP]
+> Para o guia arquitetural e operacional completo com parâmetros de kernel (`sysctl`), isolamento KVM vs LXC, regras de Proxmox Firewall e checklists de produção, consulte o [**Guia de Hardening no Proxmox VE**](docs/proxmox-hardening.md).
 
 ---
 

@@ -190,6 +190,16 @@
   O utilitário oferece auto-reparo com `--fix` (`chmod 600 .env`, `chmod 755 scripts/*.sh`), saída `--json` para agentes e código de saída semântico.
 - **Consequências:** Postura de segurança do host blindada com capacidade de auditoria e correção em 1 clique.
 
+### 2026-09-11 — Guia Consolidado de Hardening e Boas Práticas no Proxmox VE (`docs/proxmox-hardening.md`)
+- **Contexto:** Operadores de homelab frequentemente enfrentavam dúvidas sobre a melhor topologia de execução da stack no Proxmox (VM KVM vs LXC), como evitar travamentos de mmap do VictoriaLogs, como conter o I/O em discos mecânicos compartilhados e como blindar as portas de telemetria sem expô-las a redes não confiáveis.
+- **Decisão:** Criar `docs/proxmox-hardening.md` consolidando:
+  1. Topologia: recomendação formal de VM KVM (Debian/Ubuntu minimal, 1-2 vCPU, 1-2 GB RAM) para contenção total de kernel e socket Docker isolado; restrições para LXC unprivileged com `nesting=1`.
+  2. Kernel: parâmetros recomendados em `/etc/sysctl.d/99-observability.conf` (`vm.max_map_count=262144`, `vm.swappiness=10`, `fs.file-max=2097152`, sockets backlog).
+  3. Storage: eliminação de `atime` (`noatime,nodiratime`), elevador `mq-deadline` para HDs e Docker assíncrono `non-blocking`.
+  4. Rede: regras de Proxmox Firewall para portas 9428 e 8686 e uso de HTTP Basic Auth.
+  5. Governança: integração dos utilitários `audit-security.sh`, `run-maintenance-pipeline.sh` e `install-host-collectors.sh` com checklists pré e pós-deploy.
+- **Consequências:** Documentação de referência canônica para provisionamento e auditoria de novos nós no homelab, mantendo alinhamento de segurança entre desenvolvedores humanos e agentes de IA.
+
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
 - **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.
