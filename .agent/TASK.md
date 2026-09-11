@@ -12,19 +12,20 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 28.0: Script de Auditoria de Segurança e Permissões de Arquivos no Host
+### 📌 Tarefa 29.0: Guia Consolidado de Hardening e Boas Práticas Operacionais do Host Proxmox
 
-- **Descrição:** Desenvolver script (`scripts/audit-security.sh`) para validar permissões restritivas de arquivos sensíveis no host (`.env` em `600`, sockets Docker protegidos, portas expostas somente em interfaces seguras, verificação de limites de memória aplicados e ausência de senhas default nos compose files), gerando relatório de conformidade de segurança para ambientes de produção e homelab.
-- **Sistema(s) Envolvido(s):** `security`, `scripts`, `docs`
+- **Descrição:** Elaborar guia técnico consolidado e operacional de hardening e boas práticas para hosts Proxmox VE rodando containers de observabilidade (configurações de kernel/sysctl `vm.max_map_count`, montagens `noatime`, isolamento de rede, políticas de segurança do Docker socket, governança de backups e checklists de verificação periódica).
+- **Sistema(s) Envolvido(s):** `security`, `docs`, `proxmox`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
-  - [x] Escrita de código-fonte
+  - [ ] Escrita de código-fonte
 - **Status:** PRONTO PARA PLANEJAMENTO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Script `scripts/audit-security.sh` com checklist de segurança do host e containers.
-- [ ] Documentação no `README.md` e `.agent/NOTES.md`.
+- [ ] Documentação detalhada em `docs/proxmox-hardening.md` (ou seção dedicada no `README.md`).
+- [ ] Checklists operacionais de segurança do host Proxmox integrados com `scripts/audit-security.sh`.
+- [ ] Atualização do `README.md` e `.agent/NOTES.md`.
 
 ---
 
@@ -32,6 +33,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 28.0 | Script de Auditoria de Segurança e Permissões de Arquivos no Host (`scripts/audit-security.sh`) | `3920bfb` | 2026-09-11 |
 | 27.0 | Rotina de Teste Automatizado de Integridade e Snapshot Diário (`run-maintenance-pipeline.sh`) | `5381a9e` | 2026-09-11 |
 | 26.0 | Dashboard Grafana Pré-construído (`dashboards/grafana-victorialogs.json`) | `4693fc7` | 2026-09-11 |
 | 25.0 | Auditoria e Alerta Periódico de Capacidade de Partições por Cron (`check-disk-growth.sh`) | `e31be5c` | 2026-09-10 |
