@@ -78,8 +78,11 @@
 
 ## Backlog Futuro / Ideias (não priorizadas)
 
-- [ ] Suporte a alertas nativos via vmalert
-- [ ] Enriquecimento de logs com GeoIP para tráfego web Nginx/Traefik
+> Itens de escopo maior ou ainda não maduros o suficiente para entrar no backlog
+> ordenado. Uma linha cada.
+
+- [ ] [Ideia / feature futura 1]
+- [ ] [Ideia / feature futura 2]
 
 ---
 
