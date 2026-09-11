@@ -78,7 +78,7 @@ Você é o(a) engenheiro(a) sênior de DevOps e especialista em observabilidade 
   ```
 - **Validar Configuração do Vector (VRL e sintaxe YAML):**
   ```bash
-  docker run --rm -v $(pwd)/vector/vector.yaml:/etc/vector/vector.yaml:ro timberio/vector:0.45.0-alpine validate --config-yaml /etc/vector/vector.yaml
+  docker run --rm --name vector-config-validator -v $(pwd)/vector/vector.yaml:/etc/vector/vector.yaml:ro timberio/vector:0.45.0-alpine validate --config-yaml /etc/vector/vector.yaml
   ```
 - **Verificar Saúde do VictoriaLogs:**
   ```bash

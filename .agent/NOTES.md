@@ -200,6 +200,14 @@
   5. Governança: integração dos utilitários `audit-security.sh`, `run-maintenance-pipeline.sh` e `install-host-collectors.sh` com checklists pré e pós-deploy.
 - **Consequências:** Documentação de referência canônica para provisionamento e auditoria de novos nós no homelab, mantendo alinhamento de segurança entre desenvolvedores humanos e agentes de IA.
 
+### 2026-09-11 — Nomeação Determinística e Rastreabilidade de Containers Efêmeros
+- **Contexto:** Como a imagem oficial do VictoriaLogs é distroless pura (`scratch`), scripts como `check-disk-growth.sh` e `manage-partitions.sh` executam `docker run --rm ... alpine` para medir volumes em disco. Sem as flags `--name` e `--label`, o Docker atribuía nomes aleatórios (ex: `friendly_wozniak`), poluindo a telemetria do daemon capturada por `ship-docker-events.sh` e dificultando a identificação de containers caso houvesse terminação anômala.
+- **Decisão:** Padronizar todas as invocações de containers utilitários efêmeros com:
+  - `--name "<servico>-<funcao>-$$"` (utilizando o PID `$$` do processo para garantir concorrência segura sem colisão de nomes).
+  - `--label "app=infra-victoria-logs"` e `--label "component=maintenance"`.
+  - Atualizado também o comando de validação do Vector no `AGENTS.md` com `--name vector-config-validator`.
+- **Consequências:** Eliminação de eventos com nomes anônimos no stream `service="docker-events"`, rastreabilidade total no `docker ps -a` e capacidade de filtragem de containers utilitários por labels.
+
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
 - **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.

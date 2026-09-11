@@ -109,7 +109,12 @@ DISK_TOTAL=$(echo "${DISK_USAGE_RAW}" | awk '{print $2}')
 echo "💾 Disco do Host: ${DISK_TOTAL} total | ${DISK_AVAIL} disponível | ${DISK_FREE_PCT}% livre (Usado: ${DISK_USED_PCT}%)"
 
 # 2. Inspecionar Última Partição do VictoriaLogs
-USAGE_RAW=$(docker run --rm -v victorialogs_data:/data:ro alpine sh -c "du -m -d 1 /data/partitions 2>/dev/null" || true)
+USAGE_RAW=$(docker run --rm \
+  --name "victorialogs-disk-inspector-$$" \
+  --label "app=infra-victoria-logs" \
+  --label "component=maintenance" \
+  -v victorialogs_data:/data:ro \
+  alpine sh -c "du -m -d 1 /data/partitions 2>/dev/null" || true)
 
 CHECK_RESULT=$(python3 -c "
 import sys, json

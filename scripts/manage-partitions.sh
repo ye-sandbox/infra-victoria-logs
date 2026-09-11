@@ -68,8 +68,13 @@ get_partitions_json() {
 }
 
 get_volume_disk_usage() {
-  # Inspeciona tamanho real dentro do volume docker victorialogs_data
-  docker run --rm -v victorialogs_data:/data:ro alpine sh -c "du -h -d 1 /data/partitions 2>/dev/null" || true
+  # Inspeciona tamanho real dentro do volume docker victorialogs_data com nome determinístico e labels
+  docker run --rm \
+    --name "victorialogs-partition-inspector-$$" \
+    --label "app=infra-victoria-logs" \
+    --label "component=maintenance" \
+    -v victorialogs_data:/data:ro \
+    alpine sh -c "du -h -d 1 /data/partitions 2>/dev/null" || true
 }
 
 cmd_list() {
