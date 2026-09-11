@@ -12,10 +12,10 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 25.0: Auditoria e Alerta Periódico de Capacidade de Partições por Cron
+### 📌 Tarefa 26.0: Dashboard Grafana Pré-construído (JSON Provisioning) para Visualização Rápida
 
-- **Descrição:** Configurar script ou entrada cron periódica no host para executar auditoria semanal de capacidade (`scripts/manage-partitions.sh estimate`), alertando via webhook/log se o consumo diário exceder um limite crítico estabelecido de segurança.
-- **Sistema(s) Envolvido(s):** `scripts`, `docs`
+- **Descrição:** Criar dashboard Grafana oficial pré-configurado (exportado como modelo JSON modular em `dashboards/grafana-victorialogs.json`) conectado à fonte VictoriaLogs e Vector Prometheus Exporter, com painéis de vazão de ingestão (bytes/s, logs/s), Top 10 containers com erros, distribuição de status HTTP e latência de processamento, facilitando importação em 1 clique em instâncias Grafana existentes no homelab.
+- **Sistema(s) Envolvido(s):** `grafana`, `dashboards`, `docs`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [x] Escrita de código-fonte
@@ -23,8 +23,8 @@
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Validação periódica de crescimento de disco.
-- [ ] Documentação de integração.
+- [ ] Modelo JSON do Grafana para VictoriaLogs e Vector.
+- [ ] Documentação de importação e conexão de data source no `README.md`.
 
 ---
 
@@ -32,6 +32,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 25.0 | Auditoria e Alerta Periódico de Capacidade de Partições por Cron (`check-disk-growth.sh`) | `e31be5c` | 2026-09-10 |
 | 24.0 | Gestão, Auditoria e Purga Emergencial de Partições Físicas (Retenção de 1 Ano) | `b2c6538` | 2026-09-10 |
 | 23.0 | Painéis de Consulta LogsQL Salvos para Terminal (`scripts/logsql-queries.sh`) | `d9290d5` | 2026-09-10 |
 | 22.0 | Enriquecimento Opcional de Logs com GeoIP para Tráfego Web (`vector.geoip.yaml`) | `6e2dae1` | 2026-09-10 |
@@ -69,7 +70,7 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] Tarefa 26.0: Dashboard Grafana pré-construído (JSON provisioning) para visualização rápida
+- [ ] Tarefa 27.0: Rotina de teste automatizado de integridade e snapshot diário via cron
 
 ---
 
