@@ -73,6 +73,7 @@ flowchart LR
 │   ├── health-dashboard.sh  # Dashboard CLI colorido de telemetria ao vivo via APIs nativas
 │   ├── logsql-queries.sh    # Consultas analíticas pré-definidas (Top erros, latência, HTTP status)
 │   ├── manage-partitions.sh # Gestão, auditoria, projeção e purga emergencial de partições
+│   ├── check-disk-growth.sh # Checagem periódica (cron) e alerta de crescimento em disco
 │   ├── test-pipeline.sh     # Smoke test ponta a ponta de ingestão e LogsQL em 1 comando
 │   ├── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
 │   ├── ship-docker-stats.sh # Coleta e envio de CPU/memória de containers locais para o Vector
@@ -434,6 +435,21 @@ O coletor Vector possui agregação multilinha nativa na fonte `docker_logs` (`m
 
   # Purga emergencial efetiva de partições anteriores a uma data
   ./scripts/manage-partitions.sh purge --before 20260801
+  ```
+- **Auditoria e Alerta Periódico de Capacidade em Disco (`check-disk-growth.sh`):**
+  ```bash
+  # Executar checagem manual imediata
+  ./scripts/check-disk-growth.sh
+
+  # Simular verificação sem enviar logs (dry-run)
+  ./scripts/check-disk-growth.sh --threshold-daily-mb 500 --dry-run
+
+  # Agendar verificação diária automática no crontab (às 06:00 UTC)
+  ./scripts/check-disk-growth.sh --install-cron
+
+  # Verificar status ou remover agendamento
+  ./scripts/check-disk-growth.sh --status-cron
+  ./scripts/check-disk-growth.sh --uninstall-cron
   ```
 - **Validar saúde do pipeline (Smoke Test):**
   ```bash

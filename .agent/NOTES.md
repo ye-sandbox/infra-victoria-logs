@@ -165,6 +165,11 @@
   4. Atualizar `RETENTION_PERIOD=1y` como padrão no `.env.example` e `.env`.
 - **Consequências:** Tranquilidade operacional para manter 1 ano de histórico sem qualquer risco de surpresa por falta de espaço em disco no homelab.
 
+### 2026-09-10 — Auditoria e Alerta Periódico de Capacidade de Partições por Cron (`check-disk-growth.sh`)
+- **Contexto:** Garantir que o plano de retenção de 1 ano não seja subitamente comprometido por containers desgovernados gerando rajadas de gigabytes de logs ou por esgotamento do disco raiz no host Proxmox/Mini PC.
+- **Decisão:** Implementar `scripts/check-disk-growth.sh` com checagem automática de taxa diária de ingestão (`--threshold-daily-mb`, padrão 1000 MB) e porcentagem mínima de disco livre (`--min-free-disk-percent`, padrão 10%). Em caso de violação, o script emite evento de nível `ERROR` para o coletor Vector (porta 8686) e opcionalmente dispara webhook externo, com opções `--install-cron`, `--uninstall-cron` e `--dry-run`.
+- **Consequências:** Monitoramento ativo e preventivo de capacidade sem necessidade de agentes externos pesados.
+
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
 - **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.
