@@ -170,6 +170,11 @@
 - **Decisão:** Implementar `scripts/check-disk-growth.sh` com checagem automática de taxa diária de ingestão (`--threshold-daily-mb`, padrão 1000 MB) e porcentagem mínima de disco livre (`--min-free-disk-percent`, padrão 10%). Em caso de violação, o script emite evento de nível `ERROR` para o coletor Vector (porta 8686) e opcionalmente dispara webhook externo, com opções `--install-cron`, `--uninstall-cron` e `--dry-run`.
 - **Consequências:** Monitoramento ativo e preventivo de capacidade sem necessidade de agentes externos pesados.
 
+### 2026-09-11 — Dashboard Grafana Oficial Pré-construído (`dashboards/grafana-victorialogs.json`)
+- **Contexto:** Visualização em tempo real de throughput de logs, saúde de componentes, erros de pipeline do Vector e concorrência de busca no VictoriaLogs sem esforço de montagem manual de queries PromQL.
+- **Decisão:** Criar modelo JSON oficial modular (`dashboards/grafana-victorialogs.json`) com variável dinâmica de data source (`${DS_PROMETHEUS}`), organizado em 3 linhas colapsáveis: 1) Visão Geral & Saúde da Stack (Status Online/Offline, volume total, linhas ingeridas); 2) Vazão e Performance (Logs/s e Bytes/s no VictoriaLogs e Vector); 3) Pipeline Vector & Concorrência (Buscas LogsQL ativas vs capacidade máxima, e contagem de erros de pipeline).
+- **Consequências:** Importação em 1 clique em qualquer Grafana existente com visualização rica e zero configuração manual.
+
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
 - **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.

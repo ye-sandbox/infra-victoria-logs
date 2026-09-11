@@ -66,6 +66,8 @@ flowchart LR
 │   ├── vector.ssd.yaml      # Perfil SSD/NVMe (buffer em disco, 1MB batch, 100% retenção)
 │   ├── vector.geoip.yaml    # Perfil GeoIP (enriquecimento com MaxMind GeoLite2 para tráfego web)
 │   └── vector.yaml          # Perfil base / fallback de configuração
+├── dashboards/
+│   └── grafana-victorialogs.json      # Modelo oficial pré-construído para Grafana (throughput, erros, status)
 ├── mcp/
 │   └── server.py            # Servidor MCP stdio nativo para integração direta com Agentes de IA
 ├── scripts/
@@ -548,6 +550,18 @@ scrape_configs:
   - `vector_component_received_events_total`: Vazão de eventos recebidos por source/transform/sink.
   - `vector_buffer_byte_size`: Ocupação atual do buffer (em RAM ou SSD).
   - `vector_component_errors_total`: Contagem de erros internos de parsing ou roteamento.
+
+### 📈 Dashboard Oficial Pré-construído (`dashboards/grafana-victorialogs.json`)
+
+O projeto inclui um dashboard profissional pronto para importação:
+1. No Grafana, acesse **Dashboards** > **New** > **Import**.
+2. Faça o upload do arquivo [`dashboards/grafana-victorialogs.json`](./dashboards/grafana-victorialogs.json) ou cole seu conteúdo JSON.
+3. Selecione o seu Data Source Prometheus na variável `${DS_PROMETHEUS}` e clique em **Import**.
+4. Visualize instantaneamente:
+   - **Status da Stack:** VictoriaLogs & Vector Online/Offline.
+   - **Vazão:** Logs/s e Bytes/s em tempo real.
+   - **Saúde do Buffer:** Eventos em repouso e ocupação de memória do coletor.
+   - **Proteção de Busca:** Concorrência ativa contra capacidade máxima permitida no disco.
 
 ---
 
