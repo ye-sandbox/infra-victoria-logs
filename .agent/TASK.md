@@ -12,22 +12,22 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 33.0: Internacionalização da Documentação (`README.md` em Inglês como Padrão e `README.pt-br.md`)
+### 📌 Tarefa 34.0: Validação de Conformidade Open-Source e Smoke Test Final da Release
 
-- **Descrição:** Portar o `README.md` atual para `README.pt-br.md` preservando a versão em português, e reconstruir o `README.md` principal em inglês de alto nível para a comunidade global open-source. Incluir seletor de idioma no topo (`[English](README.md) | [Português](README.pt-br.md)`), mantendo total paridade técnica (arquitetura, limites de 150 MB de RAM, tabela de componentes, Quickstart, comandos de scripts operacionais, guia Proxmox e integrações MCP/Skills).
-- **Sistema(s) Envolvido(s):** `docs`, `community`, `i18n`
+- **Descrição:** Executar verificação abrangente de conformidade da stack para abertura pública: validação de sintaxe de todos os scripts bash (`bash -n scripts/*.sh`), execução de testes unitários do MCP, testes de integração de pipeline e MCP, auditoria de segurança (`audit-security.sh`), verificação de limites do Docker Compose e registro da nova versão e melhorias no `CHANGELOG.md` preparando o repositório para a release pública.
+- **Sistema(s) Envolvido(s):** `ci`, `testing`, `release`, `community`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
-  - [ ] Escrita de código-fonte
+  - [x] Escrita de código-fonte
 - **Status:** EM PLANEJAMENTO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Arquivo `README.pt-br.md` criado com a versão integral em português do `README.md` atual.
-- [ ] Arquivo `README.md` reescrito integralmente em inglês técnico claro, preciso e profissional.
-- [ ] Seletor de idioma `[English](README.md) | [Português](README.pt-br.md)` presente no cabeçalho de ambos os arquivos.
-- [ ] Teto inegociável de 150 MB de RAM explicitamente salientado em ambos os arquivos.
-- [ ] Links relativos (`docs/`, `scripts/`, `skills/`, `mcp/`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE`) 100% funcionais e validados.
+- [ ] Todos os scripts em `scripts/*.sh` passam na verificação sintática com `bash -n`.
+- [ ] Suíte completa de testes do pipeline e do MCP executada e aprovada com 100% de sucesso.
+- [ ] Auditoria de segurança aprovada sem nenhuma falha crítica (`audit-security.sh`).
+- [ ] `CHANGELOG.md` atualizado com as adições de governança open-source, licença Apache 2.0 e suporte bilíngue (i18n).
+- [ ] Repositório 100% pronto para publicação e release.
 
 ---
 
@@ -35,6 +35,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 33.0 | Internacionalização da Documentação (`README.md` em Inglês como Padrão e `README.pt-br.md`) | `c59c793` | 2026-09-12 |
 | 32.0 | Governança de Comunidade Open-Source (`CONTRIBUTING.md`, `SECURITY.md` e Templates de Issues) | `f705cde` | 2026-09-12 |
 | 31.0 | Licença Open-Source (LICENSE Apache 2.0) e Desacoplamento de Referências Pessoais do Host | `28c9ccf` | 2026-09-12 |
 | 30.0 | Padronização e Nomeação Determinística de Containers Efêmeros nos Scripts de Manutenção | `277834c` | 2026-09-11 |
@@ -80,7 +81,6 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] Tarefa 33.0: Internacionalização da Documentação (`README.md` em Inglês como Padrão e `README.pt-br.md`)
 - [ ] Tarefa 34.0: Validação de Conformidade Open-Source e Smoke Test Final da Release
 
 ---
