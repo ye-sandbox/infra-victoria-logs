@@ -14,21 +14,21 @@
 
 ### 📌 Nenhuma tarefa ativa no momento
 
-- **Descrição:** A calibração da governança de recursos (Tarefa 35.0) foi concluída com sucesso em toda a documentação, scripts e regras do projeto, esclarecendo o teto de 150 MB como salvaguarda operacional para infraestrutura limitada.
-- **Sistema(s) Envolvido(s):** `docs`, `governance`, `community`, `scripts`
+- **Descrição:** A refatoração de `scripts/tune-disk-host.sh` (Tarefa 36.0) foi concluída com sucesso. O script agora é totalmente ciente de virtualização (VMs QEMU/KVM, Proxmox, VMware, VirtualBox), adaptando recomendações de I/O scheduler (`none` em discos virtuais para evitar duplo agendamento vs `mq-deadline` em HDs mecânicos bare-metal), omitindo chamadas e diagnósticos de `hdparm` em máquinas virtuais e mantendo o foco crítico em `noatime,nodiratime`.
+- **Sistema(s) Envolvido(s):** `scripts`, `host`, `proxmox`, `vm`, `docs`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
-  - [x] Escrita de código-fonte
 - **Status:** CONCLUÍDO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] `CONTRIBUTING.md` atualizado para esclarecer que o limite padrão de 150 MB é uma salvaguarda para infraestrutura limitada a fim de evitar consumo excessivo de recursos.
-- [x] `README.md` e `README.pt-br.md` atualizados substituindo termos como "inegociável/unyielding" pela explicação de salvaguarda de infraestrutura limitada.
-- [x] `AGENTS.md` atualizado para refletir que o teto padrão é uma salvaguarda operacional para não saturar recursos no host modesto.
-- [x] `.github/ISSUE_TEMPLATE/feature_request.md` e `CHANGELOG.md` atualizados com a mesma terminologia clara.
-- [x] `scripts/audit-security.sh` atualizado substituindo "teto inegociável" por "teto padrão de salvaguarda (150M)".
-- [x] Decisão registrada no `.agent/NOTES.md` e testes/auditorias executados com 100% de sucesso.
+- [x] Detecção de virtualização implementada em `scripts/tune-disk-host.sh` via `systemd-detect-virt`, DMI product/vendor e modelo/prefixo do disco (`QEMU`, `VBOX`, `VMware`, `vd*`).
+- [x] Sinalização explícita no output quando o disco for virtualizado, informando que a mídia subjacente é gerenciada pelo hipervisor.
+- [x] Seções de APM e spindown (`hdparm`) omitidas completamente quando executado em VMs ou discos virtuais.
+- [x] Recomendação de scheduler para discos virtuais ajustada para `none` (NOOP/passthrough), reservando `mq-deadline`/`bfq` estritamente para bare-metal físico rotacional.
+- [x] Diagnóstico de opções de montagem (`noatime`/`nodiratime`) mantido e priorizado para partições de dados do VictoriaLogs e Docker.
+- [x] Script testado localmente e validado diretamente no host VM `mothership-docker` via SSH.
+- [x] Documentação atualizada (`README.md`, `README.pt-br.md`, `docs/proxmox-hardening.md` se aplicável).
 
 ---
 
@@ -36,6 +36,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 36.0 | Refatoração de `tune-disk-host.sh` com Consciência de Ambientes Virtualizados (VMs / QEMU / KVM / Proxmox) | `6414e65` | 2026-09-12 |
 | 35.0 | Calibração da Governança de Recursos: Limite de 150 MB como Salvaguarda para Infraestrutura Limitada | `d6a5d25` | 2026-09-12 |
 | 34.0 | Validação de Conformidade Open-Source e Smoke Test Final da Release | `96dbe6a` | 2026-09-12 |
 | 33.0 | Internacionalização da Documentação (`README.md` em Inglês como Padrão e `README.pt-br.md`) | `c59c793` | 2026-09-12 |
