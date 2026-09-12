@@ -12,15 +12,21 @@
 
 ## Tarefa Ativa
 
-### 📌 Ciclo Atual Concluído — Aguardando Novas Demandas / Backlog
+### 📌 Tarefa 32.0: Governança de Comunidade Open-Source (`CONTRIBUTING.md`, `SECURITY.md` e Templates de Issues)
 
-- **Descrição:** Todas as tarefas prioritárias de arquitetura, otimização de I/O em HD/SSD, governança de retenção de 1 ano, telemetria de containers, auditoria de segurança do host, hardening no Proxmox VE e padronização determinística de containers utilitários foram concluídas e validadas com 100% de sucesso.
-- **Sistema(s) Envolvido(s):** `core`, `scripts`, `security`, `docs`
+- **Descrição:** Criar arquivos de governança comunitária: `CONTRIBUTING.md` (diretrizes para desenvolvedores humanos sobre setup local, validação com `test-pipeline.sh` e padrões de commit semântico), `SECURITY.md` (política de reporte responsável de vulnerabilidades) e templates de issues do GitHub em `.github/ISSUE_TEMPLATE/` (`bug_report.md` e `feature_request.md`).
+- **Sistema(s) Envolvido(s):** `docs`, `github`, `community`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [ ] Escrita de código-fonte
-- **Status:** CONCLUÍDO
-  *(Aguardando definição de nova tarefa pelo usuário ou promoção a partir de ideias futuras)*
+- **Status:** PRONTO PARA PLANEJAMENTO
+  *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
+
+### Critérios de Aceite
+- [ ] Arquivo `CONTRIBUTING.md` criado na raiz.
+- [ ] Arquivo `SECURITY.md` criado na raiz.
+- [ ] Templates de issue criados em `.github/ISSUE_TEMPLATE/`.
+- [ ] Documentação sincronizada em `README.md` e `.agent/NOTES.md`.
 
 ---
 
@@ -28,6 +34,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 31.0 | Licença Open-Source (LICENSE Apache 2.0) e Desacoplamento de Referências Pessoais do Host | `28c9ccf` | 2026-09-12 |
 | 30.0 | Padronização e Nomeação Determinística de Containers Efêmeros nos Scripts de Manutenção | `277834c` | 2026-09-11 |
 | 29.0 | Guia Consolidado de Hardening e Boas Práticas Operacionais do Host Proxmox (`docs/proxmox-hardening.md`) | `b6d8fb3` | 2026-09-11 |
 | 28.0 | Script de Auditoria de Segurança e Permissões de Arquivos no Host (`scripts/audit-security.sh`) | `3920bfb` | 2026-09-11 |
@@ -71,7 +78,9 @@
 
 ## Backlog (Próximas, em ordem)
 
-*(Nenhuma tarefa pendente no momento)*
+- [ ] Tarefa 32.0: Governança de Comunidade Open-Source (`CONTRIBUTING.md`, `SECURITY.md` e Templates de Issues)
+- [ ] Tarefa 33.0: Internacionalização da Documentação (`README.md` em Inglês como Padrão e `README.pt-br.md`)
+- [ ] Tarefa 34.0: Validação de Conformidade Open-Source e Smoke Test Final da Release
 
 ---
 
