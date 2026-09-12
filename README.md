@@ -11,7 +11,7 @@
 
 A minimalist, high-performance log observability and aggregation stack tailored for **Homelabs (Mini PCs, Intel NUCs, and Proxmox VE servers running Docker)**.
 
-Engineered with an unyielding **total RAM ceiling of < 150 MB (VictoriaLogs <= 80 MB, Vector <= 60 MB)**, this solution comfortably replaces resource-heavy stacks like Grafana Loki/Promtail or Elasticsearch/Logstash on resource-constrained local infrastructure. It is purpose-built for both human troubleshooting (native VMUI Web UI) and **autonomous AI coding agents** (Claude Code, Antigravity, Cursor, Roo Code) performing incident triage and root cause analysis.
+Configured with a default **RAM safeguard ceiling of < 150 MB (VictoriaLogs <= 80 MB, Vector <= 60 MB)** specifically because it runs on resource-constrained local infrastructure, ensuring it operates reliably without consuming excessive host resources. This solution comfortably replaces resource-heavy stacks like Grafana Loki/Promtail or Elasticsearch/Logstash while remaining fully tunable for larger environments. It is purpose-built for both human troubleshooting (native VMUI Web UI) and **autonomous AI coding agents** (Claude Code, Antigravity, Cursor, Roo Code) performing incident triage and root cause analysis.
 
 > 💡 **Docker Host Coexistence:** If you run other applications on the same Docker host (e.g., Portainer, Traefik, Uptime Kuma), verify that ports `9428` (VictoriaLogs), `8686` (Vector HTTP), `5140/udp` (Syslog), and `9598` (Prometheus metrics) do not conflict with existing host bindings.
 
@@ -49,7 +49,7 @@ flowchart LR
 ```
 
 ### Why VictoriaLogs + Vector?
-- **Ultra-Low Memory Footprint:** Both runtimes compile to static native binaries (VictoriaLogs in Go, Vector in Rust). Completely free of JVM, Python runtime bloat, or heavy background daemons. Total footprint strictly capped at **< 150 MB RAM**.
+- **Ultra-Low Memory Footprint:** Both runtimes compile to static native binaries (VictoriaLogs in Go, Vector in Rust). Completely free of JVM, Python runtime bloat, or heavy background daemons. Default footprint is safeguarded **< 150 MB RAM** to avoid excessive host consumption on limited infrastructure.
 - **High-Density Compression:** VictoriaLogs compresses logs by up to 10x–15x compared to raw text, significantly reducing SSD wear and disk usage on Mini PCs.
 - **Intuitive LogsQL Query Language:** An expressive, pipe-based query engine designed for humans and AI agents alike, avoiding complex query generation and hallucination pitfalls.
 - **Automatic Container Discovery:** Vector automatically discovers, enriches, and tags metadata from all running Docker containers via the local Docker socket.
@@ -102,7 +102,7 @@ flowchart LR
 ├── .gitignore               # Ignores .env, .cursor/, data volumes, backups, and secrets
 ├── CHANGELOG.md             # Version history and release notes (Keep a Changelog standard)
 ├── LICENSE                  # Open-source license (Apache License 2.0)
-├── CONTRIBUTING.md          # Contributor guide and non-negotiable 150 MB RAM ceiling rule
+├── CONTRIBUTING.md          # Contributor guide and default 150 MB RAM safeguard baseline
 ├── SECURITY.md              # Responsible vulnerability disclosure policy
 ├── AGENTS.md                # AI agent operating rules, engineering standards, and DoD criteria
 ├── .agent/                  # Persistent agent tracking files (TASK.md, NOTES.md)
@@ -368,7 +368,7 @@ The resource definitions in [`docker-compose.yml`](./docker-compose.yml) guarant
 | **Vector** | `60 MB` | `20 MB` | `0.50 core` |
 | **Combined** | **`140 MB`** | **`50 MB`** | **`1.0 core`** |
 
-- Total combined memory usage is **capped under 150 MB RAM** during ordinary operations.
+- Total combined memory usage is **capped under 150 MB RAM** as a default safeguard against excessive resource consumption on limited hardware.
 - In **HDD mode**, Vector buffers in RAM within its `60 MB` ceiling.
 - In **SSD mode**, Vector utilizes a `256 MB` disk buffer on the `vector_data` volume.
 - If your homelab generates high log throughput (> 20 GB/day), you may scale VictoriaLogs memory to `120M` if required.
@@ -584,7 +584,7 @@ ln -sfn "$(pwd)/skills/github-bug-issue" ~/.cursor/skills/github-bug-issue
 
 ## 🤝 Community & Governance
 
-- [Contributing Guidelines](CONTRIBUTING.md): Setup instructions, pre-PR test suite, and the mandatory 150 MB RAM limit.
+- [Contributing Guidelines](CONTRIBUTING.md): Setup instructions, pre-PR test suite, and the default 150 MB RAM safeguard for limited hardware.
 - [Security Policy](SECURITY.md): Responsible vulnerability reporting via GitHub Security Advisories.
 - [Changelog](CHANGELOG.md): Detailed release notes adhering to Keep a Changelog.
 - [Apache 2.0 License](LICENSE): Permissive terms for personal and commercial usage.

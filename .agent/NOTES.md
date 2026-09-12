@@ -215,13 +215,14 @@
   - Substituir o aviso de coabitação privado do topo do README por uma orientação arquitetural neutra e genérica sobre coexistência de portas de rede no Docker (`9428`, `8686`, `5140/udp`, `9598`).
 - **Consequências:** Clareza jurídica internacional e stack 100% autossuficiente para qualquer pessoa da comunidade open-source.
 
-### 2026-09-12 — Governança de Comunidade Open-Source e Teto Inegociável de 150 MB
-- **Contexto:** Ao abrir o projeto para a comunidade, colaboradores humanos necessitam de diretrizes claras sobre como submeter melhorias e reportar falhas, sem descaracterizar o propósito central da stack: operar em hardware local modesto (Mini PCs, Intel NUCs, nós Proxmox VE).
+### 2026-09-12 — Governança de Recursos: Limite de 150 MB como Salvaguarda para Infraestrutura Limitada
+- **Contexto:** Ao abrir o projeto para a comunidade, colaboradores humanos necessitam de diretrizes claras sobre como submeter melhorias e reportar falhas. A infraestrutura onde a stack opera atualmente é modesta e limitada (Mini PCs, nós Proxmox VE), exigindo contenção de consumo para não esgotar recursos da máquina.
 - **Decisão:**
-  - Criar `CONTRIBUTING.md` fixando formalmente como regra inegociável o **teto estrito de 150 MB de RAM total** (VictoriaLogs <= 80 MB, Vector <= 60 MB), com suíte de testes obrigatórios (`test-pipeline.sh`, `audit-security.sh --strict`) antes do envio de PRs.
-  - Criar `SECURITY.md` estabelecendo o fluxo de reporte responsável via GitHub Security Advisories privados (evitando divulgação precoce de 0-days).
-  - Criar templates de issue em `.github/ISSUE_TEMPLATE/` (`bug_report.md` e `feature_request.md`) com campos específicos sobre hardware (HDD vs SSD) e impacto em memória/CPU.
-- **Consequências:** Comunidade capacitada para contribuir com previsibilidade, preservando a identidade ultra-leve e a estabilidade da stack em ambientes de homelab.
+  - Esclarecer que o limite padrão de 150 MB de RAM (VictoriaLogs <= 80 MB, Vector <= 60 MB) não é um dogma inalterável, mas sim uma salvaguarda operacional intencional imposta para garantir que a stack não consuma recursos excessivos na infraestrutura limitada e dispute capacidade com outros serviços essenciais do host. Operadores com hardware mais robusto podem dimensionar os limites para cima conforme necessário.
+  - Criar `CONTRIBUTING.md` fixando essa salvaguarda como baseline padrão de eficiência para Pull Requests comunitários, com suíte de testes obrigatórios (`test-pipeline.sh`, `audit-security.sh --strict`).
+  - Criar `SECURITY.md` estabelecendo o fluxo de reporte responsável via GitHub Security Advisories privados.
+  - Criar templates de issue em `.github/ISSUE_TEMPLATE/` (`bug_report.md` e `feature_request.md`) com avaliação de consumo de hardware.
+- **Consequências:** Clareza arquitetural para a comunidade: proteção contra consumo excessivo de recursos em hardware limitado, combinada com flexibilidade de dimensionamento para quem possui maior capacidade.
 
 ### 2026-09-12 — Internacionalização da Documentação (README.md em Inglês e README.pt-br.md)
 - **Contexto:** Com a transição do repositório para o ecossistema open-source global, a documentação principal na raiz precisa ser imediatamente acessível à comunidade internacional em língua inglesa. Ao mesmo tempo, operadores e desenvolvedores lusófonos necessitam de documentação completa e atualizada sem qualquer defasagem técnica.

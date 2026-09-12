@@ -4,17 +4,17 @@ Agradecemos o seu interesse em contribuir para o **VictoriaLogs + Vector Homelab
 
 ---
 
-## 🛑 Princípio Fundamental: Teto Rígido de Memória (150 MB)
+## 🛑 Princípio Fundamental: Salvaguarda de Memória (Limite Padrão de 150 MB)
 
 > [!IMPORTANT]
-> **Atenção:** Este projeto foi concebido especificamente para rodar em **infraestrutura local e limitada** (Mini PCs, Intel NUCs, nós Proxmox VE, servidores caseiros com HD mecânico ou SSD modesto).
+> **Atenção:** Este projeto foi concebido para rodar em **infraestrutura local e limitada** (Mini PCs, Intel NUCs, nós Proxmox VE, servidores caseiros com recursos modestos).
 > 
-> Por padrão, **mantemos um teto estrito e inegociável de 150 MB de RAM total** para toda a stack básica:
+> Para **garantir que a stack não consuma recursos excessivos** nem dispute capacidade com outras aplicações do host, foi imposto um **teto padrão de 150 MB de RAM total**:
 > - **VictoriaLogs:** `<= 80 MB` (`deploy.resources.limits.memory: 80M` e `-memory.allowedPercent=60`)
 > - **Vector:** `<= 60 MB` (`deploy.resources.limits.memory: 60M`)
-> - **Total Combinado:** `<= 140 MB` (com folga confortável dentro do limite de 150 MB)
+> - **Total Combinado:** `<= 140 MB` (operando com folga confortável dentro da salvaguarda de 150 MB)
 > 
-> Qualquer Pull Request que aumente o consumo de memória em repouso, adicione componentes pesados (ex: JVM, Elasticsearch, Prometheus completo) ou remova os limites de recursos será rejeitado. A eficiência extrema é o principal propósito deste projeto.
+> Esse limite não é um dogma inalterável, mas uma salvaguarda intencional imposta para o dimensionamento seguro em hardware modesto. Embora operadores individuais possam ajustar e aumentar os limites no `docker-compose.yml` e `.env` caso disponham de mais recursos no seu host (ex: elevando VictoriaLogs para `120M` em caso de alto tráfego), Pull Requests submetidos à comunidade devem respeitar essa salvaguarda por padrão para evitar consumo excessivo de recursos e preservar o propósito em infraestruturas restritas.
 
 ---
 

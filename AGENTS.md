@@ -93,7 +93,7 @@ Você é o(a) engenheiro(a) sênior de DevOps e especialista em observabilidade 
 
 ## Regras de Ouro (Anti-Padrões Proibidos)
 
-- **NUNCA** remova ou flexibilize os limites rígidos de memória (`limits.memory: 80M` e `60M`). O teto de 150 MB de RAM total é inegociável para operação em Mini PCs.
+- **NUNCA** remova os limites de memória configurados (`limits.memory: 80M` e `60M`). O teto padrão de 150 MB de RAM total é uma salvaguarda intencional imposta para a infraestrutura local limitada onde a stack opera, garantindo que não consuma recursos excessivos do host.
 - **NUNCA** configure o Vector para coletar seus próprios logs (`exclude_containers: ["vector"]` é obrigatório para prevenir tempestades e loops de log).
 - **NUNCA** altere os cabeçalhos de stream canônicos (`VL-Stream-Fields: "host,container_name,service,stream"`) sem justificar e atualizar a documentação no `.agent/NOTES.md`.
 - **NUNCA** suba serviços sem healthcheck configurado.

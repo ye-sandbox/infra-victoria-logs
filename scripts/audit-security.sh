@@ -320,7 +320,7 @@ print(f"{vl_mem} {vec_mem}")
     if [[ "${VL_MB}" -le 80 && "${VEC_MB}" -le 60 && "${TOTAL_MB}" -le 150 ]]; then
       record_result "COMPOSE-MEM-LIMITS" "DockerCompose" "PASS" "Limites de memória em conformidade (VictoriaLogs: ${VL_MB}M, Vector: ${VEC_MB}M, Total: ${TOTAL_MB}M <= 150M)" ""
     else
-      record_result "COMPOSE-MEM-LIMITS" "DockerCompose" "FAIL" "Limites de memória excedem o teto inegociável de 150M (VictoriaLogs: ${VL_MB}M, Vector: ${VEC_MB}M)" "Ajuste limits.memory para <= 80M e <= 60M"
+      record_result "COMPOSE-MEM-LIMITS" "DockerCompose" "FAIL" "Limites de memória excedem o teto padrão de salvaguarda de 150M (VictoriaLogs: ${VL_MB}M, Vector: ${VEC_MB}M)" "Ajuste limits.memory para <= 80M e <= 60M a fim de proteger o host contra consumo excessivo"
     fi
   else
     record_result "COMPOSE-MEM-LIMITS" "DockerCompose" "FAIL" "Limites de memória (deploy.resources.limits.memory) ausentes em um ou mais serviços" "Configure limits.memory para blindar o host contra OOM"

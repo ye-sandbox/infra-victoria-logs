@@ -11,7 +11,7 @@
 
 Stack de observabilidade e centralização de logs minimalista, projetada para **Homelabs (Mini PCs, Intel NUCs e servidores Proxmox VE rodando Docker)**.
 
-Focada em **baixíssimo consumo de CPU e RAM (< 150 MB no total)**, esta solução substitui com folga pilhas pesadas como Grafana Loki/Promtail ou Elastic/Logstash, sendo otimizada tanto para inspeção humana (Web UI nativa) quanto para **consultas automatizadas por Agentes de IA** (Claude Code, Antigravity, Cursor, Roo Code) durante diagnósticos de erros e incidentes.
+Projetada com um **teto padrão de salvaguarda < 150 MB de RAM no total (VictoriaLogs <= 80 MB, Vector <= 60 MB)** por operar em infraestrutura local e limitada, garantindo que não consuma recursos excessivos do host. Esta solução substitui com folga pilhas pesadas como Grafana Loki/Promtail ou Elastic/Logstash enquanto permanece totalmente dimensionável, sendo otimizada tanto para inspeção humana (Web UI nativa) quanto para **consultas automatizadas por Agentes de IA** (Claude Code, Antigravity, Cursor, Roo Code) durante diagnósticos de erros e incidentes.
 
 > 💡 **Coexistência no Host Docker:** Caso execute outras aplicações ou stacks no mesmo servidor Docker (ex: Portainer, Traefik, Uptime Kuma), certifique-se de que as portas `9428` (VictoriaLogs), `8686` (Vector HTTP), `5140/udp` (Syslog) e `9598` (Métricas Prometheus) não entrem em conflito com outros containers na interface do host.
 
@@ -102,7 +102,7 @@ flowchart LR
 ├── .gitignore               # Ignora .env, .cursor/, volumes, backups e segredos
 ├── CHANGELOG.md             # Histórico de versões e notas de lançamento (Keep a Changelog)
 ├── LICENSE                  # Licença permissiva de software (Apache License 2.0)
-├── CONTRIBUTING.md          # Diretrizes de contribuição para a comunidade (teto de 150 MB RAM)
+├── CONTRIBUTING.md          # Diretrizes de contribuição para a comunidade (salvaguarda de 150 MB RAM)
 ├── SECURITY.md              # Política de reporte responsável de vulnerabilidades
 ├── AGENTS.md                # Diretrizes de engenharia, governança e regras dos agentes
 ├── .agent/                  # Documentação de contexto do agente (TASK.md, NOTES.md)
@@ -675,7 +675,7 @@ Recarregue a janela do Cursor depois. A fonte da verdade continua neste reposit�
 
 ## 🤝 Comunidade e Governança
 
-- [Diretrizes de Contribuição](CONTRIBUTING.md): Guia para desenvolvedores humanos, convenções de código, commits semânticos e exigência do teto rígido de 150 MB de RAM.
+- [Diretrizes de Contribuição](CONTRIBUTING.md): Guia para desenvolvedores humanos, convenções de código, commits semânticos e salvaguarda do limite padrão de 150 MB de RAM para infraestrutura limitada.
 - [Política de Segurança](SECURITY.md): Processo de reporte responsável de vulnerabilidades via GitHub Security Advisories.
 - [Histórico de Mudanças](CHANGELOG.md): Registro de versões e notas de lançamento (Keep a Changelog).
 - [Licença Apache 2.0](LICENSE): Termos de uso permissivos para fins pessoais e comerciais.

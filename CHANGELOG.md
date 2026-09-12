@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Open-Source Community Governance:** Formal adoption of Apache License 2.0 (`LICENSE`), comprehensive contributor guide (`CONTRIBUTING.md`) strictly enforcing the non-negotiable 150 MB RAM ceiling, and responsible vulnerability disclosure policy (`SECURITY.md`).
+- **Open-Source Community Governance:** Formal adoption of Apache License 2.0 (`LICENSE`), comprehensive contributor guide (`CONTRIBUTING.md`) establishing the default 150 MB RAM safeguard for resource-constrained local infrastructure, and responsible vulnerability disclosure policy (`SECURITY.md`).
 - **GitHub Issue Templates:** Standardized templates for bug reporting (`bug_report.md`) with hardware environment specifications (HDD vs SSD) and feature requests (`feature_request.md`) requiring memory/CPU footprint impact assessments.
 - **Bilingual Documentation:** Full internationalization with the primary `README.md` rewritten in idiomatic English and the complete Portuguese documentation preserved as `README.pt-br.md`, featuring header language selectors and complete technical parity.
 - **Decoupled Architecture Guidance:** Replaced private host assumptions with universal Docker host port coexistence guidance.

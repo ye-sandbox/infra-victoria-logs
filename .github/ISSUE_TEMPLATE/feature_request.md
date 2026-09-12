@@ -14,7 +14,7 @@ Uma descrição clara e detalhada de como você gostaria que a funcionalidade fu
 
 ### Impacto Estimado em Recursos (CPU / RAM)
 > [!IMPORTANT]
-> Lembre-se que a stack mantém um teto estrito de **150 MB de RAM total** por rodar em infraestrutura local e limitada.
+> Lembre-se que a stack adota um teto padrão de **150 MB de RAM total** como salvaguarda para a infraestrutura local e limitada onde opera, garantindo que não consuma recursos excessivos do host.
 Como essa sugestão afeta o consumo de CPU, RAM ou escrita em disco (HD/SSD)?
 
 ### Alternativas Consideradas
