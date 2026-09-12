@@ -14,19 +14,21 @@
 
 ### 📌 Nenhuma tarefa ativa no momento
 
-- **Descrição:** Todas as etapas do ciclo de preparação para a abertura e governança de comunidade open-source (Tarefas 31.0, 32.0, 33.0 e 34.0) foram implementadas, testadas e validadas com 100% de sucesso.
-- **Sistema(s) Envolvido(s):** `core`, `community`, `release`
+- **Descrição:** A calibração da governança de recursos (Tarefa 35.0) foi concluída com sucesso em toda a documentação, scripts e regras do projeto, esclarecendo o teto de 150 MB como salvaguarda operacional para infraestrutura limitada.
+- **Sistema(s) Envolvido(s):** `docs`, `governance`, `community`, `scripts`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
+  - [x] Escrita de código-fonte
 - **Status:** CONCLUÍDO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] Todos os scripts em `scripts/*.sh` passam na verificação sintática com `bash -n`.
-- [x] Suíte completa de testes do pipeline e do MCP executada e aprovada com 100% de sucesso.
-- [x] Auditoria de segurança aprovada sem nenhuma falha crítica (`audit-security.sh`).
-- [x] `CHANGELOG.md` atualizado com as adições de governança open-source, licença Apache 2.0 e suporte bilíngue (i18n).
-- [x] Repositório 100% pronto para publicação e release pública.
+- [x] `CONTRIBUTING.md` atualizado para esclarecer que o limite padrão de 150 MB é uma salvaguarda para infraestrutura limitada a fim de evitar consumo excessivo de recursos.
+- [x] `README.md` e `README.pt-br.md` atualizados substituindo termos como "inegociável/unyielding" pela explicação de salvaguarda de infraestrutura limitada.
+- [x] `AGENTS.md` atualizado para refletir que o teto padrão é uma salvaguarda operacional para não saturar recursos no host modesto.
+- [x] `.github/ISSUE_TEMPLATE/feature_request.md` e `CHANGELOG.md` atualizados com a mesma terminologia clara.
+- [x] `scripts/audit-security.sh` atualizado substituindo "teto inegociável" por "teto padrão de salvaguarda (150M)".
+- [x] Decisão registrada no `.agent/NOTES.md` e testes/auditorias executados com 100% de sucesso.
 
 ---
 
@@ -34,6 +36,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 35.0 | Calibração da Governança de Recursos: Limite de 150 MB como Salvaguarda para Infraestrutura Limitada | `d6a5d25` | 2026-09-12 |
 | 34.0 | Validação de Conformidade Open-Source e Smoke Test Final da Release | `96dbe6a` | 2026-09-12 |
 | 33.0 | Internacionalização da Documentação (`README.md` em Inglês como Padrão e `README.pt-br.md`) | `c59c793` | 2026-09-12 |
 | 32.0 | Governança de Comunidade Open-Source (`CONTRIBUTING.md`, `SECURITY.md` e Templates de Issues) | `f705cde` | 2026-09-12 |
