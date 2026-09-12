@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-12
+
 ### Added
 - **Open-Source Community Governance:** Formal adoption of Apache License 2.0 (`LICENSE`), comprehensive contributor guide (`CONTRIBUTING.md`) establishing the default 150 MB RAM safeguard for resource-constrained local infrastructure, and responsible vulnerability disclosure policy (`SECURITY.md`).
 - **GitHub Issue Templates:** Standardized templates for bug reporting (`bug_report.md`) with hardware environment specifications (HDD vs SSD) and feature requests (`feature_request.md`) requiring memory/CPU footprint impact assessments.
