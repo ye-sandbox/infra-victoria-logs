@@ -1,5 +1,7 @@
 # 🪵 Minimalist Homelab Log Observability (VictoriaLogs + Vector)
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/ye-sandbox/infra-victoria-logs)](https://github.com/ye-sandbox/infra-victoria-logs/releases)
 [![Docker Compose](https://img.shields.io/badge/Docker%20Compose-v2+-blue.svg)](https://docs.docker.com/compose/)
 [![VictoriaLogs](https://img.shields.io/badge/VictoriaLogs-latest-orange.svg)](https://docs.victoriametrics.com/victorialogs/)
 [![Vector](https://img.shields.io/badge/Vector-0.45.0--alpine-purple.svg)](https://vector.dev/)
@@ -9,11 +11,7 @@ Stack de observabilidade e centralização de logs minimalista, projetada para *
 
 Focada em **baixíssimo consumo de CPU e RAM (< 150 MB no total)**, esta solução substitui com folga pilhas pesadas como Grafana Loki/Promtail ou Elastic/Logstash, sendo otimizada tanto para inspeção humana (Web UI nativa) quanto para **consultas automatizadas por Agentes de IA** (Claude Code, Antigravity, Cursor, Roo Code) durante diagnósticos de erros e incidentes.
 
-> 🔗 **Coabitação de Host:** esta stack roda no mesmo host Docker que o repositório de infraestrutura
-> [`yegear1/homelab`](https://github.com/yegear1/homelab), que provisiona os demais serviços (Portainer, Dockge, Uptime Kuma, Homepage).
-> As portas `9428`, `5140/udp`, `8686` e `9598`, os volumes `victorialogs_data` e `vector_data` e os nomes de contêiner
-> `victorialogs` e `vector` estão **reservados na seção 2 do `.agent/SERVICES.md` daquele repositório**.
-> Ao adicionar, remover ou renumerar qualquer porta ou volume aqui, atualize aquela seção no mesmo ciclo para evitar colisão de bind no host.
+> 💡 **Coexistência no Host Docker:** Caso execute outras aplicações ou stacks no mesmo servidor Docker (ex: Portainer, Traefik, Uptime Kuma), certifique-se de que as portas `9428` (VictoriaLogs), `8686` (Vector HTTP), `5140/udp` (Syslog) e `9598` (Métricas Prometheus) não entrem em conflito com outros containers na interface do host.
 
 ---
 
@@ -101,6 +99,7 @@ flowchart LR
 ├── .env.example             # Template documentado de variáveis de ambiente e segurança
 ├── .gitignore               # Ignora .env, .cursor/, volumes, backups e segredos
 ├── CHANGELOG.md             # Histórico de versões e notas de lançamento (Keep a Changelog)
+├── LICENSE                  # Licença permissiva de software (Apache License 2.0)
 ├── AGENTS.md                # Diretrizes de engenharia, governança e regras dos agentes
 ├── .agent/                  # Documentação de contexto do agente (TASK.md, NOTES.md)
 └── README.md                # Guia técnico e operacional completo da stack
@@ -670,4 +669,5 @@ Recarregue a janela do Cursor depois. A fonte da verdade continua neste reposit�
 ---
 
 ## 📄 Licença
-Distribuído sob licença MIT. Sinta-se livre para usar, adaptar e evoluir em seu homelab!
+
+Distribuído sob a licença **Apache License 2.0**. Consulte o arquivo [`LICENSE`](LICENSE) para mais detalhes. Sinta-se livre para usar, adaptar e evoluir em seu homelab ou organização!

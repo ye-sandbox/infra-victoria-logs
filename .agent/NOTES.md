@@ -208,6 +208,13 @@
   - Atualizado também o comando de validação do Vector no `AGENTS.md` com `--name vector-config-validator`.
 - **Consequências:** Eliminação de eventos com nomes anônimos no stream `service="docker-events"`, rastreabilidade total no `docker ps -a` e capacidade de filtragem de containers utilitários por labels.
 
+### 2026-09-12 — Licença Open-Source Apache 2.0 e Desacoplamento Comunitário
+- **Contexto:** Preparação do repositório para abertura pública internacional. A ausência de um arquivo `LICENSE` mantinha o projeto legalmente sob "todos os direitos reservados". Além disso, menções acopladas ao repositório pessoal `yegear1/homelab` no topo do README geravam confusão para usuários externos que rodam a stack de forma independente.
+- **Decisão:**
+  - Adotar formalmente a licença **Apache License 2.0** no arquivo `LICENSE`. A escolha protege autores contra litígios de garantia, concede direito de uso de patentes e permite ampla adoção e contribuição comunitária e comercial.
+  - Substituir o aviso de coabitação privado do topo do README por uma orientação arquitetural neutra e genérica sobre coexistência de portas de rede no Docker (`9428`, `8686`, `5140/udp`, `9598`).
+- **Consequências:** Clareza jurídica internacional e stack 100% autossuficiente para qualquer pessoa da comunidade open-source.
+
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
 - **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.
