@@ -354,5 +354,9 @@ Aplicações **emitem** NDJSON (um objeto JSON por linha) em stdout ou POST `/lo
 - **QEMU Rotational Default e Duplo Agendamento em VMs:**
   - *Armadilha:* O QEMU/KVM expõe dispositivos de bloco SCSI/SATA com `/sys/block/<dev>/queue/rotational == 1` por padrão caso a flag `ssd=1` não seja explicitamente declarada nas opções do disco no Proxmox. Diagnósticos ingênuos tratam o disco virtual como se fosse um HD mecânico com agulha, recomendando `mq-deadline` (gerando sobrecarga de duplo agendamento de I/O no guest e no host) e comandos `hdparm` que falham com ioctl error.
   - *Mitigação:* `scripts/tune-disk-host.sh` detecta virtualização e classifica dispositivos virtuais como `🖥️  Disco Virtualizado`, forçando recomendação de `none` (passthrough) e suprimindo seções de `hdparm`.
+- **Precedência Alfabética de Regras Udev e Aplicação em Runtime:**
+  - *Armadilha:* `systemd-udevd` processa arquivos em `/etc/udev/rules.d/` estritamente por ordem lexicográfica. Renomear uma regra (ex: de `60-hdd-scheduler.rules` para `60-disk-scheduler.rules`) sem remover o arquivo antigo faz com que `60-hdd...` execute por último e reverta silenciosamente as configurações de `60-disk...`. Além disso, `udevadm trigger` nem sempre reavalia discos de bloco já montados em tempo de execução sem `--action=change`.
+  - *Mitigação:* O script remove preventivamente `60-hdd-scheduler.rules` antes de gravar a nova regra, usa `udevadm trigger --action=change --subsystem-match=block` e escreve diretamente nos nós `/sys/block/<dev>/queue/scheduler` dos discos ativos para efeito imediato.
+
 
 

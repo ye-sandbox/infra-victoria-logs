@@ -175,8 +175,12 @@ check_disks() {
     fi
 
     local SCHEDULER="não suportado"
+    local ACTIVE_SCHED="não suportado"
     if [[ -f "${dev_path}/queue/scheduler" ]]; then
       SCHEDULER="$(cat "${dev_path}/queue/scheduler" 2>/dev/null || echo "não suportado")"
+      if [[ "${SCHEDULER}" =~ \[([^]]+)\] ]]; then
+        ACTIVE_SCHED="${BASH_REMATCH[1]}"
+      fi
     fi
 
     local IS_VIRT_DEV=0
@@ -196,11 +200,11 @@ check_disks() {
         echo -e "   • Avaliação de I/O: ${GREEN}✅ EXCELENTE${NC} — Scheduler [none] (passthrough/NOOP) ativo."
         echo -e "     Evita sobrecarga de duplo agendamento de I/O entre o guest e o hipervisor físico."
       elif [[ "${SCHEDULER}" == *"[mq-deadline]"* || "${SCHEDULER}" == *"[bfq]"* ]]; then
-        echo -e "   • Avaliação de I/O: ${YELLOW}ℹ️  SCHEDULER COMPLEXO EM VM${NC} — Está ativo ${SCHEDULER}."
+        echo -e "   • Avaliação de I/O: ${YELLOW}ℹ️  SCHEDULER COMPLEXO EM VM${NC} — Está ativo [${ACTIVE_SCHED}]."
         echo -e "     Em discos virtuais, recomenda-se ${GREEN}[none]${NC} para delegar o escalonamento ao hipervisor."
         echo -e "     Para aplicar de forma persistente no guest, execute: ${GREEN}sudo ${SCRIPT_NAME} --generate-udev${NC}"
       else
-        echo -e "   • Avaliação de I/O: Scheduler atual: ${SCHEDULER}"
+        echo -e "   • Avaliação de I/O: Scheduler atual: [${ACTIVE_SCHED}]"
       fi
 
     elif [[ "${ROTATIONAL}" == "1" ]]; then
@@ -209,13 +213,13 @@ check_disks() {
       echo -e "   • Schedulers disponíveis: ${SCHEDULER}"
 
       if [[ "${SCHEDULER}" == *"[mq-deadline]"* || "${SCHEDULER}" == *"[bfq]"* ]]; then
-        echo -e "   • Avaliação de I/O: ${GREEN}✅ EXCELENTE${NC} — Algoritmo de elevador ativo para HD físico."
+        echo -e "   • Avaliação de I/O: ${GREEN}✅ EXCELENTE${NC} — Algoritmo de elevador [${ACTIVE_SCHED}] ativo para HD físico."
       elif [[ "${SCHEDULER}" == *"[none]"* ]]; then
         echo -e "   • Avaliação de I/O: ${RED}⚠️  INEFICIENTE${NC} — O scheduler está em [none] (padrão NVMe)."
         echo -e "     Em HD mecânico físico, 'none' provoca head thrashing. Recomenda-se: ${GREEN}mq-deadline${NC} ou ${GREEN}bfq${NC}."
         echo -e "     Para corrigir de forma persistente, execute: ${GREEN}sudo ${SCRIPT_NAME} --generate-udev${NC}"
       else
-        echo -e "   • Avaliação de I/O: Scheduler atual: ${SCHEDULER}"
+        echo -e "   • Avaliação de I/O: Scheduler atual: [${ACTIVE_SCHED}]"
       fi
 
     else
@@ -224,7 +228,7 @@ check_disks() {
       if [[ "${SCHEDULER}" == *"[none]"* ]]; then
         echo -e "   • Avaliação de I/O: ${GREEN}✅ EXCELENTE${NC} — Scheduler [none] adequado para SSD/NVMe."
       else
-        echo -e "   • Avaliação de I/O: Scheduler atual: ${SCHEDULER}"
+        echo -e "   • Avaliação de I/O: Scheduler atual: [${ACTIVE_SCHED}]"
       fi
     fi
   done
@@ -301,6 +305,7 @@ generate_udev_rule() {
   detect_virtualization
 
   local UDEV_FILE="/etc/udev/rules.d/60-disk-scheduler.rules"
+  local LEGACY_UDEV_FILE="/etc/udev/rules.d/60-hdd-scheduler.rules"
 
   if [[ "$(id -u)" -ne 0 ]]; then
     echo -e "${RED}❌ Permissão negada.${NC} A criação de regras udev exige root."
@@ -308,9 +313,16 @@ generate_udev_rule() {
     exit 1
   fi
 
+  # Remover arquivo de regra legado que causa conflito por ordenação alfabética
+  if [[ -f "${LEGACY_UDEV_FILE}" ]]; then
+    echo -e "🧹 Removendo regra udev legada conflitante: ${LEGACY_UDEV_FILE}"
+    rm -f "${LEGACY_UDEV_FILE}"
+  fi
+
   echo -e "${BLUE}⚙️  Configurando regra udev persistente em:${NC} ${UDEV_FILE}"
   mkdir -p "$(dirname "${UDEV_FILE}")"
 
+  local TARGET_SCHED="none"
   if [[ "${IS_SYSTEM_VIRTUAL}" -eq 1 ]]; then
     echo -e "🖥️  Ambiente Virtualizado detectado (${VIRT_TYPE}). Aplicando scheduler [none] para evitar duplo agendamento..."
     cat <<'EOF' > "${UDEV_FILE}"
@@ -319,6 +331,7 @@ generate_udev_rule() {
 ACTION=="add|change", KERNEL=="sd[a-z]|vd[a-z]", ATTR{queue/scheduler}="none"
 EOF
   else
+    TARGET_SCHED="mq-deadline"
     echo -e "🖥️  Ambiente Físico Bare-Metal detectado. Aplicando scheduler [mq-deadline] apenas para HDs mecânicos rotacionais..."
     cat <<'EOF' > "${UDEV_FILE}"
 # Regra udev para Homelab Físico: Forçar scheduler mq-deadline apenas em HDs mecânicos rotacionais físicos
@@ -328,11 +341,38 @@ EOF
   fi
 
   echo -e "${GREEN}✅ Regra gravada com sucesso!${NC}"
+
+  # Aplicar imediatamente no kernel para dispositivos de bloco ativos
+  echo -e "Aplicando scheduler [${TARGET_SCHED}] imediatamente nos dispositivos ativos..."
+  for dev_dir in /sys/block/*; do
+    [[ -e "${dev_dir}" ]] || continue
+    local dev_name
+    dev_name=$(basename "${dev_dir}")
+    [[ "${dev_name}" =~ ^(sd[a-z]|vd[a-z]|xvd[a-z])$ ]] || continue
+
+    local sched_file="${dev_dir}/queue/scheduler"
+    if [[ -w "${sched_file}" ]]; then
+      local avail_sched
+      avail_sched=$(cat "${sched_file}" 2>/dev/null || true)
+      if [[ "${IS_SYSTEM_VIRTUAL}" -eq 1 ]]; then
+        if [[ "${avail_sched}" == *"none"* ]]; then
+          echo "${TARGET_SCHED}" > "${sched_file}" 2>/dev/null && echo -e "  • /dev/${dev_name}: scheduler ativado imediatamente como [${TARGET_SCHED}]"
+        fi
+      else
+        local is_rot=0
+        [[ -f "${dev_dir}/queue/rotational" ]] && is_rot=$(cat "${dev_dir}/queue/rotational")
+        if [[ "${is_rot}" -eq 1 && "${avail_sched}" == *"mq-deadline"* ]]; then
+          echo "${TARGET_SCHED}" > "${sched_file}" 2>/dev/null && echo -e "  • /dev/${dev_name}: scheduler ativado imediatamente como [${TARGET_SCHED}]"
+        fi
+      fi
+    fi
+  done
+
   echo -e "Recarregando regras do kernel..."
   if command -v udevadm >/dev/null 2>&1; then
     udevadm control --reload
-    udevadm trigger --subsystem-match=block || true
-    echo -e "${GREEN}✅ Regras udev aplicadas com sucesso!${NC}"
+    udevadm trigger --action=change --subsystem-match=block || true
+    echo -e "${GREEN}✅ Regras udev recarregadas com sucesso!${NC}"
   else
     echo -e "${YELLOW}⚠️  Comando udevadm não encontrado. As regras serão ativadas no próximo boot.${NC}"
   fi
