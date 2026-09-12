@@ -88,7 +88,7 @@ flowchart LR
 │   ├── install-agent-skills.sh # Sincroniza symlinks de SKILLs com Cursor, Antigravity e outros clientes
 │   ├── install-host-collectors.sh # Registra e gerencia os coletores como serviços systemd no host
 │   ├── tune-docker-host.sh  # Otimização do Docker daemon (modo non-blocking para HD)
-│   └── tune-disk-host.sh    # Assistente de diagnóstico e tuning de HD (noatime, scheduler)
+│   └── tune-disk-host.sh    # Assistente de diagnóstico e tuning de disco (ciente de VMs/bare-metal, noatime, schedulers)
 ├── skills/
 │   ├── github-bug-issue/              # Skill para abrir issue GitHub com ponteiro VictoriaLogs (fila, não TASK.md)
 │   ├── victorialogs-integration/      # Skill ensinando IA a plugar aplicações (Python, Node, Go, Docker)
@@ -338,20 +338,20 @@ E recarregue o serviço:
 sudo systemctl reload docker
 ```
 
-### 💽 Otimizações de Kernel e Disco no Host (noatime, I/O Scheduler e APM)
+### 💽 Otimizações de Armazenamento e Kernel no Host (noatime, I/O Scheduler e APM)
 
-Em hosts Proxmox VE onde o sistema operacional e os containers operam no mesmo HD mecânico rotacional, três configurações no sistema operacional evitam desgaste mecânico e lentidão severa:
+Em hosts Proxmox VE onde o sistema operacional e os containers operam no mesmo HD mecânico rotacional (ou em máquinas virtuais convidadas sob QEMU/KVM), configurações no armazenamento do sistema operacional evitam desgaste mecânico e sobrecarga de I/O:
 
 1. **`noatime,nodiratime`:** Elimina a gravação de data/hora de acesso toda vez que um arquivo de log é lido em consultas da VMUI ou de agentes de IA.
-2. **I/O Scheduler (`mq-deadline`):** Faz o kernel ordenar as requisições por elevador contínuo, impedindo que a agulha pule aleatoriamente pelo disco (*head thrashing*).
-3. **APM (`hdparm -B 254`):** Mantém a rotação estável 24/7, evitando ciclos destrutivos de desliga/liga da agulha (*spindown*).
+2. **I/O Scheduler (`mq-deadline` vs `none`):** Faz o kernel ordenar as requisições por elevador contínuo em HDs mecânicos físicos (evitando *head thrashing*), enquanto em máquinas virtuais (VMs/QEMU) adota `none` (passthrough/NOOP) para eliminar a sobrecarga de duplo agendamento com o hipervisor host.
+3. **APM (`hdparm -B 254`):** Mantém a rotação estável 24/7 em HDs físicos, evitando ciclos destrutivos de desliga/liga da agulha (*spindown* — verificação omitida automaticamente em VMs).
 
 #### Diagnóstico e Assistência com o Script:
 ```bash
-# 1. Inspecionar discos, schedulers e montagens ativas (não altera nada)
+# 1. Inspecionar discos, ambiente (físico vs virtual), schedulers e montagens ativas
 sudo ./scripts/tune-disk-host.sh --check
 
-# 2. Configurar mq-deadline persistente para todos os HDs mecânicos (regra udev)
+# 2. Configurar scheduler persistente (mq-deadline para HDs físicos, none para VMs) via udev
 sudo ./scripts/tune-disk-host.sh --generate-udev
 
 # 3. Aplicar noatime imediatamente na raiz ou partição de logs (sem reiniciar)

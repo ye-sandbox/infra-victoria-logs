@@ -91,12 +91,13 @@ Para eliminar essa sobrecarga:
    sudo ./scripts/tune-disk-host.sh --remount-noatime /
    ```
 
-### 3.2 Escalonador de I/O (`mq-deadline` para HDs)
-Discos mecânicos exigem ordenação sequencial de cabeçote móvel (*elevator algorithm*). NVMe e SSDs operam com filas paralelas (`none` ou `kyber`).
+### 3.2 Escalonador de I/O (`none` para Guests/VMs; `mq-deadline` para HDs Físicos)
+- **Em Guests Virtualizados (VMs / QEMU / KVM):** O scheduler recomendado é estritamente **`none`** (NOOP/passthrough). Isso evita sobrecarga de duplo agendamento (*double scheduling*) entre o guest e o hipervisor físico.
+- **No Host Físico Bare-Metal com HD Mecânico:** Exige ordenação sequencial de cabeçote móvel (*elevator algorithm* via `mq-deadline` ou `bfq`).
 
-Utilize a automação da stack para gerar regras `udev` seguras e persistentes:
+O script `tune-disk-host.sh` detecta automaticamente se está rodando em bare-metal ou dentro de uma VM guest e gera a regra correspondente:
 ```bash
-sudo ./scripts/tune-disk-host.sh --apply-udev
+sudo ./scripts/tune-disk-host.sh --generate-udev
 ```
 
 ### 3.3 Docker Daemon em Modo Assíncrono (`non-blocking`)

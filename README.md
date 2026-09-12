@@ -88,7 +88,7 @@ flowchart LR
 │   ├── install-agent-skills.sh # Global skill symlink installer for Cursor, Antigravity, and Claude
 │   ├── install-host-collectors.sh # Registers continuous collectors as systemd host services
 │   ├── tune-docker-host.sh  # Docker daemon optimizer (non-blocking logging mode for spinning disks)
-│   └── tune-disk-host.sh    # Linux disk tuning assistant (noatime, mq-deadline scheduler, APM)
+│   └── tune-disk-host.sh    # Linux disk tuning assistant (virtualization-aware, noatime, schedulers)
 ├── skills/
 │   ├── github-bug-issue/              # Parks bugs into GitHub issues with VictoriaLogs pointers
 │   ├── victorialogs-integration/      # Canonical application logging contract (Python, Node, Go, Docker)
@@ -336,17 +336,19 @@ Reload daemon:
 sudo systemctl reload docker
 ```
 
-### 💽 Linux Kernel & Disk Optimizations (noatime, I/O Scheduler, APM)
+### 💽 Host Storage & Kernel Tuning (noatime, I/O Schedulers, and APM)
+
+In single-drive hosts (e.g. Proxmox VE servers where OS and containers share a single mechanical HDD) or virtualized guests (QEMU/KVM, Proxmox VMs), operating system storage configurations prevent latency and unnecessary wear:
 
 1. **`noatime,nodiratime`:** Stops writing filesystem access timestamps every time logs are read.
-2. **I/O Scheduler (`mq-deadline`):** Orders disk requests via an elevator algorithm, preventing mechanical head thrashing.
-3. **APM (`hdparm -B 254`):** Maintains constant platter rotation 24/7, avoiding destructive spindown cycles.
+2. **I/O Scheduler (`mq-deadline` vs `none`):** Orders disk requests via an elevator algorithm on physical rotational HDDs to prevent mechanical head thrashing, while using `none` (NOOP/passthrough) in virtual machines to eliminate redundant double scheduling with the hypervisor.
+3. **APM (`hdparm -B 254`):** Maintains constant platter rotation 24/7 on physical rotational HDDs, avoiding destructive spindown cycles (automatically skipped inside VMs).
 
 ```bash
-# Inspect disks and current schedulers
+# Inspect disks, virtualization environment, and active schedulers
 sudo ./scripts/tune-disk-host.sh --check
 
-# Generate persistent udev rule for mq-deadline on rotational disks
+# Generate persistent udev rule (mq-deadline for physical HDDs, none for VMs)
 sudo ./scripts/tune-disk-host.sh --generate-udev
 
 # Remount with noatime immediately without rebooting

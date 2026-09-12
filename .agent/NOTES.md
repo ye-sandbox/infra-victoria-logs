@@ -60,6 +60,14 @@
 - **Decisão:** Desenvolver `scripts/tune-disk-host.sh` para diagnóstico não-invasivo de discos, suporte a geração de regras udev para fixar `mq-deadline` em discos rotacionais (`queue/rotational == 1`) e documentação de `noatime,nodiratime` para `/etc/fstab`.
 - **Consequências:** Leituras e consultas LogsQL tornam-se puramente passivas sem alterar metadados em disco, a cabeça de leitura move-se linearmente em trilhas contíguas (evitando *head thrashing*), e o motor opera estável 24/7 sem estresse mecânico no braço ativador.
 
+### 2026-09-12 — Detecção de Virtualização e Prevenção de Duplo Agendamento no tune-disk-host.sh
+- **Contexto:** Ao executar `tune-disk-host.sh` dentro de máquinas virtuais (ex: VM QEMU/KVM no Proxmox), o script tratava discos virtuais (`/dev/sda` com `rotational == 1`) como HDs físicos mecânicos, emitindo alertas incorretos de APM/spindown (`hdparm`) e recomendando `mq-deadline`.
+- **Decisão:** Refatorar `scripts/tune-disk-host.sh` para detectar automaticamente ambientes virtualizados (`systemd-detect-virt`, DMI sysfs, modelo do disco contendo QEMU/VBOX/VMware/VIRTIO/Virtual ou prefixos `vd*`/`xvd*`):
+  - Em discos virtuais: recomendar `none` (NOOP/passthrough) para evitar sobrecarga de duplo agendamento de I/O com o hipervisor host.
+  - Omitir completamente verificações e recomendações de `hdparm` (APM e spindown) em VMs, delegando o gerenciamento do hardware físico ao host Proxmox.
+  - Manter e priorizar `noatime,nodiratime` para todos os ambientes (físicos e virtuais), eliminando escritas inúteis de metadados em consultas.
+- **Consequências:** Diagnósticos 100% precisos tanto no host Proxmox bare-metal quanto em VMs convidadas, evitando desconfiguração de I/O schedulers em ambientes virtualizados.
+
 ### 2026-09-02 — Agregação Multilinha e Automação de Operações (Backup e Smoke Test)
 - **Contexto:** Logs de erros com stack traces (Python, Go, Java) estavam sendo fragmentados pelo Docker em múltiplas linhas avulsas, dificultando diagnósticos. Além disso, backups manuais por cópia crua de pastas em HDs mecânicos arriscavam inconsistências de partição.
 - **Decisão:**
@@ -343,5 +351,8 @@ Aplicações **emitem** NDJSON (um objeto JSON por linha) em stdout ou POST `/lo
 - **Conscientização de Escopo de Aplicação em Agentes de IA:**
   - *Armadilha:* Modelos de IA tendem a realizar buscas globais sem especificar o container ou aplicação alvo (`service`), sobrecarregando o contexto com logs de múltiplos containers do homelab e dificultando o diagnóstico.
   - *Mitigação:* Adicionado o parâmetro `service` diretamente no schema de `query_logs` (injetando `_stream:{container_name="..."}`) e implementada uma nota proativa de SRE no rodapé (`💡 Dica de SRE`) sempre que uma busca global for executada, listando os containers detectados na amostra para incentivar a IA a afunilar na próxima chamada.
+- **QEMU Rotational Default e Duplo Agendamento em VMs:**
+  - *Armadilha:* O QEMU/KVM expõe dispositivos de bloco SCSI/SATA com `/sys/block/<dev>/queue/rotational == 1` por padrão caso a flag `ssd=1` não seja explicitamente declarada nas opções do disco no Proxmox. Diagnósticos ingênuos tratam o disco virtual como se fosse um HD mecânico com agulha, recomendando `mq-deadline` (gerando sobrecarga de duplo agendamento de I/O no guest e no host) e comandos `hdparm` que falham com ioctl error.
+  - *Mitigação:* `scripts/tune-disk-host.sh` detecta virtualização e classifica dispositivos virtuais como `🖥️  Disco Virtualizado`, forçando recomendação de `none` (passthrough) e suprimindo seções de `hdparm`.
 
 
