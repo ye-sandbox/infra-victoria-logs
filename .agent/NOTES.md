@@ -215,6 +215,14 @@
   - Substituir o aviso de coabitação privado do topo do README por uma orientação arquitetural neutra e genérica sobre coexistência de portas de rede no Docker (`9428`, `8686`, `5140/udp`, `9598`).
 - **Consequências:** Clareza jurídica internacional e stack 100% autossuficiente para qualquer pessoa da comunidade open-source.
 
+### 2026-09-12 — Governança de Comunidade Open-Source e Teto Inegociável de 150 MB
+- **Contexto:** Ao abrir o projeto para a comunidade, colaboradores humanos necessitam de diretrizes claras sobre como submeter melhorias e reportar falhas, sem descaracterizar o propósito central da stack: operar em hardware local modesto (Mini PCs, Intel NUCs, nós Proxmox VE).
+- **Decisão:**
+  - Criar `CONTRIBUTING.md` fixando formalmente como regra inegociável o **teto estrito de 150 MB de RAM total** (VictoriaLogs <= 80 MB, Vector <= 60 MB), com suíte de testes obrigatórios (`test-pipeline.sh`, `audit-security.sh --strict`) antes do envio de PRs.
+  - Criar `SECURITY.md` estabelecendo o fluxo de reporte responsável via GitHub Security Advisories privados (evitando divulgação precoce de 0-days).
+  - Criar templates de issue em `.github/ISSUE_TEMPLATE/` (`bug_report.md` e `feature_request.md`) com campos específicos sobre hardware (HDD vs SSD) e impacto em memória/CPU.
+- **Consequências:** Comunidade capacitada para contribuir com previsibilidade, preservando a identidade ultra-leve e a estabilidade da stack em ambientes de homelab.
+
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
 - **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.

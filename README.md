@@ -100,6 +100,8 @@ flowchart LR
 ├── .gitignore               # Ignora .env, .cursor/, volumes, backups e segredos
 ├── CHANGELOG.md             # Histórico de versões e notas de lançamento (Keep a Changelog)
 ├── LICENSE                  # Licença permissiva de software (Apache License 2.0)
+├── CONTRIBUTING.md          # Diretrizes de contribuição para a comunidade (teto de 150 MB RAM)
+├── SECURITY.md              # Política de reporte responsável de vulnerabilidades
 ├── AGENTS.md                # Diretrizes de engenharia, governança e regras dos agentes
 ├── .agent/                  # Documentação de contexto do agente (TASK.md, NOTES.md)
 └── README.md                # Guia técnico e operacional completo da stack
