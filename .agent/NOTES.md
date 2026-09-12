@@ -223,6 +223,15 @@
   - Criar templates de issue em `.github/ISSUE_TEMPLATE/` (`bug_report.md` e `feature_request.md`) com campos específicos sobre hardware (HDD vs SSD) e impacto em memória/CPU.
 - **Consequências:** Comunidade capacitada para contribuir com previsibilidade, preservando a identidade ultra-leve e a estabilidade da stack em ambientes de homelab.
 
+### 2026-09-12 — Internacionalização da Documentação (README.md em Inglês e README.pt-br.md)
+- **Contexto:** Com a transição do repositório para o ecossistema open-source global, a documentação principal na raiz precisa ser imediatamente acessível à comunidade internacional em língua inglesa. Ao mesmo tempo, operadores e desenvolvedores lusófonos necessitam de documentação completa e atualizada sem qualquer defasagem técnica.
+- **Decisão:**
+  - Adotar o `README.md` principal em Inglês técnico idiomático como padrão de entrada do repositório.
+  - Portar e manter a documentação completa em Português no arquivo `README.pt-br.md`.
+  - Incluir seletores bidirecionais de idioma no topo de ambos os documentos (`[English](README.md) | [Português (Brasil)](README.pt-br.md)`).
+  - Estabelecer a regra de sincronização contínua: qualquer alteração de arquitetura, novos scripts ou flags de configuração deve ser refletida com 100% de paridade técnica em ambos os arquivos.
+- **Consequências:** Alcance global para a comunidade open-source com preservação da conveniência para a comunidade lusófona, garantindo zero desatualização entre idiomas.
+
 ### 2026-09-06 — Issue GitHub como fila; TASK.md como bancada
 - **Contexto:** Bugs percebidos em outro app (ex: caller usando a API do WhatsApp) não cabem no `TASK.md` da sessão atual nem como dump de log. Precisam sobreviver até um agente no repo dono investigar.
 - **Decisão:** Skill `github-bug-issue` abre issue no GitHub do **repositório dono** com âncoras VictoriaLogs (sintoma, service, janela UTC, request_id/JID, consulta MCP sugerida). Evidência fica no VictoriaLogs; a issue é ponteiro. `.agent/TASK.md` só recebe o item quando o usuário pedir para executar o conserto.

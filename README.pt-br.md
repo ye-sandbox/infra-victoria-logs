@@ -1,0 +1,687 @@
+# 🪵 Minimalist Homelab Log Observability (VictoriaLogs + Vector)
+
+**[English](README.md)** | **[Português (Brasil)](README.pt-br.md)**
+
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/ye-sandbox/infra-victoria-logs)](https://github.com/ye-sandbox/infra-victoria-logs/releases)
+[![Docker Compose](https://img.shields.io/badge/Docker%20Compose-v2+-blue.svg)](https://docs.docker.com/compose/)
+[![VictoriaLogs](https://img.shields.io/badge/VictoriaLogs-latest-orange.svg)](https://docs.victoriametrics.com/victorialogs/)
+[![Vector](https://img.shields.io/badge/Vector-0.45.0--alpine-purple.svg)](https://vector.dev/)
+[![Footprint](https://img.shields.io/badge/RAM%20Usage-%3C%20150MB-success.svg)]()
+
+Stack de observabilidade e centralização de logs minimalista, projetada para **Homelabs (Mini PCs, Intel NUCs e servidores Proxmox VE rodando Docker)**.
+
+Focada em **baixíssimo consumo de CPU e RAM (< 150 MB no total)**, esta solução substitui com folga pilhas pesadas como Grafana Loki/Promtail ou Elastic/Logstash, sendo otimizada tanto para inspeção humana (Web UI nativa) quanto para **consultas automatizadas por Agentes de IA** (Claude Code, Antigravity, Cursor, Roo Code) durante diagnósticos de erros e incidentes.
+
+> 💡 **Coexistência no Host Docker:** Caso execute outras aplicações ou stacks no mesmo servidor Docker (ex: Portainer, Traefik, Uptime Kuma), certifique-se de que as portas `9428` (VictoriaLogs), `8686` (Vector HTTP), `5140/udp` (Syslog) e `9598` (Métricas Prometheus) não entrem em conflito com outros containers na interface do host.
+
+---
+
+## 🏗️ Arquitetura e Fluxo de Dados
+
+```mermaid
+flowchart LR
+    subgraph Sources["Fontes de Logs (Homelab)"]
+        D[Docker Containers locais\n/var/run/docker.sock]
+        P[Proxmox VE / LXCs / VMs\nSyslog UDP 5140]
+        A[Apps / Scripts externos\nHTTP JSON 8686]
+    end
+
+    subgraph Collector["Coletor & Roteador"]
+        V[Vector Agent\n(~40-60 MB RAM)]
+    end
+
+    subgraph Storage["Armazenamento & Query"]
+        VL[VictoriaLogs\n(~60-80 MB RAM)]
+    end
+
+    subgraph Consumers["Consumidores"]
+        UI[Desenvolvedores\nVMUI Web :9428]
+        AI[Agentes de IA & Scripts\nLogsQL HTTP API :9428]
+    end
+
+    D --> V
+    P --> V
+    A --> V
+    V -- "HTTP POST (zstd ndjson)\nVL-Stream-Fields" --> VL
+    VL --> UI
+    VL --> AI
+```
+
+### Por que VictoriaLogs + Vector?
+- **Footprint Minúsculo:** Ambos compilados para código nativo (VictoriaLogs em Go, Vector em Rust). Totalmente isentos de JVM, Python ou runtimes pesados.
+- **Armazenamento Ultra-Compactado:** VictoriaLogs comprime logs em até 10x-15x em relação ao texto original, poupando SSDs de Mini PCs.
+- **LogsQL:** Linguagem de consulta expressiva, intuitiva e estruturada, ideal para LLMs/Agentes de IA gerarem queries sem alucinações.
+- **Auto-descoberta Docker:** O Vector mapeia automaticamente metadados de qualquer novo container iniciado na máquina local.
+
+---
+
+## 📁 Estrutura do Repositório
+
+```text
+.
+├── docker-compose.yml       # Orquestração com limites de RAM rígidos (140 MB somados)
+├── vector/
+│   ├── vector.hdd.yaml      # Perfil HD mecânico (buffer em RAM, 2MB batch, filtro de pings)
+│   ├── vector.ssd.yaml      # Perfil SSD/NVMe (buffer em disco, 1MB batch, 100% retenção)
+│   ├── vector.geoip.yaml    # Perfil GeoIP (enriquecimento com MaxMind GeoLite2 para tráfego web)
+│   └── vector.yaml          # Perfil base / fallback de configuração
+├── dashboards/
+│   └── grafana-victorialogs.json      # Modelo oficial pré-construído para Grafana (throughput, erros, status)
+├── docs/
+│   └── proxmox-hardening.md # Guia consolidado de hardening, sysctl e contenção de I/O no Proxmox VE
+├── mcp/
+│   └── server.py            # Servidor MCP stdio nativo para integração direta com Agentes de IA
+├── scripts/
+│   ├── audit-security.sh    # Auditoria de segurança do host, permissões restritas e isolamento Compose
+│   ├── backup.sh            # Backup atômico via API de snapshots com rotação de cópias
+│   ├── health-dashboard.sh  # Dashboard CLI colorido de telemetria ao vivo via APIs nativas
+│   ├── logsql-queries.sh    # Consultas analíticas pré-definidas (Top erros, latência, HTTP status)
+│   ├── manage-partitions.sh # Gestão, auditoria, projeção e purga emergencial de partições
+│   ├── check-disk-growth.sh # Checagem periódica (cron) e alerta de crescimento em disco
+│   ├── run-maintenance-pipeline.sh # Orquestrador diário unificado (checagem + backup + smoke test)
+│   ├── test-pipeline.sh     # Smoke test ponta a ponta de ingestão e LogsQL em 1 comando
+│   ├── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
+│   ├── ship-docker-stats.sh # Coleta e envio de CPU/memória de containers locais para o Vector
+│   ├── ship-docker-events.sh# Captura contínua de eventos do Docker Engine (OOM, die, crash)
+│   ├── download-geolite2.sh # Download e atualização da base MaxMind GeoLite2 City (.mmdb)
+│   ├── install-agent-skills.sh # Sincroniza symlinks de SKILLs com Cursor, Antigravity e outros clientes
+│   ├── install-host-collectors.sh # Registra e gerencia os coletores como serviços systemd no host
+│   ├── tune-docker-host.sh  # Otimização do Docker daemon (modo non-blocking para HD)
+│   └── tune-disk-host.sh    # Assistente de diagnóstico e tuning de HD (noatime, scheduler)
+├── skills/
+│   ├── github-bug-issue/              # Skill para abrir issue GitHub com ponteiro VictoriaLogs (fila, não TASK.md)
+│   ├── victorialogs-integration/      # Skill ensinando IA a plugar aplicações (Python, Node, Go, Docker)
+│   │   └── examples/                  # Templates plug-and-play (Python Loguru/stdlib, Node Pino, Go slog)
+│   └── victorialogs-troubleshooting/  # Skill ensinando IA o playbook de investigação de erros/SRE
+├── vmalert/
+│   └── rules.yaml           # Regras de alerta LogsQL (erros, OOM kills, latência)
+├── tests/
+│   └── test_mcp_error_enricher.py     # Testes unitários de sanitização e dicas contextuais do MCP
+├── .env.example             # Template documentado de variáveis de ambiente e segurança
+├── .gitignore               # Ignora .env, .cursor/, volumes, backups e segredos
+├── CHANGELOG.md             # Histórico de versões e notas de lançamento (Keep a Changelog)
+├── LICENSE                  # Licença permissiva de software (Apache License 2.0)
+├── CONTRIBUTING.md          # Diretrizes de contribuição para a comunidade (teto de 150 MB RAM)
+├── SECURITY.md              # Política de reporte responsável de vulnerabilidades
+├── AGENTS.md                # Diretrizes de engenharia, governança e regras dos agentes
+├── .agent/                  # Documentação de contexto do agente (TASK.md, NOTES.md)
+├── README.pt-br.md          # Documentação técnica completa em Português
+└── README.md                # Documentação técnica principal em Inglês (Padrão Open-Source)
+```
+
+---
+
+## 🚀 Guia de Início Rápido (Quickstart)
+
+### 1. Pré-requisitos
+- Docker Engine 24+ e Docker Compose v2+ instalados no host (ex: Debian/Ubuntu dentro de uma VM ou LXC no Proxmox).
+
+### 2. Configuração do Ambiente
+Clone o repositório e crie o arquivo `.env`:
+```bash
+cp .env.example .env
+```
+
+Edite o `.env` selecionando o perfil de armazenamento do seu hardware:
+```env
+# Defina 'hdd' para disco mecânico ou 'ssd' para SSD/NVMe
+STORAGE_PROFILE=hdd
+
+HOST_IDENTIFIER=mini-pc-proxmox
+RETENTION_PERIOD=30d
+VICTORIALOGS_HTTP_PORT=9428
+```
+
+### 3. Subir a Stack
+```bash
+docker compose up -d
+```
+
+### 4. Executar Teste Ponta a Ponta (Smoke Test)
+Valide a ingestão e a busca de logs em menos de 5 segundos com o script automatizado:
+```bash
+./scripts/test-pipeline.sh
+```
+
+### 5. Verificar Status e Consumo de Memória
+```bash
+docker compose ps
+docker stats --no-stream
+```
+*Você observará que a soma da memória de `victorialogs` e `vector` permanece confortavelmente abaixo de 150 MB.*
+
+---
+
+## 🔍 Como Consultar Logs
+
+### 1. Interface Web (Desenvolvedores)
+Acesse no seu navegador:
+```text
+http://<IP_DO_MINI_PC>:9428/select/vmui/
+```
+A VMUI oferece visualização gráfica, histogramas de frequência e filtros em tempo real.
+
+---
+
+### 2. Consultas para Agentes de IA (Via HTTP API / Curl)
+
+Os agentes de IA podem executar chamadas diretas via terminal usando a API HTTP do VictoriaLogs (`/select/logsql/query`).
+
+#### Exemplo 1: Buscar os últimos 20 erros de qualquer container
+```bash
+curl -s -G "http://localhost:9428/select/logsql/query" \
+  --data-urlencode 'query=_time:1h AND level:error' \
+  --data-urlencode 'limit=20'
+```
+
+#### Exemplo 2: Filtrar logs de um serviço específico com mensagem contendo "timeout" ou "panic"
+```bash
+curl -s -G "http://localhost:9428/select/logsql/query" \
+  --data-urlencode 'query=_stream:{container_name="meu-backend"} AND (timeout OR panic)' \
+  --data-urlencode 'limit=50'
+```
+
+#### Exemplo 3: Contagem de erros nos últimos 30 minutos (Hits)
+```bash
+curl -s -G "http://localhost:9428/select/logsql/hits" \
+  --data-urlencode 'query=_time:30m AND level:error' \
+  --data-urlencode 'step=5m'
+```
+
+---
+
+### 3. Consultas Nativas para Agentes de IA via MCP (Model Context Protocol)
+
+O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py)) em Pure Python 3 (zero dependências extras, < 22 MB de RAM). Ele permite que Claude Code, Cursor, Roo Code ou Antigravity investiguem logs diretamente sem rodar comandos manuais, com deduplicação de erros e economizando até 99.8% dos tokens em relação a APIs brutas:
+
+#### Ferramentas MCP Disponíveis (9 Ferramentas Especializadas):
+- `get_errors`: Extrai erros e stack traces limpas com **deduplicação inteligente** de falhas repetidas, filtro de escopo por aplicação (`service`) e dicas proativas de SRE em consultas globais.
+- `get_context_logs`: Recupera os eventos cronológicos imediatamente anteriores e posteriores a um timestamp de erro/incidente (contexto forense fore/aft) com destaque do ponto de falha.
+- `query_logs`: Executa buscas flexíveis com LogsQL com suporte a filtro por aplicação (`service`), sanitização de quebras de linha, dicas contextuais de sintaxe e saída compacta em Markdown (`| keep`).
+- `get_log_hits`: Gráfico temporal/histograma de eventos agrupados por minuto/hora para triagem de anomalias.
+- `list_streams`: Lista containers, serviços e hosts ativos instantaneamente via endpoint nativo do VictoriaLogs.
+- `field_names`: Descobre os nomes de campos indexados no storage (ex: `service`, `userId`, `status`).
+- `field_values`: Lista os valores mais frequentes de qualquer campo.
+- `documentation`: Manual e guia de referência offline de LogsQL (filtros, pipes, stats e regex) embutido no servidor.
+- `health_check`: Testa a conexão com o VictoriaLogs.
+
+#### Como Configurar no seu Cliente de IA:
+
+`.cursor/` é **local e está no `.gitignore`**. Não versione `mcp.json`: ele aponta para o host onde *você* alcança o VictoriaLogs e pode receber credenciais de Basic Auth.
+
+##### 1. No Cursor e Claude Desktop:
+Crie `.cursor/mcp.json` neste workspace (ou `~/.cursor/mcp.json` / `%USERPROFILE%\.cursor\mcp.json` para todos os projetos). O mesmo bloco serve no Claude Desktop (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "victorialogs": {
+      "type": "stdio",
+      "command": "/usr/bin/python3",
+      "args": ["/caminho/absoluto/para/infra-victoria-logs/mcp/server.py"],
+      "env": {
+        "VICTORIALOGS_URL": "http://<IP_DO_MINI_PC>:9428"
+      }
+    }
+  }
+}
+```
+
+##### 2. No Antigravity:
+Configure o arquivo global `~/.gemini/config/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "victorialogs": {
+      "command": "/usr/bin/python3",
+      "args": ["/caminho/absoluto/para/infra-victoria-logs/mcp/server.py"],
+      "env": {
+        "VICTORIALOGS_URL": "http://<IP_DO_MINI_PC>:9428"
+      }
+    }
+  }
+}
+```
+
+Use `http://127.0.0.1:9428` só se o VictoriaLogs estiver no mesmo host do cliente. Se a stack roda numa VM e o cliente na sua workstation, `localhost` falha — copie `VICTORIALOGS_URL` do seu `.env` local. Recarregue a janela do cliente e confira o status das ferramentas MCP.
+
+**Testar o servidor MCP manualmente:**
+```bash
+./scripts/test-mcp.sh
+```
+
+---
+
+## 📡 Ingestão de Outras Fontes do Homelab
+
+### 1. Encaminhar Logs do Host Proxmox VE (Syslog)
+Para enviar os logs de sistema do nó Proxmox (`/var/log/syslog` / `journald`) para a stack:
+1. No host Proxmox, edite `/etc/rsyslog.d/60-vector.conf`:
+   ```text
+   *.* @<IP_DO_MINI_PC>:5140
+   ```
+2. Reinicie o rsyslog no Proxmox:
+   ```bash
+   systemctl restart rsyslog
+   ```
+
+### 2. Enviar Logs via HTTP (Aplicações / Scripts)
+Qualquer script em Python, Bash ou microsserviço pode emitir eventos diretamente para o Vector:
+```bash
+curl -X POST http://<IP_DO_MINI_PC>:8686/logs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "service": "backup-script",
+    "level": "info",
+    "message": "Backup do pool ZFS concluido com sucesso em 42s"
+  }'
+```
+
+---
+
+## 💾 Perfis de Armazenamento: Modo HD vs Modo SSD
+
+O projeto inclui perfis dinâmicos selecionáveis através da variável `STORAGE_PROFILE` no `.env`. Essa escolha calibra automaticamente o pipeline para a mídia de armazenamento do seu Mini PC / servidor:
+
+| Recurso / Comportamento | 💾 Modo HD (`STORAGE_PROFILE=hdd`) | ⚡ Modo SSD (`STORAGE_PROFILE=ssd`) | 🌍 Modo GeoIP (`STORAGE_PROFILE=geoip`) |
+|---|---|---|---|
+| **Foco Operacional** | **Minimizar IOPS e evitar I/O Wait** | **Baixa latência de busca e persistência** | **Enriquecimento com MaxMind GeoLite2** |
+| **Buffer do Vector** | `memory` (RAM, máx 10.000 eventos) — *Zero escrita dupla no HD mecânico* | `disk` (256 MB persistentes no volume) — *Máxima resiliência contra quedas* | `memory` (5.000 eventos) — *Lookup em RAM de alta velocidade* |
+| **Lotes de Envio (`batch`)** | `2 MB` / `15s` — *Gera gravações sequenciais consolidadas e corta I/O contínuo* | `1 MB` / `1s` — *Logs disponíveis para busca quase instantaneamente* | `1 MB` / `2s` — *Equilíbrio entre latência e throughput* |
+| **Enriquecimento GeoIP** | Desativado (economia de memória) | Desativado (economia de memória) | **Ativo** (extrai país, cidade e ISO de `client_ip`) |
+| **Filtro de Ruído no Edge** | **Ativo** — *Descarta pings vazios (`/health`, `/ping`) para poupar disco* | **Desativado** — *Ingestão de 100% dos logs* | **Desativado** — *Ingestão integral de tráfego web* |
+| **Flush em Memória (VL)** | `15s` (`VL_INMEMORY_FLUSH_INTERVAL=15s`) — *Reduz merges e fragmentação no HD* | `5s` (`VL_INMEMORY_FLUSH_INTERVAL=5s`) — *Disponibilização rápida no disco* | `15s` |
+| **Concorrência de Busca (VL)**| `2 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=2`) | `4 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=4`) | `2 buscas simultâneas` |
+
+> **Como ativar o perfil GeoIP:**
+> 1. Baixe o banco MaxMind: `./scripts/download-geolite2.sh`
+> 2. No `.env`, configure `STORAGE_PROFILE=geoip`
+> 3. Reinicie a stack: `docker compose up -d`
+
+> **Dica para usuários de HD mecânico:** Mantenha o modo `hdd` ativo para evitar que a agulha do disco sofra com *head thrashing* por concorrência entre o buffer e o banco.
+
+### 🔧 Otimização do Host Docker para HD Mecânico (Modo Non-Blocking)
+
+Em servidores onde todo o sistema operacional e containers rodam no mesmo HD mecânico (como Proxmox em disco único), o daemon do Docker por padrão tenta gravar logs de container de forma síncrona bloqueante (`blocking`). Em picos de I/O Wait (backups, tarefas de disco de VMs), **seus containers podem congelar** esperando o disco.
+
+Para desacoplar a execução dos containers da velocidade do HD mecânico, configure o Docker para operar com ring-buffer assíncrono em RAM (`non-blocking` com 4 MB por container):
+
+#### Opção A: Executar script assistido do repositório
+```bash
+# 1. Verificar status atual do Docker daemon
+sudo ./scripts/tune-docker-host.sh --check
+
+# 2. Aplicar configuração otimizada (cria backup automático)
+sudo ./scripts/tune-docker-host.sh --apply
+
+# 3. Recarregar o daemon do Docker sem reiniciar containers
+sudo systemctl reload docker
+```
+
+#### Opção B: Configuração manual em `/etc/docker/daemon.json`
+Edite `/etc/docker/daemon.json` no Proxmox adicionando as opções de buffer:
+```json
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3",
+    "mode": "non-blocking",
+    "max-buffer-size": "4m"
+  }
+}
+```
+E recarregue o serviço:
+```bash
+sudo systemctl reload docker
+```
+
+### 💽 Otimizações de Kernel e Disco no Host (noatime, I/O Scheduler e APM)
+
+Em hosts Proxmox VE onde o sistema operacional e os containers operam no mesmo HD mecânico rotacional, três configurações no sistema operacional evitam desgaste mecânico e lentidão severa:
+
+1. **`noatime,nodiratime`:** Elimina a gravação de data/hora de acesso toda vez que um arquivo de log é lido em consultas da VMUI ou de agentes de IA.
+2. **I/O Scheduler (`mq-deadline`):** Faz o kernel ordenar as requisições por elevador contínuo, impedindo que a agulha pule aleatoriamente pelo disco (*head thrashing*).
+3. **APM (`hdparm -B 254`):** Mantém a rotação estável 24/7, evitando ciclos destrutivos de desliga/liga da agulha (*spindown*).
+
+#### Diagnóstico e Assistência com o Script:
+```bash
+# 1. Inspecionar discos, schedulers e montagens ativas (não altera nada)
+sudo ./scripts/tune-disk-host.sh --check
+
+# 2. Configurar mq-deadline persistente para todos os HDs mecânicos (regra udev)
+sudo ./scripts/tune-disk-host.sh --generate-udev
+
+# 3. Aplicar noatime imediatamente na raiz ou partição de logs (sem reiniciar)
+sudo ./scripts/tune-disk-host.sh --remount-noatime /
+```
+
+#### Tornar o `noatime` permanente após reiniciar (`/etc/fstab`):
+Edite `/etc/fstab` no Proxmox e inclua `noatime,nodiratime` nas opções da partição do HD:
+```text
+# Exemplo no /etc/fstab do Proxmox:
+UUID=xxxx-xxxx-xxxx  /  ext4  errors=remount-ro,noatime,nodiratime  0  1
+```
+
+> [!TIP]
+> Para o guia arquitetural e operacional completo com parâmetros de kernel (`sysctl`), isolamento KVM vs LXC, regras de Proxmox Firewall e checklists de produção, consulte o [**Guia de Hardening no Proxmox VE**](docs/proxmox-hardening.md).
+
+---
+
+## ⚙️ Limites de Recursos e Tuning
+
+As configurações no [`docker-compose.yml`](./docker-compose.yml) foram ajustadas para estabilidade absoluta em ambientes limitados:
+
+| Serviço | Limite de RAM (Max) | Reserva (Mínima) | CPU Limit |
+|---|---|---|---|
+| **VictoriaLogs** | `80 MB` | `30 MB` | `0.50 core` |
+| **Vector** | `60 MB` | `20 MB` | `0.50 core` |
+| **Total** | **`140 MB`** | **`50 MB`** | **`1.0 core`** |
+
+- No **modo SSD**, o buffer em disco do Vector fica em `256 MB` no volume `vector_data`.
+- No **modo HD**, o buffer reside em memória RAM (limitado dentro dos `60 MB`), garantindo que o HD só receba escritas sequenciais consolidadas.
+- Caso o volume de logs diário do seu Homelab seja alto (> 20 GB/dia), você pode aumentar `memory: 120M` no VictoriaLogs se necessário.
+
+---
+
+## 🔒 Segurança e Autenticação Básica (Opcional)
+
+Se o seu homelab for exposto externamente ou você desejar proteger a VMUI e as APIs, basta descomentar e configurar no [`.env`](./.env.example):
+```env
+VICTORIALOGS_AUTH_USERNAME=admin
+VICTORIALOGS_AUTH_PASSWORD=coloque_sua_senha_segura
+```
+O VictoriaLogs exigirá HTTP Basic Auth para todas as consultas e o Vector se autenticará automaticamente.
+
+### 🛡️ Auditoria Automatizada de Segurança do Host (`audit-security.sh`)
+
+Para garantir conformidade contínua e prevenir vulnerabilidades ou permissões permissivas, utilize o script de auditoria:
+
+```bash
+# Auditoria interativa com relatório visual
+./scripts/audit-security.sh
+
+# Auto-reparo automático de permissões de arquivos (.env em 600, scripts em 755)
+./scripts/audit-security.sh --fix
+
+# Saída estruturada em JSON para pipelines de CI/CD ou agentes de IA
+./scripts/audit-security.sh --json
+
+# Modo estrito para gates de validação (falha se houver avisos)
+./scripts/audit-security.sh --strict
+```
+
+#### Pilares Inspecionados:
+1. **Permissões do Host:** `.env` protegido com `600`/`400`, bloqueio de commit no Git e scripts executáveis sem permissão de escrita pública (`o+w`).
+2. **Hardening do Docker Compose:** Socket Docker (`/var/run/docker.sock`) montado estritamente como somente leitura (`:ro`), limites de memória aplicados (`<= 80M` e `<= 60M`, total `<= 150M`), prevenção de loops de log (`exclude_containers: ["vector"]`) e healthchecks ativos.
+3. **Exposição de Rede:** Auditoria de portas abertas em `0.0.0.0` desprotegidas e verificação de HTTP Basic Auth.
+4. **Runtime Real:** Validação de limites de memória e montagem `:ro` aplicados diretamente nos containers em execução.
+
+---
+
+## 📑 Suporte a Logs Multilinha (Stack Traces)
+
+O coletor Vector possui agregação multilinha nativa na fonte `docker_logs` (`mode: continue_through`):
+- Linhas que começam com espaços ou tabulações (tracebacks Python, *panics* Go, exceções Java) são agrupadas no mesmo evento da linha-mãe.
+- Cada linha NDJSON (`{...}`) é um evento próprio. O modo `halt_before` (legado) colava rajadas JSON no mesmo segundo num único `_msg` e quebrava o parse — ver [issue #1](https://github.com/ye-sandbox/infra-victoria-logs/issues/1).
+- Evita que um único erro em texto puro seja fatiado em dezenas de registros desconexos.
+
+---
+
+## 🛠️ Manutenção e Operações Comuns
+
+- **Dashboard CLI de Saúde e Telemetria (ao vivo):**
+  ```bash
+  # Execução pontual
+  ./scripts/health-dashboard.sh
+
+  # Modo contínuo (atualização a cada 5s)
+  ./scripts/health-dashboard.sh --watch
+  ```
+- **Consultas Rápidas e Diagnósticos via Terminal (`logsql-queries.sh`):**
+  ```bash
+  # Top serviços com mais erros nas últimas 24h
+  ./scripts/logsql-queries.sh top-errors --time 24h
+
+  # Requisições HTTP lentas (> 1s) ordenadas por latência
+  ./scripts/logsql-queries.sh slow-requests -l 10
+
+  # Distribuição de status code HTTP (2xx, 4xx, 5xx)
+  ./scripts/logsql-queries.sh http-status --time 1h
+
+  # Containers finalizados por OOM (Exit 137) ou saídas anômalas
+  ./scripts/logsql-queries.sh crashes --time 24h
+
+  # Rastrear logs de uma transação distribuída por ID
+  ./scripts/logsql-queries.sh trace "req-abc-12345"
+
+  # Saída JSON para pipes ou agentes
+  ./scripts/logsql-queries.sh top-errors --time 1h --json
+  ```
+- **Gestão, Auditoria e Purga Emergencial de Partições (`manage-partitions.sh`):**
+  ```bash
+  # Auditar todas as partições diárias no banco e tamanho em disco
+  ./scripts/manage-partitions.sh list
+
+  # Calcular taxa de ingestão e projetar capacidade para 1 ano (365d)
+  ./scripts/manage-partitions.sh estimate
+
+  # Simulação de purga emergencial por idade (sem apagar nada)
+  ./scripts/manage-partitions.sh purge --older-than 60d --dry-run
+
+  # Purga emergencial efetiva de partições anteriores a uma data
+  ./scripts/manage-partitions.sh purge --before 20260801
+  ```
+- **Auditoria e Alerta Periódico de Capacidade em Disco (`check-disk-growth.sh`):**
+  ```bash
+  # Executar checagem manual imediata
+  ./scripts/check-disk-growth.sh
+
+  # Simular verificação sem enviar logs (dry-run)
+  ./scripts/check-disk-growth.sh --threshold-daily-mb 500 --dry-run
+
+  # Agendar verificação diária automática no crontab (às 06:00 UTC)
+  ./scripts/check-disk-growth.sh --install-cron
+
+  # Verificar status ou remover agendamento
+  ./scripts/check-disk-growth.sh --status-cron
+  ./scripts/check-disk-growth.sh --uninstall-cron
+  ```
+- **Orquestrador Unificado de Manutenção Diária (`run-maintenance-pipeline.sh`):**
+  ```bash
+  # Executar rotina completa (checagem de disco + snapshot atômico + smoke test)
+  ./scripts/run-maintenance-pipeline.sh
+
+  # Simulação sem escrita em disco (dry-run)
+  ./scripts/run-maintenance-pipeline.sh --dry-run
+
+  # Registrar no crontab para execução diária automática (às 03:00 UTC)
+  ./scripts/run-maintenance-pipeline.sh --install-cron
+
+  # Consultar ou desinstalar agendamento
+  ./scripts/run-maintenance-pipeline.sh --status-cron
+  ./scripts/run-maintenance-pipeline.sh --uninstall-cron
+  ```
+- **Auditoria de Segurança e Conformidade do Host (`audit-security.sh`):**
+  ```bash
+  # Auditoria completa do host, Compose e containers
+  ./scripts/audit-security.sh
+
+  # Auto-reparo de permissões inseguras (.env 600, scripts 755)
+  ./scripts/audit-security.sh --fix
+
+  # Saída estruturada em JSON para pipelines
+  ./scripts/audit-security.sh --json
+  ```
+- **Validar saúde do pipeline (Smoke Test):**
+  ```bash
+  ./scripts/test-pipeline.sh
+  ```
+- **Backup atômico consistente (sem parar o banco):**
+  ```bash
+  # Utiliza a API nativa de snapshot do VictoriaLogs e rotaciona as cópias
+  ./scripts/backup.sh
+  ```
+- **Coletor de recursos dos containers (CPU/RAM para o VictoriaLogs):**
+  ```bash
+  # Execução única (ideal para crontab)
+  ./scripts/ship-docker-stats.sh
+
+  # Modo loop daemon (ex: a cada 60s)
+  ./scripts/ship-docker-stats.sh --loop 60
+
+  # Modo teste/dry-run (apenas gera o JSON sem enviar via HTTP)
+  ./scripts/ship-docker-stats.sh --dry-run
+  ```
+- **Coletor de eventos do daemon Docker (Crashes, Restarts e OOMKilled):**
+  ```bash
+  # Escuta contínua em streaming (ideal para rodar como serviço/daemon)
+  ./scripts/ship-docker-events.sh
+
+  # Coleta retrospectiva de eventos históricos (ex: última 1 hora)
+  ./scripts/ship-docker-events.sh --since 1h
+
+  # Modo teste/dry-run
+  ./scripts/ship-docker-events.sh --since 15m --dry-run
+  ```
+- **Instalar e sincronizar SKILLs nos ambientes de IA (Cursor, Antigravity, etc.):**
+  ```bash
+  # Instala links simbólicos em todos os clientes detectados
+  ./scripts/install-agent-skills.sh --all
+
+  # Instalar especificamente para o Cursor IDE (~/.cursor/skills)
+  ./scripts/install-agent-skills.sh --cursor
+
+  # Pré-visualizar sem alterar o disco
+  ./scripts/install-agent-skills.sh --all --dry-run
+  ```
+- **Executar coletores 24/7 no host via systemd (Stats e Events contínuos):**
+  ```bash
+  # Instalar e habilitar na inicialização do host (requer sudo)
+  sudo ./scripts/install-host-collectors.sh --install
+
+  # Ver status dos serviços dos coletores
+  ./scripts/install-host-collectors.sh --status
+
+  # Desinstalar unidades
+  sudo ./scripts/install-host-collectors.sh --uninstall
+  ```
+- **Ver logs internos da stack:**
+  ```bash
+  docker compose logs -f
+  ```
+- **Reiniciar os serviços:**
+  ```bash
+  docker compose restart
+  ```
+
+---
+
+## 📊 Auto-monitoramento com Prometheus & Grafana
+
+Ambos os serviços expõem métricas nativas prontas para coleta pelo Prometheus ou Grafana Agent sem a necessidade de exporters externos:
+
+| Componente | Endpoint de Métricas | Porta Padrão | Variável no `.env` |
+|---|---|---|---|
+| **VictoriaLogs** | `http://<IP>:9428/metrics` | `9428` | `VICTORIALOGS_HTTP_PORT` |
+| **Vector** | `http://<IP>:9598/metrics` | `9598` | `VECTOR_METRICS_PORT` |
+
+### Exemplo de Configuração no `prometheus.yml`:
+```yaml
+scrape_configs:
+  - job_name: 'victorialogs'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['<IP_DO_MINI_PC>:9428']
+
+  - job_name: 'vector'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['<IP_DO_MINI_PC>:9598']
+```
+
+### Principais Métricas a Monitorar:
+- **VictoriaLogs:**
+  - `vl_bytes_ingested_total{type="jsonline"}`: Total de bytes de log ingeridos.
+  - `vl_concurrent_select_current`: Quantidade de buscas LogsQL rodando simultaneamente.
+  - `vl_http_requests_total`: Total de requisições recebidas por rota HTTP.
+  - `process_memory_limit_bytes`: Limite de RAM imposto ao processo (governança).
+- **Vector:**
+  - `vector_component_received_events_total`: Vazão de eventos recebidos por source/transform/sink.
+  - `vector_buffer_byte_size`: Ocupação atual do buffer (em RAM ou SSD).
+  - `vector_component_errors_total`: Contagem de erros internos de parsing ou roteamento.
+
+### 📈 Dashboard Oficial Pré-construído (`dashboards/grafana-victorialogs.json`)
+
+O projeto inclui um dashboard profissional pronto para importação:
+1. No Grafana, acesse **Dashboards** > **New** > **Import**.
+2. Faça o upload do arquivo [`dashboards/grafana-victorialogs.json`](./dashboards/grafana-victorialogs.json) ou cole seu conteúdo JSON.
+3. Selecione o seu Data Source Prometheus na variável `${DS_PROMETHEUS}` e clique em **Import**.
+4. Visualize instantaneamente:
+   - **Status da Stack:** VictoriaLogs & Vector Online/Offline.
+   - **Vazão:** Logs/s e Bytes/s em tempo real.
+   - **Saúde do Buffer:** Eventos em repouso e ocupação de memória do coletor.
+   - **Proteção de Busca:** Concorrência ativa contra capacidade máxima permitida no disco.
+
+---
+
+## 🚨 Alertas Automáticos com `vmalert` (Opcional)
+
+Para homelabs que necessitam de alertas pró-ativos sem estourar os limites de memória da stack, o projeto disponibiliza integração nativa com o **`vmalert`** via Docker Compose Profile.
+
+O `vmalert` avalia expressões LogsQL (`type: vlogs`) diretamente no VictoriaLogs consumindo **< 25 MB de RAM**, notificando webhooks, Alertmanager ou n8n/Telegram.
+
+### Como Ativar:
+```bash
+# Iniciar a stack com o perfil de alerta habilitado
+docker compose --profile alerting up -d
+```
+
+### Regras Pré-configuradas em [`vmalert/rules.yaml`](./vmalert/rules.yaml):
+1. **`HighErrorRate`:** Dispara se um serviço emitir mais de 10 mensagens de erro em 5 minutos.
+2. **`ContainerOOMKilled`:** Dispara imediatamente quando o coletor `docker-events` detecta terminação por OOM (Exit 137).
+3. **`ContainerCrashOrDie`:** Dispara quando um container encerra com status de saída diferente de 0.
+4. **`ElevatedHttpLatency`:** Dispara quando requisições com `duration_ms:>3000` ocorrem repetidamente.
+
+---
+
+## 🤖 Skills para Agentes de IA (`skills/`)
+
+O repositório inclui SKILLs canônicas, versionadas **neste** Git. Não as duplique em outros repositórios da `ye-sandbox`: no `AGENTS.md` de cada app, coloque só um ponteiro. Procedimentos do produto (`bot-command`, `compose-service`) continuam no `.agent/skills/` de cada repo.
+
+1. **[`skills/victorialogs-integration`](./skills/victorialogs-integration/SKILL.md):**
+   - Contrato de emissão: NDJSON (um JSON por linha), campos canônicos, stream fields vs IDs de alta cardinalidade, traceback, syslog e anti-padrões (`pino-pretty`, healthchecks no HDD).
+   - **Templates Plug-and-Play (`examples/`):** Códigos completos e testados para **Python com Loguru**, **Python stdlib**, **Node.js com Pino** e **Go com Slog**, com suporte nativo a rastreamento distribuído (`trace_id`, `request_id`, `http_status`, `duration_ms`).
+   - Snippets para **Docker Compose**, **Bash** (`curl`) e **Proxmox** (`rsyslog`).
+2. **[`skills/victorialogs-troubleshooting`](./skills/victorialogs-troubleshooting/SKILL.md):**
+   - Playbook de SRE para investigar incidentes via MCP e LogsQL (consulta, não emissão).
+3. **[`skills/github-bug-issue`](./skills/github-bug-issue/SKILL.md):**
+   - Abre uma issue no GitHub do **repo dono** para estacionar um bug (visto noutro app, na API do WhatsApp, etc.) com âncoras do VictoriaLogs. `TASK.md` só entra quando for executar o conserto.
+
+O Cursor **não** carrega a pasta `skills/` da raiz sozinho. Para descoberta em qualquer workspace:
+
+```bash
+mkdir -p ~/.cursor/skills
+ln -sfn "$(pwd)/skills/victorialogs-integration" ~/.cursor/skills/victorialogs-integration
+ln -sfn "$(pwd)/skills/victorialogs-troubleshooting" ~/.cursor/skills/victorialogs-troubleshooting
+ln -sfn "$(pwd)/skills/github-bug-issue" ~/.cursor/skills/github-bug-issue
+```
+
+Recarregue a janela do Cursor depois. A fonte da verdade continua neste repositório; o symlink só espelha.
+
+---
+
+## 🤝 Comunidade e Governança
+
+- [Diretrizes de Contribuição](CONTRIBUTING.md): Guia para desenvolvedores humanos, convenções de código, commits semânticos e exigência do teto rígido de 150 MB de RAM.
+- [Política de Segurança](SECURITY.md): Processo de reporte responsável de vulnerabilidades via GitHub Security Advisories.
+- [Histórico de Mudanças](CHANGELOG.md): Registro de versões e notas de lançamento (Keep a Changelog).
+- [Licença Apache 2.0](LICENSE): Termos de uso permissivos para fins pessoais e comerciais.
+
+---
+
+## 📄 Licença
+
+Distribuído sob a licença **Apache License 2.0**. Consulte o arquivo [`LICENSE`](LICENSE) para mais detalhes. Sinta-se livre para usar, adaptar e evoluir em seu homelab ou organização!
