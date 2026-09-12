@@ -12,21 +12,22 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 32.0: Governança de Comunidade Open-Source (`CONTRIBUTING.md`, `SECURITY.md` e Templates de Issues)
+### 📌 Tarefa 33.0: Internacionalização da Documentação (`README.md` em Inglês como Padrão e `README.pt-br.md`)
 
-- **Descrição:** Criar arquivos de governança comunitária: `CONTRIBUTING.md` (diretrizes para desenvolvedores humanos sobre setup local, validação com `test-pipeline.sh` e padrões de commit semântico), `SECURITY.md` (política de reporte responsável de vulnerabilidades) e templates de issues do GitHub em `.github/ISSUE_TEMPLATE/` (`bug_report.md` e `feature_request.md`).
-- **Sistema(s) Envolvido(s):** `docs`, `github`, `community`
+- **Descrição:** Portar o `README.md` atual para `README.pt-br.md` preservando a versão em português, e reconstruir o `README.md` principal em inglês de alto nível para a comunidade global open-source. Incluir seletor de idioma no topo (`[English](README.md) | [Português](README.pt-br.md)`), mantendo total paridade técnica (arquitetura, limites de 150 MB de RAM, tabela de componentes, Quickstart, comandos de scripts operacionais, guia Proxmox e integrações MCP/Skills).
+- **Sistema(s) Envolvido(s):** `docs`, `community`, `i18n`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
   - [ ] Escrita de código-fonte
-- **Status:** PRONTO PARA PLANEJAMENTO
+- **Status:** EM PLANEJAMENTO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Arquivo `CONTRIBUTING.md` criado na raiz.
-- [ ] Arquivo `SECURITY.md` criado na raiz.
-- [ ] Templates de issue criados em `.github/ISSUE_TEMPLATE/`.
-- [ ] Documentação sincronizada em `README.md` e `.agent/NOTES.md`.
+- [ ] Arquivo `README.pt-br.md` criado com a versão integral em português do `README.md` atual.
+- [ ] Arquivo `README.md` reescrito integralmente em inglês técnico claro, preciso e profissional.
+- [ ] Seletor de idioma `[English](README.md) | [Português](README.pt-br.md)` presente no cabeçalho de ambos os arquivos.
+- [ ] Teto inegociável de 150 MB de RAM explicitamente salientado em ambos os arquivos.
+- [ ] Links relativos (`docs/`, `scripts/`, `skills/`, `mcp/`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE`) 100% funcionais e validados.
 
 ---
 
@@ -34,6 +35,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 32.0 | Governança de Comunidade Open-Source (`CONTRIBUTING.md`, `SECURITY.md` e Templates de Issues) | `f705cde` | 2026-09-12 |
 | 31.0 | Licença Open-Source (LICENSE Apache 2.0) e Desacoplamento de Referências Pessoais do Host | `28c9ccf` | 2026-09-12 |
 | 30.0 | Padronização e Nomeação Determinística de Containers Efêmeros nos Scripts de Manutenção | `277834c` | 2026-09-11 |
 | 29.0 | Guia Consolidado de Hardening e Boas Práticas Operacionais do Host Proxmox (`docs/proxmox-hardening.md`) | `b6d8fb3` | 2026-09-11 |
@@ -78,7 +80,6 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] Tarefa 32.0: Governança de Comunidade Open-Source (`CONTRIBUTING.md`, `SECURITY.md` e Templates de Issues)
 - [ ] Tarefa 33.0: Internacionalização da Documentação (`README.md` em Inglês como Padrão e `README.pt-br.md`)
 - [ ] Tarefa 34.0: Validação de Conformidade Open-Source e Smoke Test Final da Release
 
