@@ -14,21 +14,19 @@
 
 ### 📌 Nenhuma tarefa ativa no momento
 
-- **Descrição:** A refatoração de `scripts/tune-disk-host.sh` (Tarefa 36.0) foi concluída com sucesso. O script agora é totalmente ciente de virtualização (VMs QEMU/KVM, Proxmox, VMware, VirtualBox), adaptando recomendações de I/O scheduler (`none` em discos virtuais para evitar duplo agendamento vs `mq-deadline` em HDs mecânicos bare-metal), omitindo chamadas e diagnósticos de `hdparm` em máquinas virtuais e mantendo o foco crítico em `noatime,nodiratime`.
-- **Sistema(s) Envolvido(s):** `scripts`, `host`, `proxmox`, `vm`, `docs`
+- **Descrição:** A resolução de conflito de regras udev e aplicação imediata de scheduler no `tune-disk-host.sh` (Tarefa 36.1) foi concluída com sucesso. O script remove preventivamente o arquivo legado `60-hdd-scheduler.rules`, escreve diretamente nos nós `/sys/block/<dev>/queue/scheduler` para ativação imediata em tempo de execução e dispara `udevadm trigger --action=change`.
+- **Sistema(s) Envolvido(s):** `scripts`, `host`, `udev`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
 - **Status:** CONCLUÍDO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] Detecção de virtualização implementada em `scripts/tune-disk-host.sh` via `systemd-detect-virt`, DMI product/vendor e modelo/prefixo do disco (`QEMU`, `VBOX`, `VMware`, `vd*`).
-- [x] Sinalização explícita no output quando o disco for virtualizado, informando que a mídia subjacente é gerenciada pelo hipervisor.
-- [x] Seções de APM e spindown (`hdparm`) omitidas completamente quando executado em VMs ou discos virtuais.
-- [x] Recomendação de scheduler para discos virtuais ajustada para `none` (NOOP/passthrough), reservando `mq-deadline`/`bfq` estritamente para bare-metal físico rotacional.
-- [x] Diagnóstico de opções de montagem (`noatime`/`nodiratime`) mantido e priorizado para partições de dados do VictoriaLogs e Docker.
-- [x] Script testado localmente e validado diretamente no host VM `mothership-docker` via SSH.
-- [x] Documentação atualizada (`README.md`, `README.pt-br.md`, `docs/proxmox-hardening.md` se aplicável).
+- [x] `scripts/tune-disk-host.sh` atualizado para remover explicitamente regras legadas (`/etc/udev/rules.d/60-hdd-scheduler.rules`) antes de gravar `60-disk-scheduler.rules`.
+- [x] Comando `udevadm trigger` ajustado com `--action=change --subsystem-match=block` para disparar eventos de change reais.
+- [x] Aplicação imediata do scheduler alvo nos nós ativos de `/sys/block/<dev>/queue/scheduler` para efeito instantâneo sem necessidade de reinicialização.
+- [x] Mensagens de diagnóstico polidas exibindo o nome exato do scheduler ativo entre colchetes.
+- [x] Decisões e armadilhas de precedência udev registradas no `.agent/NOTES.md` e suíte de testes aprovada.
 
 ---
 
@@ -36,6 +34,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 36.1 | Correção de Conflito Udev e Aplicação Imediata de Scheduler em `tune-disk-host.sh` | `64e4ca0` | 2026-09-12 |
 | 36.0 | Refatoração de `tune-disk-host.sh` com Consciência de Ambientes Virtualizados (VMs / QEMU / KVM / Proxmox) | `6414e65` | 2026-09-12 |
 | 35.0 | Calibração da Governança de Recursos: Limite de 150 MB como Salvaguarda para Infraestrutura Limitada | `d6a5d25` | 2026-09-12 |
 | 34.0 | Validação de Conformidade Open-Source e Smoke Test Final da Release | `96dbe6a` | 2026-09-12 |
