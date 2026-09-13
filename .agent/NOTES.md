@@ -8,6 +8,11 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-09-13 — Alinhamento das Diretrizes de MCP no AGENTS.md e Sincronização de Skills
+- **Contexto:** O `AGENTS.md` continha menções periféricas a MCP e uma referência desatualizada a compressão `gzip` (quando o sink utiliza `zstd`), e a skill `victorialogs-troubleshooting` continha uma discrepância na contagem de ferramentas (8 vs 9) e numeração duplicada. Agentes de IA operando no repositório precisam de diretrizes claras sobre o servidor MCP nativo e as regras operacionais de consulta.
+- **Decisão:** Atualizar o `AGENTS.md` documentando explicitamente o servidor MCP nativo (`mcp/server.py`), suas 9 ferramentas otimizadas, e fixando as 3 diretrizes essenciais de SRE: escopo obrigatório por aplicação (`service="nome-do-app"`), aspas duplas obrigatórias em identificadores com caracteres especiais (`@`, `:`, `/`, `.`) no LogsQL e referência à skill canônica `victorialogs-troubleshooting`. A contagem e numeração em `skills/victorialogs-troubleshooting/SKILL.md` foram devidamente corrigidas para 9 ferramentas.
+- **Consequências:** Coerência absoluta entre código real, documentação técnica (`AGENTS.md`, `README.md`) e skills de agentes em toda a organização `ye-sandbox`.
+
 ### 2026-09-02 — Escolha de VictoriaLogs + Vector para Homelab
 - **Contexto:** Necessidade de centralizar logs de múltiplos containers Docker locais e nós Proxmox VE (LXC/VMs) em um Mini PC com recursos de hardware restritos, garantindo baixo consumo de CPU e RAM (< 150 MB no total).
 - **Decisão:** Adotar **VictoriaLogs** como banco de armazenamento e **Vector** como coletor/normalizador.

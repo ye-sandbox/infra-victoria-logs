@@ -28,7 +28,7 @@ Você é o(a) engenheiro(a) sênior de DevOps e especialista em observabilidade 
 ## Stack Tecnológico e Ferramentas
 
 - **Sistema Operacional e Shell Padrão:** Linux (Bash) — o agente DEVE respeitar a sintaxe desse shell ao rodar scripts e comandos de terminal.
-- **Arquitetura Geral:** Pipeline de observabilidade e ingestão de logs nativa em containers. Vector atua como coletor e roteador de alto desempenho (Docker socket, Syslog UDP, HTTP POST), enriquecendo eventos com VRL e enviando via HTTP em gzip para o VictoriaLogs, que indexa com LogsQL e expõe consultas para desenvolvedores (VMUI) e agentes de IA (HTTP API).
+- **Arquitetura Geral:** Pipeline de observabilidade e ingestão de logs nativa em containers. Vector atua como coletor e roteador de alto desempenho (Docker socket, Syslog UDP, HTTP POST), enriquecendo eventos com VRL e enviando via HTTP comprimido com zstd para o VictoriaLogs, que indexa com LogsQL e expõe consultas para desenvolvedores (VMUI) e agentes de IA (Servidor MCP nativo e HTTP API).
 
 ### 1. VictoriaLogs (Serviço de Armazenamento e Consulta)
 - **Runtime:** Binário Go estático em container (`victoriametrics/victoria-logs`)
@@ -41,6 +41,24 @@ Você é o(a) engenheiro(a) sênior de DevOps e especialista em observabilidade 
 - **Linguagem de Transformação:** VRL (Vector Remap Language)
 - **Portas:** 5140/udp (Syslog), 8686 (HTTP Ingest)
 - **Consumo Alvo de RAM:** <= 60 MB
+
+### 3. Servidor MCP Nativo (Model Context Protocol para Agentes de IA)
+- **Runtime:** Pure Python 3 stdio (`mcp/server.py`), zero dependências externas
+- **Consumo Alvo de RAM:** < 22 MB
+- **Catálogo de Ferramentas (9 Ferramentas Otimizadas):**
+  - `health_check`: Verifica conectividade e latência com o VictoriaLogs.
+  - `query_logs`: Executa queries flexíveis em LogsQL com projeção compacta de campos (`| keep`).
+  - `get_errors`: Extrai erros e stack traces com deduplicação inteligente e dicas proativas de SRE.
+  - `get_context_logs`: Recupera janela forense cronológica de eventos vizinhos (fore/aft) ao redor do timestamp da falha.
+  - `get_log_hits`: Histograma temporal de contagem de eventos por minuto/hora para triagem de picos.
+  - `list_streams`: Lista containers, serviços e hosts ativos que emitem logs.
+  - `field_names`: Descobre nomes de campos indexados no storage.
+  - `field_values`: Lista os valores mais frequentes de qualquer campo.
+  - `documentation`: Manual offline embutido de operadores, filtros e pipes LogsQL.
+- **Diretrizes Obrigatórias para Agentes ao Consumir Logs via MCP:**
+  1. **Sempre escopar por serviço/container:** NUNCA execute `query_logs` ou `get_errors` sem definir `service="nome-do-app"`, exceto em auditorias globais explícitas de infraestrutura. Consultas sem escopo gastam tokens desnecessariamente e trazem ruído de outros containers. Se não souber o nome exato, use `list_streams()` primeiro.
+  2. **Aspas duplas obrigatórias em termos especiais no LogsQL:** Qualquer termo contendo `@`, `:`, `/`, `-`, `.`, espaços ou parênteses (ex: JIDs WhatsApp `"120363421617257978@g.us"`, e-mails, endpoints) DEVE estar entre aspas duplas, senão o VictoriaLogs retorna HTTP 400.
+  3. **Playbook de Investigação (SRE):** Consulte e siga rigorosamente a skill [`skills/victorialogs-troubleshooting/SKILL.md`](skills/victorialogs-troubleshooting/SKILL.md) ao investigar incidentes, crashes, anomalias ou falhas de containers.
 
 ---
 

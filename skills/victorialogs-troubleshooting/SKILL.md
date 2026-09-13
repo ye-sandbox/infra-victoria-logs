@@ -38,7 +38,7 @@ Quando o usuário relatar um erro ("a API caiu", "o worker parou", "estou recebe
 
 ## 🛠️ Catálogo Completo de Ferramentas MCP
 
-O servidor MCP nativo do repositório (`mcp/server.py`) expõe **8 ferramentas otimizadas**, projetadas para entregar à IA exatamente o que ela precisa para resolver bugs sem desperdiçar tokens com metadados irrelevantes:
+O servidor MCP nativo do repositório (`mcp/server.py`) expõe **9 ferramentas otimizadas**, projetadas para entregar à IA exatamente o que ela precisa para resolver bugs sem desperdiçar tokens com metadados irrelevantes:
 
 ### 1. `health_check`
 - **Quando usar:** No início da sessão para checar a conectividade com o VictoriaLogs.
@@ -81,24 +81,24 @@ O servidor MCP nativo do repositório (`mcp/server.py`) expõe **8 ferramentas o
   - `format`: `"markdown"` (padrão compacto com ícones) ou `"json"` (ndjson bruto)
   - `full`: `false` (padrão) ou `true` (desativa truncamento de mensagens longas)
 
-### 5. `list_streams`
+### 6. `list_streams`
 - **Quando usar:** Para descobrir quais containers, serviços e hosts estão enviando logs ativos.
 - **Parâmetros:**
   - `time_range`: `"24h"`
 
-### 6. `field_names`
+### 7. `field_names`
 - **Quando usar:** Para listar todos os campos indexados no VictoriaLogs (ex: `user_id`, `path`, `status`).
 - **Parâmetros:**
   - `time_range`: `"24h"`
 
-### 7. `field_values`
+### 8. `field_values`
 - **Quando usar:** Para listar os valores existentes de um campo específico (ex: ver quais `level` ou `service` existem).
 - **Parâmetros:**
   - `field`: `"service"` ou `"level"` (obrigatório)
   - `time_range`: `"24h"`
   - `limit`: `20`
 
-### 8. `documentation`
+### 9. `documentation`
 - **Quando usar:** Para consultar a sintaxe do LogsQL (filtros, pipes, stats) sem sair do chat.
 - **Parâmetros:**
   - `query`: `"stats"`, `"filtros"`, `"streams"`, `"pipes"` (ou vazio para o guia completo)
