@@ -14,19 +14,19 @@
 
 ### 📌 Nenhuma tarefa ativa no momento
 
-- **Descrição:** A resolução de conflito de regras udev e aplicação imediata de scheduler no `tune-disk-host.sh` (Tarefa 36.1) foi concluída com sucesso. O script remove preventivamente o arquivo legado `60-hdd-scheduler.rules`, escreve diretamente nos nós `/sys/block/<dev>/queue/scheduler` para ativação imediata em tempo de execução e dispara `udevadm trigger --action=change`.
-- **Sistema(s) Envolvido(s):** `scripts`, `host`, `udev`
+- **Descrição:** O alinhamento das diretrizes de MCP no `AGENTS.md` e sincronização da skill `victorialogs-troubleshooting` (Tarefa 37.0) foi concluído com sucesso. A documentação técnica reflete fielmente as 9 ferramentas otimizadas do MCP nativo, as regras operacionais de SRE para agentes de IA e a compressão correta em zstd.
+- **Sistema(s) Envolvido(s):** `docs`, `agents`, `skills`, `mcp`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação
 - **Status:** CONCLUÍDO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] `scripts/tune-disk-host.sh` atualizado para remover explicitamente regras legadas (`/etc/udev/rules.d/60-hdd-scheduler.rules`) antes de gravar `60-disk-scheduler.rules`.
-- [x] Comando `udevadm trigger` ajustado com `--action=change --subsystem-match=block` para disparar eventos de change reais.
-- [x] Aplicação imediata do scheduler alvo nos nós ativos de `/sys/block/<dev>/queue/scheduler` para efeito instantâneo sem necessidade de reinicialização.
-- [x] Mensagens de diagnóstico polidas exibindo o nome exato do scheduler ativo entre colchetes.
-- [x] Decisões e armadilhas de precedência udev registradas no `.agent/NOTES.md` e suíte de testes aprovada.
+- [x] Atualizar `AGENTS.md` com seção dedicada ao Servidor MCP nativo e integração com a skill `victorialogs-troubleshooting`.
+- [x] Corrigir menção de compressão de `gzip` para `zstd` em `AGENTS.md` para refletir a decisão arquitetural real.
+- [x] Corrigir a contagem (de 8 para 9) e a numeração das ferramentas em `skills/victorialogs-troubleshooting/SKILL.md`.
+- [x] Garantir total coerência com `README.md` e `README.pt-br.md`.
+- [x] Validar integridade dos testes e registrar decisões no `.agent/NOTES.md` e `.agent/TASK.md`.
 
 ---
 
@@ -34,6 +34,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 37.0 | Alinhamento das Diretrizes de MCP no `AGENTS.md` e Sincronização da SKILL | `57076a8` | 2026-09-13 |
 | 36.1 | Correção de Conflito Udev e Aplicação Imediata de Scheduler em `tune-disk-host.sh` | `64e4ca0` | 2026-09-12 |
 | 36.0 | Refatoração de `tune-disk-host.sh` com Consciência de Ambientes Virtualizados (VMs / QEMU / KVM / Proxmox) | `6414e65` | 2026-09-12 |
 | 35.0 | Calibração da Governança de Recursos: Limite de 150 MB como Salvaguarda para Infraestrutura Limitada | `d6a5d25` | 2026-09-12 |
