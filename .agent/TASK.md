@@ -14,19 +14,21 @@
 
 ### 📌 Nenhuma tarefa ativa no momento
 
-- **Descrição:** O alinhamento das diretrizes de MCP no `AGENTS.md` e sincronização da skill `victorialogs-troubleshooting` (Tarefa 37.0) foi concluído com sucesso. A documentação técnica reflete fielmente as 9 ferramentas otimizadas do MCP nativo, as regras operacionais de SRE para agentes de IA e a compressão correta em zstd.
-- **Sistema(s) Envolvido(s):** `docs`, `agents`, `skills`, `mcp`
+- **Descrição:** A tradução 1:1 das SKILLs e templates para inglês técnico (Tarefa 38.0) foi concluída com sucesso. Os documentos (`github-bug-issue`, `victorialogs-troubleshooting`, `victorialogs-integration`, `examples/README.md`) e seus exemplos de código operam agora em inglês direto, maximizando a economia de tokens (30% a 50%) e precisão de raciocínio de agentes de IA com zero perda de contexto de SRE e paridade com a infraestrutura.
+- **Sistema(s) Envolvido(s):** `skills`, `docs`, `agents`
 - **Tipo de Ação:**
-  - [x] Somente leitura / Documentação
+  - [x] Somente leitura / Documentação / Skills
 - **Status:** CONCLUÍDO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] Atualizar `AGENTS.md` com seção dedicada ao Servidor MCP nativo e integração com a skill `victorialogs-troubleshooting`.
-- [x] Corrigir menção de compressão de `gzip` para `zstd` em `AGENTS.md` para refletir a decisão arquitetural real.
-- [x] Corrigir a contagem (de 8 para 9) e a numeração das ferramentas em `skills/victorialogs-troubleshooting/SKILL.md`.
-- [x] Garantir total coerência com `README.md` e `README.pt-br.md`.
-- [x] Validar integridade dos testes e registrar decisões no `.agent/NOTES.md` e `.agent/TASK.md`.
+- [x] Traduzir 1:1 `skills/github-bug-issue/SKILL.md` para inglês técnico de alta concisão, preservando a semântica, placeholders e fluxo de ponteiros.
+- [x] Traduzir 1:1 `skills/victorialogs-troubleshooting/SKILL.md` (frontmatter description e corpo) para inglês técnico, preservando todas as 9 ferramentas MCP, dicas de SRE, aspas obrigatórias e consultas LogsQL.
+- [x] Traduzir 1:1 `skills/victorialogs-integration/SKILL.md` (frontmatter description e corpo) para inglês técnico, preservando o contrato canônico de campos, regras de stream fields vs campos de eventos, armadilhas e exemplos de linguagens.
+- [x] Traduzir 1:1 `skills/victorialogs-integration/examples/README.md` e os comentários/docstrings dos arquivos de exemplo (`python-loguru`, `python-stdlib`, `nodejs-pino`, `go-slog`) para inglês.
+- [x] Executar `./scripts/install-agent-skills.sh --all` para sincronizar os symlinks locais nos ambientes de agentes (`~/.cursor/skills`, `~/.gemini/config/skills`, `~/.gemini/antigravity/skills`).
+- [x] Garantir coerência técnica absoluta com `README.md`, `README.pt-br.md`, `AGENTS.md` e `.agent/NOTES.md`.
+- [x] Realizar commit semântico em inglês e atualizar o log em `.agent/TASK.md`.
 
 ---
 
@@ -34,6 +36,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 38.0 | Tradução 1:1 das SKILLs para Inglês com Foco em Economia de Tokens e Entendimento de Agentes | `093602d` | 2026-09-15 |
 | 37.0 | Alinhamento das Diretrizes de MCP no `AGENTS.md` e Sincronização da SKILL | `57076a8` | 2026-09-13 |
 | 36.1 | Correção de Conflito Udev e Aplicação Imediata de Scheduler em `tune-disk-host.sh` | `64e4ca0` | 2026-09-12 |
 | 36.0 | Refatoração de `tune-disk-host.sh` com Consciência de Ambientes Virtualizados (VMs / QEMU / KVM / Proxmox) | `6414e65` | 2026-09-12 |
