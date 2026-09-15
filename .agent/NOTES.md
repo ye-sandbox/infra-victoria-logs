@@ -8,6 +8,11 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-09-15 — Tradução Canônica 1:1 das SKILLs para Inglês com Foco em Economia de Tokens
+- **Contexto:** Agentes de IA modernos utilizam tokenização baseada em subpalavras (BPE) treinadas predominantemente em inglês. SKILLs escritas em português consomem de 30% a 50% mais tokens de contexto e sofrem maior dispersão interpretativa por LLMs (Claude, Gemini, GPT).
+- **Decisão:** Traduzir integralmente e de forma 1:1 todas as skills canônicas do repositório (`skills/github-bug-issue/SKILL.md`, `skills/victorialogs-troubleshooting/SKILL.md`, `skills/victorialogs-integration/SKILL.md`, `skills/victorialogs-integration/examples/README.md`) e os comentários/docstrings de seus templates para o inglês técnico conciso e de alta densidade semântica. Nomes de pastas e arquivos foram mantidos idênticos para total retrocompatibilidade com symlinks locais.
+- **Consequências:** Máxima preservação da janela de contexto de agentes de IA em toda a organização `ye-sandbox`, cumprimento mais rigoroso de instruções imperativas de SRE e zero perda de contexto de engenharia.
+
 ### 2026-09-13 — Alinhamento das Diretrizes de MCP no AGENTS.md e Sincronização de Skills
 - **Contexto:** O `AGENTS.md` continha menções periféricas a MCP e uma referência desatualizada a compressão `gzip` (quando o sink utiliza `zstd`), e a skill `victorialogs-troubleshooting` continha uma discrepância na contagem de ferramentas (8 vs 9) e numeração duplicada. Agentes de IA operando no repositório precisam de diretrizes claras sobre o servidor MCP nativo e as regras operacionais de consulta.
 - **Decisão:** Atualizar o `AGENTS.md` documentando explicitamente o servidor MCP nativo (`mcp/server.py`), suas 9 ferramentas otimizadas, e fixando as 3 diretrizes essenciais de SRE: escopo obrigatório por aplicação (`service="nome-do-app"`), aspas duplas obrigatórias em identificadores com caracteres especiais (`@`, `:`, `/`, `.`) no LogsQL e referência à skill canônica `victorialogs-troubleshooting`. A contagem e numeração em `skills/victorialogs-troubleshooting/SKILL.md` foram devidamente corrigidas para 9 ferramentas.

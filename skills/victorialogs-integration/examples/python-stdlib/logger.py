@@ -1,10 +1,10 @@
 """
-Logger Plug-and-Play em Python puro (Standard Library) para VictoriaLogs + Vector.
+Plug-and-Play Logger in pure Python (Standard Library) for VictoriaLogs + Vector.
 
-Zero dependências externas.
-Emite estritamente 1 objeto JSON por linha (NDJSON) em stdout sem quebras intermediárias,
-com suporte canônico a timestamp ISO-8601 UTC, nível minúsculo, app, env, service,
-campos de correlação (trace_id, request_id, http_status, duration_ms) e stack_trace serializado.
+Zero external dependencies.
+Strictly emits 1 JSON object per line (NDJSON) on stdout without intermediate line breaks,
+with canonical support for ISO-8601 UTC timestamp, lowercase level, app, env, service,
+correlation fields (trace_id, request_id, http_status, duration_ms), and serialized stack_trace.
 """
 
 import json
@@ -27,10 +27,10 @@ CANONICAL_FIELDS = {
 
 
 class VictoriaLogsJsonFormatter(logging.Formatter):
-    """Formatador estrito de NDJSON para VictoriaLogs + Vector."""
+    """Strict NDJSON formatter for VictoriaLogs + Vector."""
 
     def format(self, record: logging.LogRecord) -> str:
-        # Timestamp em ISO-8601 UTC com precisão de milissegundos
+        # ISO-8601 UTC timestamp with millisecond precision
         dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
         ts = dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
@@ -43,7 +43,7 @@ class VictoriaLogsJsonFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
 
-        # Serialização de exceções no mesmo registro JSON
+        # Exception serialization in the same JSON record
         if record.exc_info:
             stack = self.formatException(record.exc_info)
             event["stack_trace"] = stack
@@ -52,7 +52,7 @@ class VictoriaLogsJsonFormatter(logging.Formatter):
             else:
                 event["message"] += "\n" + stack
 
-        # Campos reservados da stdlib logging do Python
+        # Python stdlib logging reserved fields
         reserved = {
             "name", "msg", "args", "levelname", "levelno", "pathname", "filename",
             "module", "exc_info", "exc_text", "stack_info", "lineno", "funcName",
@@ -72,17 +72,17 @@ class VictoriaLogsJsonFormatter(logging.Formatter):
         if context_extra:
             event["context"] = context_extra
 
-        # Linha única sem formatação pretty
+        # Single line without pretty formatting
         return json.dumps(event, ensure_ascii=False)
 
 
 def setup_logger(name: str = "app", level: int = logging.INFO) -> logging.Logger:
-    """Configura e retorna uma instância de logger configurada para NDJSON."""
+    """Configures and returns a logger instance formatted for NDJSON."""
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.propagate = False
 
-    # Evita duplicação de handlers
+    # Prevent duplicate handlers
     if not logger.handlers:
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(VictoriaLogsJsonFormatter())
@@ -93,11 +93,11 @@ def setup_logger(name: str = "app", level: int = logging.INFO) -> logging.Logger
 
 if __name__ == "__main__":
     log = setup_logger("example-stdlib")
-    log.info("Servidor HTTP iniciado na porta 8000")
+    log.info("HTTP server started on port 8000")
 
-    # Log com correlação
+    # Log with correlation
     log.info(
-        "Requisição processada com sucesso",
+        "Request processed successfully",
         extra={
             "trace_id": "tr-12345",
             "request_id": "req-98765",
@@ -107,12 +107,12 @@ if __name__ == "__main__":
         },
     )
 
-    # Log de erro com exceção
+    # Error log with exception
     try:
-        raise ConnectionResetError("Conexão fechada inesperadamente pelo peer")
+        raise ConnectionResetError("Connection unexpectedly closed by peer")
     except Exception:
         log.error(
-            "Falha de comunicação externa",
+            "External communication failure",
             exc_info=True,
             extra={
                 "trace_id": "tr-12345",

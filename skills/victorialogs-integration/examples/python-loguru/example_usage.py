@@ -1,11 +1,11 @@
 """
-Exemplo de uso do logger Loguru com contrato canônico do VictoriaLogs + Vector.
+Example usage of Loguru logger with VictoriaLogs + Vector canonical contract.
 """
 
 from logger import logger
 
 def process_order(order_id: str, request_id: str, trace_id: str):
-    # Log com contexto de rastreamento distribuído e dados da requisição
+    # Log with distributed tracing context and request metadata
     req_logger = logger.bind(
         request_id=request_id,
         trace_id=trace_id,
@@ -13,31 +13,31 @@ def process_order(order_id: str, request_id: str, trace_id: str):
         customer_id="cust-9876",
     )
 
-    req_logger.info("Iniciando processamento do pedido")
+    req_logger.info("Starting order processing")
 
     try:
         if order_id == "invalid":
-            raise ValueError("Valor do pedido inválido ou saldo insuficiente")
+            raise ValueError("Invalid order value or insufficient funds")
 
-        # Simulação de sucesso com métricas HTTP
+        # Success simulation with HTTP metrics
         req_logger.bind(
             http_status=200,
             duration_ms=45.2,
-        ).info("Pedido processado com sucesso")
+        ).info("Order processed successfully")
 
     except Exception:
-        # Exceção com stack trace capturado e serializado em 1 linha
+        # Exception with stack trace captured and serialized into a single line
         req_logger.bind(
             http_status=400,
             duration_ms=12.8,
-        ).exception("Falha ao liquidar pagamento do pedido")
+        ).exception("Failed to settle order payment")
 
 
 if __name__ == "__main__":
-    logger.info("Aplicação inicializada com sucesso")
+    logger.info("Application initialized successfully")
 
-    # Requisição bem-sucedida
+    # Successful request
     process_order(order_id="ord-1001", request_id="req-abc-123", trace_id="trace-xyz-789")
 
-    # Requisição com erro
+    # Failed request
     process_order(order_id="invalid", request_id="req-err-456", trace_id="trace-xyz-000")

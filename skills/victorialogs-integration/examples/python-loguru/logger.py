@@ -1,9 +1,9 @@
 """
-Logger Plug-and-Play com Loguru para VictoriaLogs + Vector.
+Plug-and-Play Logger with Loguru for VictoriaLogs + Vector.
 
-Emite estritamente 1 objeto JSON por linha (NDJSON) em stdout sem quebras intermediárias,
-com suporte canônico a timestamp ISO-8601 UTC, nível minúsculo, app, env, service,
-campos de correlação (trace_id, request_id, http_status, duration_ms) e stack_trace serializado.
+Strictly emits 1 JSON object per line (NDJSON) on stdout without intermediate line breaks,
+with canonical support for ISO-8601 UTC timestamp, lowercase level, app, env, service,
+correlation fields (trace_id, request_id, http_status, duration_ms), and serialized stack_trace.
 """
 
 import json
@@ -12,13 +12,13 @@ import sys
 from datetime import datetime, timezone
 from loguru import logger
 
-# Desativa o handler padrão colorido do loguru
+# Disable Loguru's default colored handler
 logger.remove()
 
 SERVICE_NAME = os.getenv("SERVICE_NAME", os.getenv("APP_NAME", "app-python"))
 ENV_NAME = os.getenv("ENVIRONMENT", os.getenv("ENV", "production"))
 
-# Campos canônicos de correlação promovidos a primeiro nível
+# Canonical correlation fields promoted to root level
 CANONICAL_FIELDS = {
     "trace_id",
     "request_id",
@@ -32,11 +32,11 @@ CANONICAL_FIELDS = {
 def _victorialogs_sink(message):
     record = message.record
 
-    # Extrai o timestamp em UTC ISO-8601
+    # Extract timestamp in UTC ISO-8601
     dt = record["time"].astimezone(timezone.utc)
     ts = dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
-    # Monta a estrutura base canônica
+    # Assemble canonical base structure
     event = {
         "timestamp": ts,
         "level": record["level"].name.lower(),
@@ -46,7 +46,7 @@ def _victorialogs_sink(message):
         "message": record["message"],
     }
 
-    # Tratamento de exceção / traceback em uma linha só
+    # Exception and traceback handling in a single line
     if record["exception"]:
         exc_type, exc_val, exc_tb = record["exception"]
         formatted_exc = message.format()
@@ -54,7 +54,7 @@ def _victorialogs_sink(message):
         if not event["message"]:
             event["message"] = f"Exception: {exc_type.__name__ if exc_type else 'Error'}: {exc_val}"
 
-    # Extrai metadados e campos extras injetados via bind(...) ou extra={...}
+    # Extract metadata and extra fields injected via bind(...) or extra={...}
     extra = record.get("extra", {})
     context_extra = {}
 
@@ -69,12 +69,12 @@ def _victorialogs_sink(message):
     if context_extra:
         event["context"] = context_extra
 
-    # Garante NDJSON rigoroso (1 linha JSON sem quebras de linha dentro do payload)
+    # Guarantee strict NDJSON (1 JSON line without line breaks inside payload)
     sys.stdout.write(json.dumps(event, ensure_ascii=False) + "\n")
     sys.stdout.flush()
 
 
-# Registra o sink customizado
+# Register custom sink
 logger.add(_victorialogs_sink, format="{message}")
 
 __all__ = ["logger"]

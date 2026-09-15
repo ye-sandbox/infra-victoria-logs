@@ -3,110 +3,110 @@ name: github-bug-issue
 description: Opens a GitHub issue to park a bug for a later agent, with VictoriaLogs evidence pointers instead of log dumps. Use when the user notices a problem in another app (WhatsApp API, caller service, homelab), wants to annotate context for later, or asks to file/create a GitHub issue rather than fix it now. Do not use TASK.md as a bug queue.
 ---
 
-# Capturar bug para depois (GitHub Issue + VictoriaLogs)
+# Capture Bug for Later (GitHub Issue + VictoriaLogs)
 
-Quando o usuário **percebe um problema** (em outro app, na API do WhatsApp, num caller) e quer **anotar o contexto** para um agente analisar depois: abra uma **issue no GitHub do repositório dono**. Não use `.agent/TASK.md` como fila.
+When the user **notices an issue** (in another app, WhatsApp API, a caller service) and wants to **record context** for an agent to investigate later: open an **issue on GitHub in the owning repository**. Do not use `.agent/TASK.md` as a bug queue.
 
-| Artefato | Papel |
+| Artifact | Role |
 |---|---|
-| **GitHub Issue** | Caixa de entrada. Persistente, numerada, linkável a PR. |
-| **VictoriaLogs** | Armário de evidência. A issue aponta; o MCP reconstruí o incidente. |
-| **`.agent/TASK.md`** | Bancada. Uma tarefa ativa. Só entra quando o usuário for **executar** o conserto. |
+| **GitHub Issue** | Inbox. Persistent, numbered, linkable to PRs. |
+| **VictoriaLogs** | Evidence locker. The issue points; MCP reconstructs the incident. |
+| **`.agent/TASK.md`** | Workbench. Exactly one active task. Only entered when the user is ready to **execute** the fix. |
 
-Fonte canônica: `ye-sandbox/infra-victoria-logs/skills/github-bug-issue`. Investigação ao executar: `victorialogs-troubleshooting`. Emissão de logs: `victorialogs-integration`.
-
----
-
-## Quando usar / quando não usar
-
-**Usar:** “anota isso”, “abre uma issue”, “depois a gente vê”, problema visto num chat que não é o repo dono, bug que não deve atropelar a tarefa ativa.
-
-**Não usar:** o usuário pediu para **corrigir agora** — aí planeje no `TASK.md` do repo dono (e cite a issue se já existir). Não abra issue em `infra-victoria-logs` só porque você olhou log: esse repo é a stack; bug de produto mora no app (`whatsapp-api`, `solar-energy`, …).
+Canonical source: `ye-sandbox/infra-victoria-logs/skills/github-bug-issue`. Investigation during execution: `victorialogs-troubleshooting`. Log emission: `victorialogs-integration`.
 
 ---
 
-## Protocolo
+## When to use / When not to use
 
-### 1. Confirmar que é “para depois”
-Se o usuário não deixou claro, uma pergunta basta. Se for “conserta agora”, saia desta skill.
+**Use:** "take note of this", "open an issue", "we'll look at it later", problem observed in a chat that is not the owning repo, bug that should not interrupt the active task.
 
-### 2. Escolher o repositório dono
-- Falha na API / gateway / worker do WhatsApp → `whatsapp-api` (ajuste o `owner/repo` com `git remote -v` ou `gh repo view`).
-- Falha só no caller (timeout local, payload errado) → repo do caller.
-- Ambíguo → issue no serviço de **calha** (API) e um comentário de uma linha no caller, com o URL.
+**Do not use:** the user asked to **fix it now** — in that case, plan in `TASK.md` of the owning repo (and cite the issue if one already exists). Do not open an issue in `infra-victoria-logs` just because you inspected logs: this repo is the stack; product bugs live in the application (`whatsapp-api`, `solar-energy`, …).
 
-Nunca abra a issue no workspace atual só porque o Cursor está aberto nele.
+---
 
-### 3. Âncoras de evidência (ponteiro, não dump)
-Colete o mínimo. Prefira MCP (`list_streams`, `get_errors`, `query_logs`) a colar 200 linhas.
+## Protocol
 
-Obrigatório na issue:
+### 1. Confirm that it is "for later"
+If the user did not make it clear, a single question suffices. If it is "fix now", exit this skill.
 
-1. **Sintoma** — o que a outra app fez e o que quebrou.
-2. **Dono** — repo + `service` / `container_name`.
-3. **Âncora temporal** — UTC aproximado e janela (`2026-09-06T20:04Z`, `30m`). Sem tempo vira arqueologia.
-4. **Identidade** — `request_id`, JID, `message_id`, `status` se existirem. São **campos de evento**, não stream fields.
-5. **Consulta sugerida** — uma linha para o agente futuro, por exemplo `get_errors(service="whatsapp-gateway", time_range="1h")`.
+### 2. Choose the owning repository
+- Failure in the WhatsApp API / gateway / worker → `whatsapp-api` (inspect `owner/repo` using `git remote -v` or `gh repo view`).
+- Failure only in the caller (local timeout, bad payload) → caller repository.
+- Ambiguous → open issue in the downstream **sink** service (API) and add a one-line comment in the caller with the URL.
 
-Não cole stack trace enorme. Não cole JSON pretty-printed de 50 eventos. O VictoriaLogs já tem o corpo.
+Never open the issue in the current workspace just because Cursor or the agent is opened in it.
 
-### 4. Abrir a issue com `gh`
-Use o `gh` (não a API crua). Corpo via HEREDOC. Rode no clone do **repo dono**, ou passe `--repo owner/name`.
+### 3. Evidence anchors (pointers, not dumps)
+Collect the minimum necessary. Prefer MCP (`list_streams`, `get_errors`, `query_logs`) over pasting 200 lines.
+
+Mandatory in the issue:
+
+1. **Symptom** — what the other app did and what broke.
+2. **Owner** — repo + `service` / `container_name`.
+3. **Time anchor** — approximate UTC timestamp and window (`2026-09-06T20:04Z`, `30m`). Without time, it becomes archaeology.
+4. **Identity** — `request_id`, JID, `message_id`, `status` if present. These are **event fields**, not stream fields.
+5. **Suggested query** — a single line for the future agent, e.g. `get_errors(service="whatsapp-gateway", time_range="1h")`.
+
+Do not paste massive stack traces. Do not paste pretty-printed JSON of 50 events. VictoriaLogs already holds the body.
+
+### 4. Open the issue with `gh`
+Use `gh` (not raw API calls). Provide the body via HEREDOC. Run in the clone of the **owning repo**, or pass `--repo owner/name`.
 
 ```bash
-gh issue create --repo <owner>/<name> --title "<sintoma curto em inglês ou pt, uma linha>" --label "bug" --body "$(cat <<'EOF'
-## Sintoma
-<o que a outra app fez e o que quebrou>
+gh issue create --repo <owner>/<name> --title "<concise one-line symptom in English or Portuguese>" --label "bug" --body "$(cat <<'EOF'
+## Symptom
+<what the other app did and what broke>
 
-## Dono
+## Owner
 - repo: <owner/name>
-- service / container: `<nome>`
+- service / container: `<name>`
 
-## Evidência (VictoriaLogs)
-- janela: <ISO-8601 UTC> / <ex: 30m>
-- request_id / JID / message_id: `<se houver>`
-- começar com: `get_errors(service="<nome>", time_range="1h")`
+## Evidence (VictoriaLogs)
+- window: <ISO-8601 UTC> / <e.g. 30m>
+- request_id / JID / message_id: `<if available>`
+- start with: `get_errors(service="<name>", time_range="1h")`
 
-## Esperado vs atual
-- Esperado:
-- Atual:
+## Expected vs Actual
+- Expected:
+- Actual:
 
-## Notas
-- visto a partir de: <repo ou app caller>
+## Notes
+- observed from: <caller repo or app>
 EOF
 )"
 ```
 
-Devolva o **URL** da issue ao usuário. Não faça push, não mude `TASK.md`, não comece o fix.
+Return the issue **URL** to the user. Do not git push, do not modify `TASK.md`, do not begin fixing.
 
-### 5. Promover a tarefa ativa (só se o usuário pedir para executar)
-No **repo dono**: a issue vira a tarefa ativa do `.agent/TASK.md` (status `EM PLANEJAMENTO`, número da issue no texto). Aí siga `victorialogs-troubleshooting` + o `AGENTS.md` daquele repo.
+### 5. Promote to active task (only when user asks to execute)
+In the **owning repo**: the issue becomes the active task in `.agent/TASK.md` (status `EM PLANEJAMENTO`, issue number noted). Then follow `victorialogs-troubleshooting` + the `AGENTS.md` of that repository.
 
 ---
 
-## Exemplo
+## Example
 
-Título: `gateway returns 502 on POST /messages; sticker never reaches group`
+Title: `gateway returns 502 on POST /messages; sticker never reaches group`
 
-Corpo:
+Body:
 
 ```text
-## Sintoma
-O solar-energy recebeu 502 ao POST /messages às ~20:04 UTC; o grupo não recebeu a figurinha.
+## Symptom
+solar-energy received 502 upon POST /messages at ~20:04 UTC; the group never received the sticker.
 
-## Dono
+## Owner
 - repo: ye-sandbox/whatsapp-api
 - service / container: `whatsapp-gateway`
 
-## Evidência (VictoriaLogs)
-- janela: 2026-09-06T20:00Z / 30m
+## Evidence (VictoriaLogs)
+- window: 2026-09-06T20:00Z / 30m
 - request_id: abc123
-- começar com: `get_errors(service="whatsapp-gateway", time_range="1h")`
+- start with: `get_errors(service="whatsapp-gateway", time_range="1h")`
 
-## Esperado vs atual
-- Esperado: 200 e envio da figurinha
-- Atual: 502, sem retry visível no caller
+## Expected vs Actual
+- Expected: 200 and sticker delivered
+- Actual: 502, no retry visible in caller
 
-## Notas
-- visto a partir de: solar-energy
+## Notes
+- observed from: solar-energy
 ```

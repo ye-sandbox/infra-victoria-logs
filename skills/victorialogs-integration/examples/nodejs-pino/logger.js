@@ -1,8 +1,8 @@
 /**
- * Logger Plug-and-Play com Pino para Node.js / TypeScript.
+ * Plug-and-Play Logger with Pino for Node.js / TypeScript.
  * 
- * Emite NDJSON estrito em stdout (1 objeto JSON por linha),
- * compatível com o coletor Vector e indexação VictoriaLogs.
+ * Strictly emits NDJSON on stdout (1 JSON object per line),
+ * compatible with Vector collector and VictoriaLogs indexing.
  */
 
 const pino = require('pino');
@@ -13,17 +13,17 @@ const ENV_NAME = process.env.NODE_ENV || 'production';
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
   messageKey: 'message',
-  // Formata o nível do log em minúsculas (info, error, warn, debug)
+  // Format log level in lowercase (info, error, warn, debug)
   formatters: {
     level: (label) => ({ level: label }),
   },
-  // Injeta atributos canônicos em todos os eventos emitidos
+  // Inject canonical attributes into all emitted events
   base: {
     service: SERVICE_NAME,
     app: SERVICE_NAME,
     env: ENV_NAME,
   },
-  // Formato de data ISO-8601 UTC com chave 'timestamp'
+  // ISO-8601 UTC date format with 'timestamp' key
   timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
 });
 

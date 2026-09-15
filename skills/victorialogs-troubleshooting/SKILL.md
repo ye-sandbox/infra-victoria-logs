@@ -1,218 +1,218 @@
 ---
 name: victorialogs-troubleshooting
-description: Playbook de SRE e investigação de incidentes para agentes de IA diagnosticarem erros, falhas e métricas no VictoriaLogs via MCP e LogsQL com máxima economia de tokens e zero perda de contexto.
+description: SRE and incident investigation playbook for AI agents to diagnose errors, crashes, and metrics in VictoriaLogs via MCP and LogsQL with maximum token efficiency and zero context loss.
 ---
 
 # VictoriaLogs Troubleshooting & Investigation Playbook (for AI Agents)
 
-Esta skill orienta agentes de IA (Claude, Antigravity, Cursor, Roo Code) a atuarem como **especialistas em SRE** para diagnosticar erros, quedas e anomalias no homelab consumindo a stack **VictoriaLogs + Vector**.
+This skill guides AI agents (Claude, Antigravity, Cursor, Roo Code) to operate as **SRE specialists** diagnosing errors, crashes, and anomalies across homelab services using the **VictoriaLogs + Vector** stack.
 
-Se o usuário quiser **anotar o problema para depois** (não corrigir agora), use a skill `github-bug-issue`: issue no GitHub do repo dono com ponteiro VictoriaLogs, sem virar tarefa ativa.
+If the user wants to **record an issue for later** (not fix it immediately), use the `github-bug-issue` skill: open an issue in the owning repo's GitHub with a VictoriaLogs pointer, without making it the active task.
 
 ---
 
-## 🎯 Protocolo de Investigação de Incidentes
+## 🎯 Incident Investigation Protocol
 
-Quando o usuário relatar um erro ("a API caiu", "o worker parou", "estou recebendo erro 500"):
+When the user reports an issue ("the API crashed", "the worker stopped", "I'm getting 500 errors"):
 
 ```text
-  [Etapa 0: Identificação do Serviço Alvo]
-  Inspecionar docker-compose.yml local ou chamar list_streams(time_range="1h")
+  [Step 0: Target Service Identification]
+  Inspect local docker-compose.yml or call list_streams(time_range="1h")
             │
-            ▼ (Identificou o nome do container/aplicação, ex: "meu-app")
-  [Etapa 1: Triagem Temporal]
-  get_log_hits(query='_stream:{container_name="meu-app"} AND level:error', time_range="1h", step="5m")
+            ▼ (Identified container/application name, e.g. "my-app")
+  [Step 1: Time Triage]
+  get_log_hits(query='_stream:{container_name="my-app"} AND level:error', time_range="1h", step="5m")
             │
-            ▼ (Identificou o pico exato de erros na aplicação)
-  [Etapa 2: Isolamento do Erro e Traceback com Deduplicação]
-  get_errors(service="meu-app", time_range="30m", limit=10)
+            ▼ (Pinpointed exact error spike in the application)
+  [Step 2: Error Isolation & Deduplicated Traceback Extraction]
+  get_errors(service="my-app", time_range="30m", limit=10)
             │
-            ▼ (Extraiu a stack trace intacta e a contagem de ocorrências)
-  [Etapa 3: Correlação com o Código-Fonte]
-  Ler arquivo do workspace (ex: api/routes.py:L42) -> Propor Correção
+            ▼ (Extracted intact root-cause stack trace and occurrence count)
+  [Step 3: Source Code Correlation]
+  Read workspace file (e.g. api/routes.py:L42) -> Propose Fix
 ```
 
-> ⚠️ **Regra de Ouro de SRE:** NUNCA faça consultas genéricas sem informar `service="nome-do-app"`. Consultas globais trazem ruído de outros containers do homelab e gastam tokens de contexto inutilmente. Se não souber o nome exato, use `list_streams()` primeiro.
+> ⚠️ **SRE Golden Rule:** NEVER execute generic queries without specifying `service="app-name"`. Global queries pull noise from other homelab containers and waste context tokens unnecessarily. If you don't know the exact service name, run `list_streams()` first.
 
 ---
 
-## 🛠️ Catálogo Completo de Ferramentas MCP
+## 🛠️ Complete MCP Tool Catalog
 
-O servidor MCP nativo do repositório (`mcp/server.py`) expõe **9 ferramentas otimizadas**, projetadas para entregar à IA exatamente o que ela precisa para resolver bugs sem desperdiçar tokens com metadados irrelevantes:
+The repository's native MCP server (`mcp/server.py`) exposes **9 optimized tools**, designed to deliver to the AI exactly what it needs to resolve bugs without wasting tokens on irrelevant metadata:
 
 ### 1. `health_check`
-- **Quando usar:** No início da sessão para checar a conectividade com o VictoriaLogs.
-- **Parâmetros:** `{}`
+- **When to use:** At the start of a session to verify connectivity with VictoriaLogs.
+- **Parameters:** `{}`
 
 ### 2. `get_log_hits`
-- **Quando usar:** Para responder *"quando o problema começou?"* ou *"quantas falhas ocorreram por minuto?"*.
-- **Parâmetros:**
-  - `query`: `_stream:{service="pagamentos"} AND level:error`
+- **When to use:** To answer *"when did the problem start?"* or *"how many failures occurred per minute?"*.
+- **Parameters:**
+  - `query`: `_stream:{service="payments"} AND level:error`
   - `time_range`: `"30m"`, `"1h"`, `"6h"`, `"24h"`
   - `step`: `"1m"`, `"5m"`, `"1h"`
 
-### 3. `get_errors` ⭐ (Principal para Debugging)
-- **Quando usar:** Extrai erros e stack traces multilinha formatadas em blocos de código sem ruído de logs `info`.
-- **Deduplicação Inteligente:** Por padrão (`deduplicate=true`), agrupa tempestades de erros repetidos exibindo a quantidade de ocorrências e o intervalo (`[34x] Primeira: 11:20 | Última: 11:25`), mantendo a stack trace integral da causa-raiz.
-- **Parâmetros:**
-  - `service`: `"nome-da-aplicacao"` (**RECOMENDADO:** preencha sempre com o serviço alvo da sua tarefa; só omita para auditoria global)
-  - `time_range`: `"30m"`, `"1h"` (padrão: `"1h"`)
-  - `limit`: `10` ou `20`
-  - `deduplicate`: `true` (padrão) ou `false` (para lista sequencial crua)
-  - `full`: `false` (padrão, truncando tracebacks gigantes após 1.200 chars) ou `true` (stack trace 100% sem cortes)
+### 3. `get_errors` ⭐ (Primary for Debugging)
+- **When to use:** Extracts errors and multiline stack traces formatted in code blocks without `info` log noise.
+- **Smart Deduplication:** By default (`deduplicate=true`), groups repetitive error storms, displaying occurrence counts and time intervals (`[34x] First: 11:20 | Last: 11:25`), while preserving the full root-cause stack trace.
+- **Parameters:**
+  - `service`: `"application-name"` (**RECOMMENDED:** always provide your task's target service; only omit for global infrastructure audits)
+  - `time_range`: `"30m"`, `"1h"` (default: `"1h"`)
+  - `limit`: `10` or `20`
+  - `deduplicate`: `true` (default) or `false` (for raw sequential list)
+  - `full`: `false` (default, truncating giant tracebacks after 1,200 chars) or `true` (100% uncut stack trace)
 
-### 4. `get_context_logs` ⭐ (Contexto Forense Fore/Aft)
-- **Quando usar:** Após identificar um erro via `get_errors()`, use o timestamp exato da falha para recuperar o histórico cronológico de logs imediatamente anteriores e posteriores (incluindo `info`, `debug`, etc.), descobrindo o que o usuário ou sistema estava fazendo logo antes do crash.
-- **Destaque Visual:** O evento central alvo do incidente é automaticamente identificado com `🎯 [ALVO / INCIDENTE]`.
-- **Parâmetros:**
-  - `target_timestamp`: `"2026-09-10T14:18:41Z"` (obrigatório, aceita formato ISO-8601)
-  - `service`: `"nome-da-aplicacao"` (recomendado)
-  - `window_seconds`: `15` (padrão: 15s antes e 15s depois)
-  - `limit`: `30` (máximo de registros)
-  - `full`: `false` (padrão) ou `true`
+### 4. `get_context_logs` ⭐ (Forensic Fore/Aft Context)
+- **When to use:** After identifying an error via `get_errors()`, use the exact failure timestamp to retrieve the chronological history of immediately preceding and succeeding logs (including `info`, `debug`, etc.), revealing what the user or system was doing right before the crash.
+- **Visual Highlight:** The central incident event is automatically marked with `🎯 [TARGET / INCIDENT]`.
+- **Parameters:**
+  - `target_timestamp`: `"2026-09-10T14:18:41Z"` (mandatory, accepts ISO-8601 format)
+  - `service`: `"application-name"` (recommended)
+  - `window_seconds`: `15` (default: 15s before and 15s after)
+  - `limit`: `30` (maximum records)
+  - `full`: `false` (default) or `true`
 
 ### 5. `query_logs`
-- **Quando usar:** Consultas flexíveis com LogsQL (ex: buscar um `request_id`, usuário ou texto).
-- **Parâmetros:**
-  - `query`: `"120363421617257978@g.us"` ou `status:500`
-  - `service`: `"nome-da-aplicacao"` (**RECOMENDADO:** injeta automaticamente particionamento por stream `_stream:{container_name="..."}`)
+- **When to use:** Flexible queries using LogsQL (e.g. searching for a `request_id`, user, or free-text term).
+- **Parameters:**
+  - `query`: `"120363421617257978@g.us"` or `status:500`
+  - `service`: `"application-name"` (**RECOMMENDED:** automatically injects stream partitioning `_stream:{container_name="..."}`)
   - `time_range`: `"1h"`
   - `limit`: `20`
-  - `format`: `"markdown"` (padrão compacto com ícones) ou `"json"` (ndjson bruto)
-  - `full`: `false` (padrão) ou `true` (desativa truncamento de mensagens longas)
+  - `format`: `"markdown"` (compact default with icons) or `"json"` (raw ndjson)
+  - `full`: `false` (default) or `true` (disables truncation of long messages)
 
 ### 6. `list_streams`
-- **Quando usar:** Para descobrir quais containers, serviços e hosts estão enviando logs ativos.
-- **Parâmetros:**
+- **When to use:** To discover which containers, services, and hosts are currently sending logs.
+- **Parameters:**
   - `time_range`: `"24h"`
 
 ### 7. `field_names`
-- **Quando usar:** Para listar todos os campos indexados no VictoriaLogs (ex: `user_id`, `path`, `status`).
-- **Parâmetros:**
+- **When to use:** To inspect all indexed field names in VictoriaLogs (e.g. `user_id`, `path`, `status`).
+- **Parameters:**
   - `time_range`: `"24h"`
 
 ### 8. `field_values`
-- **Quando usar:** Para listar os valores existentes de um campo específico (ex: ver quais `level` ou `service` existem).
-- **Parâmetros:**
-  - `field`: `"service"` ou `"level"` (obrigatório)
+- **When to use:** To list the most frequent existing values of a specific field (e.g. see which `level` or `service` values exist).
+- **Parameters:**
+  - `field`: `"service"` or `"level"` (mandatory)
   - `time_range`: `"24h"`
   - `limit`: `20`
 
 ### 9. `documentation`
-- **Quando usar:** Para consultar a sintaxe do LogsQL (filtros, pipes, stats) sem sair do chat.
-- **Parâmetros:**
-  - `query`: `"stats"`, `"filtros"`, `"streams"`, `"pipes"` (ou vazio para o guia completo)
+- **When to use:** To inspect LogsQL syntax (filters, pipes, stats) without leaving the chat.
+- **Parameters:**
+  - `query`: `"stats"`, `"filters"`, `"streams"`, `"pipes"` (or empty for the full guide)
 
 ---
 
-## 🧠 Garantia de Zero Perda de Contexto para a IA
+## 🧠 Zero Context Loss Guarantee for AI
 
-A compactação realizada pelo nosso MCP foi desenhada por engenheiros de observabilidade para **nunca comprometer a capacidade de diagnóstico da IA**:
+The MCP compacting logic was engineered by observability practitioners to **never compromise AI diagnostic capability**:
 
-1. **O que é descartado (Ruído Inútil):**
-   - Labels internas do Docker Compose (`label.com.docker.compose.config-hash`, `label.com.docker.compose.project_dir`, `label.com.docker.compose.version`, etc.).
-   - Hashes de imagem SHA256 e IDs brutos de stream (`_stream_id: 000000000000...`).
-2. **O que é 100% Preservado (Contexto Vital de SRE):**
-   - **Mensagem do Erro e Stack Trace Completa:** O nome da exceção, linha do arquivo (`routes.py:L42`) e cadeia de chamadas.
-   - **Identidade do Serviço:** Container (`container_name`), serviço (`service`) e host (`host`).
-   - **Dimensão Temporal:** Timestamp exato em UTC, primeira ocorrência e última ocorrência do problema.
-   - **Frequência da Falha:** Contagem exata de quantas vezes o erro disparou (`[42x ocorrências]`).
-3. **Mecanismo de Escape (`full=true`):**
-   - Caso um traceback ou mensagem seja anormalmente longo e a IA precise inspecionar os últimos caracteres truncados, basta chamar com `full=true`.
+1. **What is discarded (Useless Noise):**
+   - Internal Docker Compose labels (`label.com.docker.compose.config-hash`, `label.com.docker.compose.project_dir`, `label.com.docker.compose.version`, etc.).
+   - SHA256 image hashes and raw stream IDs (`_stream_id: 000000000000...`).
+2. **What is 100% Preserved (Vital SRE Context):**
+   - **Error Message & Full Stack Trace:** Exception name, file line (`routes.py:L42`), and full call chain.
+   - **Service Identity:** Container (`container_name`), service (`service`), and host (`host`).
+   - **Time Dimension:** Exact UTC timestamp, first occurrence, and last occurrence of the incident.
+   - **Failure Frequency:** Exact count of how many times the error fired (`[42x occurrences]`).
+3. **Escape Hatch (`full=true`):**
+   - If a traceback or message is unusually long and the AI needs to inspect truncated trailing characters, simply re-run with `full=true`.
 
 ---
 
-## ⚡ Cheat-Sheet de LogsQL (Padrões Rápidos)
+## ⚡ LogsQL Cheat-Sheet (Fast Patterns)
 
-### 1. Filtros por Stream (Indexados em Memória)
+### 1. Stream Filters (Indexed in Memory)
 ```text
-_stream:{service="meu-backend"}
+_stream:{service="my-backend"}
 _stream:{container_name="vector"}
 _stream:{host="mini-pc-proxmox"}
 ```
 
-### 2. Filtros de Severidade e Negação
+### 2. Severity & Negation Filters
 ```text
 level:error
 level:(error OR warn)
 level:error AND NOT "/health"
 ```
 
-### 3. Busca por Frases e Palavras-Chave
+### 3. Phrase & Keyword Searches
 ```text
 "connection refused"
 "out of memory" OR "OOMKilled"
 timeout AND NOT "keepalive"
 ```
 
-### 4. Pipes de Agregação e Estatísticas
-Contar erros agrupados por container na última hora:
+### 4. Aggregation Pipes & Statistics
+Count errors grouped by container in the last hour:
 ```text
 _time:1h AND level:error | stats by (container_name) count() as total | sort by (total) desc | limit 5
 ```
 
-### 5. Identificadores com Caracteres Especiais (WhatsApp JIDs, E-mails, URLs)
-> ⚠️ **Regra Crítica do LogsQL:** Qualquer termo contendo `@`, `:`, `/`, `-`, `.`, espaços ou parênteses **DEVE obrigatoriamente estar entre aspas duplas** (`"..."`). Caso contrário, o VictoriaLogs retornará erro HTTP 400 (`probably, the whole string must be put into quotes`).
+### 5. Identifiers with Special Characters (WhatsApp JIDs, Emails, URLs)
+> ⚠️ **Critical LogsQL Rule:** Any search term containing `@`, `:`, `/`, `-`, `.`, spaces, or parentheses **MUST be enclosed in double quotes** (`"..."`). Otherwise, VictoriaLogs will return an HTTP 400 error (`probably, the whole string must be put into quotes`).
 
 ```text
-# WhatsApp JID (Grupos ou Usuários):
+# WhatsApp JID (Groups or Users):
 "120363421617257978@g.us"
 _stream:{container_name="evolution-api"} AND "120363421617257978@g.us"
 exact:"120363421617257978@g.us"
 _msg:~"120363421617257978@g.us"
 
-# E-mails:
-"dev@empresa.com.br"
+# Emails:
+"dev@company.com"
 
-# Endpoints e URLs:
+# Endpoints and URLs:
 "/api/v1/auth/login"
 ```
 
-### 5.1. Rastreabilidade Distribuída e Métricas HTTP (Campos Promovidos)
-Campos estruturados extraídos automaticamente no primeiro nível:
+### 5.1. Distributed Tracing & HTTP Metrics (Promoted Fields)
+Structured fields automatically extracted to the root level:
 ```text
-# Rastrear uma transação ponta a ponta pelo ID do Gateway:
+# Trace an end-to-end transaction by Gateway ID:
 request_id:"req-checkout-98765"
 
-# Rastrear fluxo distribuído por trace_id:
+# Trace distributed flow by trace_id:
 trace_id:"trace-hex-445566"
 
-# Filtrar falhas HTTP 5xx em um microserviço:
+# Filter HTTP 5xx failures in a microservice:
 _stream:{service="checkout-api"} AND http_status:>=500
 
-# Descobrir requisições com alta latência (> 1.5s):
+# Identify high-latency requests (> 1.5s):
 _stream:{service="checkout-api"} AND duration_ms:>1500
 
-# Agrupar total de requisições por status HTTP:
+# Group total request count by HTTP status code:
 _stream:{service="checkout-api"} | stats by (http_status) count() as total
 ```
 
-### 6. Diagnóstico de Recursos de Containers (`docker-stats`)
-Com o coletor `scripts/ship-docker-stats.sh` ativo, métricas instantâneas de CPU, RAM e Limits residem no stream `service="docker-stats"`:
+### 6. Container Resource Diagnostics (`docker-stats`)
+With the `scripts/ship-docker-stats.sh` collector active, point-in-time metrics for CPU, RAM, and Limits reside in stream `service="docker-stats"`:
 ```text
-# Histórico recente de consumo de um container específico:
-_stream:{service="docker-stats",container_name="meu-app"} | sort by (_time) desc | limit 20
+# Recent resource consumption history for a specific container:
+_stream:{service="docker-stats",container_name="my-app"} | sort by (_time) desc | limit 20
 
-# Detectar containers com alto consumo de memória (> 85% do limite atribuído):
+# Detect containers with high memory usage (> 85% of allocated limit):
 _stream:{service="docker-stats"} AND mem_percent:>85
 
-# Detectar picos de CPU (> 80% de utilização):
+# Detect CPU usage spikes (> 80% utilization):
 _stream:{service="docker-stats"} AND cpu_percent:>80
 ```
 
-### 7. Detecção de Crashes e OOMKilled (`docker-events`)
-Com o coletor `scripts/ship-docker-events.sh` ativo, eventos de ciclo de vida do daemon Docker residem no stream `service="docker-events"`:
+### 7. Crash & OOMKilled Detection (`docker-events`)
+With the `scripts/ship-docker-events.sh` collector active, Docker daemon lifecycle events reside in stream `service="docker-events"`:
 ```text
-# Detectar todos os containers que morreram com erro ou OOM:
+# Detect all containers that exited with error or OOM:
 _stream:{service="docker-events"} AND level:error
 
-# Confirmar se um container específico sofreu OOMKilled:
-_stream:{service="docker-events",container_name="meu-app"} AND oom_killed:true
+# Confirm whether a specific container was OOMKilled:
+_stream:{service="docker-events",container_name="my-app"} AND oom_killed:true
 
-# Consultar histórico de paradas e reinicializações de um container:
-_stream:{service="docker-events",container_name="meu-app"} | sort by (_time) desc | limit 10
+# Inspect stop and restart history for a container:
+_stream:{service="docker-events",container_name="my-app"} | sort by (_time) desc | limit 10
 ```
 
-IDs de alta cardinalidade (`userId`, `request_id`, JID, e-mail, URL) são **campos do evento**, não dimensões de `_stream`. Filtre-os no LogsQL (com aspas) ou via `query_logs`; nunca peça para uma aplicação promover esses campos a stream (`VL-Stream-Fields`). O contrato de emissão está em `victorialogs-integration`.
+High-cardinality IDs (`userId`, `request_id`, JID, email, URL) are **event fields**, not `_stream` dimensions. Filter them in LogsQL (with double quotes) or via `query_logs`; never request an application to promote these fields to stream headers (`VL-Stream-Fields`). Emission contracts are detailed in `victorialogs-integration`.
 
 

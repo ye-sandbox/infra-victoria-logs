@@ -28,7 +28,7 @@ func newVictoriaLogsHandler() slog.Handler {
 				a.Value = slog.StringValue(strings.ToLower(a.Value.String()))
 			case slog.TimeKey:
 				a.Key = "timestamp"
-				// Converte para ISO-8601 UTC
+				// Convert to ISO-8601 UTC
 				a.Value = slog.StringValue(a.Value.Time().UTC().Format(time.RFC3339Nano))
 			}
 			return a
@@ -50,28 +50,28 @@ func main() {
 	logger := slog.New(newVictoriaLogsHandler())
 	slog.SetDefault(logger)
 
-	logger.Info("Serviço Go inicializado com sucesso")
+	logger.Info("Go service initialized successfully")
 
-	// Log com correlação de requisição e telemetria HTTP
+	// Log with request correlation and HTTP telemetry
 	ctx := context.Background()
 	reqLogger := logger.With(
 		slog.String("trace_id", "tr-go-999"),
 		slog.String("request_id", "req-go-111"),
 	)
 
-	reqLogger.InfoContext(ctx, "Processando requisição de pagamento",
+	reqLogger.InfoContext(ctx, "Processing payment request",
 		slog.String("customer_id", "cust-555"),
 	)
 
-	// Simulação de resposta bem-sucedida
-	reqLogger.InfoContext(ctx, "Pagamento aprovado",
+	// Success response simulation
+	reqLogger.InfoContext(ctx, "Payment approved",
 		slog.Int("http_status", 200),
 		slog.Float64("duration_ms", 23.4),
 	)
 
-	// Simulação de erro com causa
-	err := errors.New("timeout ao contatar gateway bancário")
-	reqLogger.ErrorContext(ctx, "Falha na liquidação",
+	// Error simulation with cause
+	err := errors.New("timeout contacting banking gateway")
+	reqLogger.ErrorContext(ctx, "Settlement failure",
 		slog.String("error", err.Error()),
 		slog.Int("http_status", 504),
 		slog.Float64("duration_ms", 3005.1),
