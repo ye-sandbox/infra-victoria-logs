@@ -8,6 +8,11 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-09-15 — Tradução de AGENTS.md, Servidor MCP e Ferramentas Correlacionadas para Inglês
+- **Contexto:** Após a internacionalização das SKILLs (Tarefa 38.0), o arquivo `AGENTS.md` e os esquemas/mensagens do Servidor MCP nativo (`mcp/server.py`) permaneciam em português. Modelos de linguagem modernos (Claude, Gemini, GPT) processam instruções e chamadas de ferramentas de forma substancialmente mais rápida, barata (30% a 50% menos tokens na tokenização BPE) e precisa quando o vocabulário de sistema e os schemas JSON-RPC são em inglês técnico idiomático.
+- **Decisão:** Traduzir integralmente `AGENTS.md` (diretrizes do agente, protocolo de execução, tech stack, regras do servidor MCP e comandos de validação), `mcp/server.py` (esquemas JSON-RPC de todas as 9 ferramentas, parâmetros, mensagens de erro enriquecidas `enrich_logsql_error`, dicas de SRE, docstrings e saídas formatadas), a suíte de testes unitários `tests/test_mcp_error_enricher.py` e o script de integração `scripts/test-mcp.sh` para o inglês técnico conciso. Nomes das ferramentas e chaves de parâmetros foram rigorosamente preservados para manter 100% de retrocompatibilidade de API.
+- **Consequências:** Paridade semântica completa com o `README.md` internacional e as SKILLs, economia de contexto na invocação de ferramentas MCP por LLMs e zero fricção para desenvolvedores e agentes de IA que operam no ecossistema open-source.
+
 ### 2026-09-15 — Tradução Canônica 1:1 das SKILLs para Inglês com Foco em Economia de Tokens
 - **Contexto:** Agentes de IA modernos utilizam tokenização baseada em subpalavras (BPE) treinadas predominantemente em inglês. SKILLs escritas em português consomem de 30% a 50% mais tokens de contexto e sofrem maior dispersão interpretativa por LLMs (Claude, Gemini, GPT).
 - **Decisão:** Traduzir integralmente e de forma 1:1 todas as skills canônicas do repositório (`skills/github-bug-issue/SKILL.md`, `skills/victorialogs-troubleshooting/SKILL.md`, `skills/victorialogs-integration/SKILL.md`, `skills/victorialogs-integration/examples/README.md`) e os comentários/docstrings de seus templates para o inglês técnico conciso e de alta densidade semântica. Nomes de pastas e arquivos foram mantidos idênticos para total retrocompatibilidade com symlinks locais.

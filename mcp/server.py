@@ -2,18 +2,18 @@
 """
 VictoriaLogs Model Context Protocol (MCP) Server
 ================================================
-Servidor MCP ultraleve, otimizado para produção e projetado especificamente para
-Agentes e Assistentes de IA (Claude Code, Antigravity, Cursor, Roo Code).
-Comunicação nativa via protocolo stdio JSON-RPC 2.0.
+Ultra-lightweight, production-optimized MCP server designed specifically for
+AI Agents and Assistants (Claude Code, Antigravity, Cursor, Roo Code).
+Native communication via stdio JSON-RPC 2.0 protocol.
 
-Características principais:
-- Zero dependências externas (Pure Python 3).
-- Consumo mínimo de hardware (< 22 MB de RAM, 0.0% CPU em repouso).
-- Deduplicação inteligente de erros repetidos (economiza 70% a 95% de tokens).
-- Projeção seletiva de campos (| keep) para poupar I/O e processamento.
-- Truncamento seguro de payloads gigantes (com parâmetro full=true).
-- Ferramentas nativas de introspecção de schema (field_names, field_values).
-- Manual e documentação de LogsQL offline embutidos (tool documentation).
+Key features:
+- Zero external dependencies (Pure Python 3).
+- Minimal hardware footprint (< 22 MB RAM, 0.0% CPU at idle).
+- Smart deduplication of repetitive errors (saves 70% to 95% tokens).
+- Selective field projection (| keep) to save I/O and processing.
+- Safe payload truncation for large messages (with full=true parameter).
+- Native schema introspection tools (field_names, field_values).
+- Built-in offline LogsQL manual and reference (documentation tool).
 """
 
 import sys
@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 def load_env() -> Dict[str, str]:
-    """Carrega variáveis de ambiente do .env se existir."""
+    """Loads environment variables from .env if present."""
     env_vars = {}
     current_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
@@ -65,7 +65,7 @@ AUTH_PASS = get_config("VICTORIALOGS_AUTH_PASSWORD", "")
 
 
 def make_request(path: str, params: Optional[Dict[str, Any]] = None, timeout: int = 15) -> str:
-    """Executa requisição HTTP para o VictoriaLogs com autenticação opcional."""
+    """Executes HTTP request to VictoriaLogs with optional authentication."""
     url = f"{VL_BASE_URL}{path}"
     if params:
         query_string = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
@@ -82,47 +82,47 @@ def make_request(path: str, params: Optional[Dict[str, Any]] = None, timeout: in
             return response.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace") if e.fp else str(e)
-        raise RuntimeError(f"HTTP Error {e.code} ao acessar {path}: {body}")
+        raise RuntimeError(f"HTTP Error {e.code} accessing {path}: {body}")
     except urllib.error.URLError as e:
-        raise RuntimeError(f"Falha de conexão com VictoriaLogs em {VL_BASE_URL}: {e.reason}")
+        raise RuntimeError(f"Connection failure to VictoriaLogs at {VL_BASE_URL}: {e.reason}")
 
 
 def clean_query(raw_query: str) -> str:
-    """Normaliza espaçamentos e remove quebras de linha acidentais na query LogsQL."""
+    """Normalizes whitespace and removes accidental newlines in LogsQL query."""
     if not raw_query:
         return ""
     return " ".join(raw_query.split()).strip()
 
 
 def enrich_logsql_error(err_msg: str, query: str = "") -> str:
-    """Detecta erros clássicos de sintaxe do LogsQL e anexa dicas didáticas de auto-correção para IAs e devs."""
+    """Detects classic LogsQL syntax errors and appends didactic self-correction hints for AI agents and devs."""
     err_lower = err_msg.lower()
     hints = []
     cleaned = clean_query(query)
 
-    # Caso 1: Termos especiais sem aspas (ex: JID do WhatsApp, e-mail, tokens com @, :, /, -, etc.)
+    # Case 1: Special characters without quotes (e.g. WhatsApp JIDs, email, tokens with @, :, /, -, etc.)
     if "probably, the whole string must be put into quotes" in err_lower or "missing whitespace or ':'" in err_lower:
         sample_quoted = f'"{cleaned}"' if cleaned and not (cleaned.startswith('"') and cleaned.endswith('"')) else cleaned
         hints.append(
-            "💡 **Dica LogsQL (Caracteres Especiais):** Termos contendo caracteres como `@`, `:`, `/`, `-`, `.`, "
-            "parênteses ou espaços não são identificadores válidos sem aspas e devem obrigatoriamente estar entre aspas duplas (`\"...\"`).\n"
-            f"   - **Correção direta:** Execute novamente com `query='{sample_quoted}'`\n"
-            f"   - **Busca no texto da mensagem:** `query='_msg:~\"{cleaned}\"'`\n"
-            f"   - **Casamento exato de substring:** `query='exact:\"{cleaned}\"'`"
+            "💡 **LogsQL Hint (Special Characters):** Terms containing characters such as `@`, `:`, `/`, `-`, `.`, "
+            "parentheses, or spaces are not valid identifiers without quotes and MUST be enclosed in double quotes (`\"...\"`).\n"
+            f"   - **Direct fix:** Re-run with `query='{sample_quoted}'`\n"
+            f"   - **Search within message text:** `query='_msg:~\"{cleaned}\"'`\n"
+            f"   - **Exact substring match:** `query='exact:\"{cleaned}\"'`"
         )
 
-    # Caso 2: Aspas abertas que não foram fechadas
+    # Case 2: Unclosed quotes
     elif "unclosed quote" in err_lower or "missing closing quote" in err_lower:
         hints.append(
-            "💡 **Dica LogsQL (Aspas Não Fechadas):** Foi detectada uma aspa dupla (`\"`) aberta sem o devido fechamento na query. "
-            "Certifique-se de que todas as aspas duplas estejam balanceadas."
+            "💡 **LogsQL Hint (Unclosed Quotes):** An unclosed double quote (`\"`) was detected in the query. "
+            "Ensure all double quotes are properly balanced."
         )
 
-    # Caso 3: Erro de sintaxe em pipes (| stats, | keep, | sort)
+    # Case 3: Syntax error in transformation pipes (| stats, | keep, | sort)
     elif "cannot parse pipe" in err_lower or "unknown pipe" in err_lower:
         hints.append(
-            "💡 **Dica LogsQL (Pipes de Transformação):** O VictoriaLogs suporta pipes como `| stats by (...)`, `| keep ...`, "
-            "`| sort by (...)` e `| limit N`. Consulte o guia offline executando a ferramenta `documentation` com `query=\"pipes\"`."
+            "💡 **LogsQL Hint (Transformation Pipes):** VictoriaLogs supports pipes such as `| stats by (...)`, `| keep ...`, "
+            "`| sort by (...)`, and `| limit N`. Check the offline reference by running the `documentation` tool with `query=\"pipes\"`."
         )
 
     if hints:
@@ -131,74 +131,79 @@ def enrich_logsql_error(err_msg: str, query: str = "") -> str:
 
 
 # ==============================================================================
-# BASE DE CONHECIMENTO LOGSQL (DOCUMENTATION OFFLINE)
+# LOGSQL KNOWLEDGE BASE (OFFLINE DOCUMENTATION)
 # ==============================================================================
 
 LOGSQL_DOCS = {
-    "filtros": """### 🔍 Filtros Básicos no LogsQL
-- **Palavra exata:** `error` (busca case-insensitive em palavras alfanuméricas simples).
-- **Termos com caracteres especiais (@, :, /, -, ., espaços, etc.):** Devem SEMPRE estar entre aspas duplas:
-  - JIDs WhatsApp / mensageria: `"120363421617257978@g.us"` ou `_msg:~"120363421617257978@g.us"`
-  - E-mails: `"usuario@dominio.com"`
-  - Caminhos ou URLs: `"/api/v1/pagamentos"` ou `"https://api.empresa.com"`
-- **Frase exata:** `"connection refused"` ou `"timeout exceeded"`.
-- **Filtro por campo:** `level:error`, `service:api-gateway`, `status:500`.
-- **Operadores booleanos:** `level:error AND NOT "/health"`, `(timeout OR panic) AND service:backend`.
-- **Filtro por prefixo:** `service:app-*`, `status:5*` (pega 500, 502, 503).
-- **Expressão Regular:** `_msg:~"error.*timeout"`, `path:~"^/api/v[12]/"`.""",
+    "filters": """### 🔍 Basic Filters in LogsQL
+- **Exact word:** `error` (case-insensitive search for simple alphanumeric words).
+- **Terms with special characters (@, :, /, -, ., spaces, etc.):** MUST ALWAYS be enclosed in double quotes:
+  - WhatsApp JIDs / messaging: `"120363421617257978@g.us"` or `_msg:~"120363421617257978@g.us"`
+  - Emails: `"user@domain.com"`
+  - Paths or URLs: `"/api/v1/payments"` or `"https://api.company.com"`
+- **Exact phrase:** `"connection refused"` or `"timeout exceeded"`.
+- **Field filter:** `level:error`, `service:api-gateway`, `status:500`.
+- **Boolean operators:** `level:error AND NOT "/health"`, `(timeout OR panic) AND service:backend`.
+- **Prefix filter:** `service:app-*`, `status:5*` (matches 500, 502, 503).
+- **Regular Expression:** `_msg:~"error.*timeout"`, `path:~"^/api/v[12]/"`.""",
 
-    "streams": """### ⚡ Filtros por Stream (Alta Performance)
-Streams são indexadas em memória e não exigem varredura lenta no disco:
-- **Sintaxe:** `_stream:{field="value", ...}`
-- **Exemplos:**
-  - `_stream:{service="pagamentos"}`
+    "streams": """### ⚡ Stream Filters (High Performance)
+Streams are indexed in memory and do not require full disk scans:
+- **Syntax:** `_stream:{field="value", ...}`
+- **Examples:**
+  - `_stream:{service="payments"}`
   - `_stream:{container_name="nginx",stream="stderr"}`
   - `_stream:{app="api-gateway",env="production"}`""",
 
-    "tempo": """### ⏱️ Filtros Temporais (_time)
-- **Janelas relativas:** `_time:5m`, `_time:30m`, `_time:1h`, `_time:24h`, `_time:7d`.
-- **Intervalos absolutos:** `_time:[2026-09-01T00:00:00Z, 2026-09-02T00:00:00Z]`.
-- **Recomendação:** SEMPRE inclua `_time` para evitar escanear semanas de dados desnecessariamente.""",
+    "time": """### ⏱️ Time Filters (_time)
+- **Relative windows:** `_time:5m`, `_time:30m`, `_time:1h`, `_time:24h`, `_time:7d`.
+- **Absolute ranges:** `_time:[2026-09-01T00:00:00Z, 2026-09-02T00:00:00Z]`.
+- **Recommendation:** ALWAYS include `_time` to avoid scanning weeks of data unnecessarily.""",
 
-    "pipes": """### 🚰 Pipes de Transformação e Agregação
-- **stats (Agrupamento e Contagem):**
+    "pipes": """### 🚰 Transformation & Aggregation Pipes
+- **stats (Grouping and Counting):**
   - `_time:1h | stats by (service) count() as total | sort by (total) desc`
   - `_time:2h AND level:error | stats by (container_name, level) count() total`
-- **keep / delete (Projeção de Colunas):**
-  - `| keep _time, service, level, _msg` (mantém apenas as colunas informadas)
-  - `| delete label.com.docker.compose.*` (descarta colunas ruidosas)
-- **sort (Ordenação):**
+- **keep / delete (Column Projection):**
+  - `| keep _time, service, level, _msg` (keeps only specified columns)
+  - `| delete label.com.docker.compose.*` (drops noisy columns)
+- **sort (Ordering):**
   - `| sort by (total) desc`
   - `| sort by (_time) asc`
 - **limit:**
-  - `| limit 20` (restringe a quantidade final de registros)""",
+  - `| limit 20` (restricts final record count)""",
 
-    "funcoes_stats": """### 📊 Funções Estatísticas Suportadas no pipe 'stats'
-- `count()`: Contagem de registros.
-- `count_uniq(field)`: Contagem de valores únicos (cardinalidade).
-- `sum(field)`: Soma numérica.
-- `avg(field)`: Média aritmética.
-- `min(field)` / `max(field)`: Valores mínimo e máximo.
-- `median(field)`: Mediana.
-- `p50(field)`, `p90(field)`, `p95(field)`, `p99(field)`: Percentis.""",
+    "stats_functions": """### 📊 Supported Statistical Functions in 'stats' Pipe
+- `count()`: Record count.
+- `count_uniq(field)`: Unique value count (cardinality).
+- `sum(field)`: Numeric sum.
+- `avg(field)`: Arithmetic mean.
+- `min(field)` / `max(field)`: Minimum and maximum values.
+- `median(field)`: Median.
+- `p50(field)`, `p90(field)`, `p95(field)`, `p99(field)`: Percentiles.""",
 }
+
+# Aliases to support Portuguese and alternative lookup keys
+LOGSQL_DOCS["filtros"] = LOGSQL_DOCS["filters"]
+LOGSQL_DOCS["tempo"] = LOGSQL_DOCS["time"]
+LOGSQL_DOCS["funcoes_stats"] = LOGSQL_DOCS["stats_functions"]
 
 
 # ==============================================================================
-# FERRAMENTAS EXPOSTAS PARA O AGENTE DE IA
+# TOOLS EXPOSED TO AI AGENTS
 # ==============================================================================
 
 def tool_health_check(_args: Dict[str, Any]) -> str:
-    """Verifica a saúde do VictoriaLogs."""
+    """Checks VictoriaLogs health and connectivity."""
     try:
         resp = make_request("/health")
-        return f"✅ VictoriaLogs está saudável e respondendo em {VL_BASE_URL}.\nStatus: {resp.strip()}"
+        return f"✅ VictoriaLogs is healthy and responding at {VL_BASE_URL}.\nStatus: {resp.strip()}"
     except Exception as e:
-        return f"❌ VictoriaLogs inacessível em {VL_BASE_URL}.\nErro: {str(e)}"
+        return f"❌ VictoriaLogs unreachable at {VL_BASE_URL}.\nError: {str(e)}"
 
 
 def tool_query_logs(args: Dict[str, Any]) -> str:
-    """Executa consultas LogsQL formatadas e compactas."""
+    """Executes formatted, compact LogsQL queries."""
     raw_query = clean_query(args.get("query", ""))
     service = clean_query(args.get("service", ""))
     time_range = clean_query(args.get("time_range", "1h"))
@@ -207,36 +212,36 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
     full_output = bool(args.get("full", False))
 
     if not raw_query:
-        return "Erro: parâmetro 'query' obrigatório."
+        return "Error: parameter 'query' is required."
 
-    # Se 'service' foi especificado e a query não possui filtro explícito de stream/serviço, injetar
+    # If 'service' is specified and query lacks explicit stream/service filter, inject it
     query = raw_query
     if service and "_stream:" not in query and "container_name:" not in query and "service:" not in query:
         query = f'_stream:{{container_name="{service}"}} AND ({query})'
 
-    # Injetar filtro temporal se omitido
+    # Inject time filter if omitted
     if time_range and "_time:" not in query:
         query = f"_time:{time_range} AND ({query})"
 
-    # Otimização de I/O e rede: projetar apenas campos canônicos se a query não contiver pipes
+    # I/O and network optimization: project canonical fields if query lacks transformation pipes
     if "|" not in query:
         query = f"{query} | keep _time, level, service, container_name, _msg, stream, host"
 
     try:
         resp = make_request("/select/logsql/query", {"query": query, "limit": limit})
     except Exception as e:
-        return f"❌ Erro ao consultar LogsQL: {enrich_logsql_error(str(e), raw_query)}"
+        return f"❌ Error querying LogsQL: {enrich_logsql_error(str(e), raw_query)}"
 
     lines = [l.strip() for l in resp.splitlines() if l.strip()]
     if not lines:
-        target = f" para o serviço `{service}`" if service else ""
-        return f"ℹ️ Nenhum log encontrado para a query: `{raw_query}`{target} (janela: {time_range})"
+        target = f" for service `{service}`" if service else ""
+        return f"ℹ️ No logs found for query: `{raw_query}`{target} (window: {time_range})"
 
     if output_format == "json":
         return resp
 
-    # Formatação compacta em Markdown
-    out = [f"### 🪵 Logs ({len(lines)} registros encontrados na janela de {time_range})\n"]
+    # Compact Markdown formatting
+    out = [f"### 🪵 Logs ({len(lines)} records found in {time_range} window)\n"]
     seen_containers = set()
     for line in lines:
         try:
@@ -251,31 +256,31 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
                 seen_containers.add(c_name)
             msg = item.get("_msg") or item.get("message", "")
 
-            # Truncamento inteligente se a mensagem for excessivamente longa
+            # Smart truncation if message is excessively long
             if not full_output and len(msg) > 350:
-                msg = msg[:350] + f"... [truncado: +{len(msg) - 350} caracteres. Use full=true para ver na íntegra]"
+                msg = msg[:350] + f"... [truncated: +{len(msg) - 350} characters. Use full=true to view complete message]"
 
             icon = "🔴" if lvl == "ERROR" else "🟡" if lvl == "WARN" else "⚪"
             out.append(f"{icon} **[{ts}] [{svc}] [{lvl}]** {msg}")
         except Exception:
             out.append(f"- {line}")
 
-    out.append(f"\n*Exibindo {len(lines)} logs. Parâmetro 'full': {full_output}. Ajuste 'limit' se precisar de mais dados.*")
+    out.append(f"\n*Showing {len(lines)} logs. Parameter 'full': {full_output}. Adjust 'limit' if more data is needed.*")
 
-    # Dica de SRE proativa quando a busca foi global para educar o agente a filtrar por aplicação
+    # Proactive SRE hint when search was global to educate agent to scope by application
     if not service and seen_containers:
         detected = ", ".join(f"`{c}`" for c in sorted(seen_containers)[:5])
         out.append(
-            f"\n> 💡 **Dica de SRE:** Consulta executada globalmente em todo o homelab sem especificar aplicação. "
-            f"Para focar no serviço da sua tarefa e evitar ruído de outros containers, informe o parâmetro: `service=\"nome-do-app\"`. "
-            f"Containers detectados nesta amostra: {detected}."
+            f"\n> 💡 **SRE Hint:** Query executed globally across the homelab without specifying an application. "
+            f"To focus on your task's service and avoid noise from other containers, provide parameter: `service=\"app-name\"`. "
+            f"Containers detected in this sample: {detected}."
         )
 
     return "\n".join(out)
 
 
 def tool_get_errors(args: Dict[str, Any]) -> str:
-    """Busca rápida de erros com deduplicação inteligente e preservação total de contexto."""
+    """Fast error search with smart deduplication and full root cause preservation."""
     service = clean_query(args.get("service", ""))
     time_range = clean_query(args.get("time_range", "1h"))
     limit = min(int(args.get("limit", 20)), 50)
@@ -292,22 +297,22 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
     query = f"{query} | keep _time, level, service, container_name, _msg, stream, host"
 
     try:
-        # Puxamos uma amostra maior se deduplicação estiver ligada para agrupar tempestades de erros
+        # Pull a larger sample when deduplication is enabled to group error storms
         fetch_limit = min(limit * 3, 100) if deduplicate else limit
         resp = make_request("/select/logsql/query", {"query": query, "limit": fetch_limit})
     except Exception as e:
-        return f"❌ Erro ao buscar erros: {enrich_logsql_error(str(e), query)}"
+        return f"❌ Error fetching errors: {enrich_logsql_error(str(e), query)}"
 
     lines = [l.strip() for l in resp.splitlines() if l.strip()]
     if not lines:
-        target = f"no serviço '{service}'" if service else "no homelab"
-        return f"✅ Nenhum erro encontrado {target} na janela de {time_range}!"
+        target = f"in service '{service}'" if service else "in homelab"
+        return f"✅ No errors found {target} in {time_range} window!"
 
     seen_containers = set()
 
-    # Caso deduplicação esteja desativada, listar tradicionalmente
+    # If deduplication is disabled, list traditionally
     if not deduplicate:
-        out = [f"### 🚨 Erros Detectados ({len(lines)} ocorrências na janela de {time_range})\n"]
+        out = [f"### 🚨 Detected Errors ({len(lines)} occurrences in {time_range} window)\n"]
         for i, line in enumerate(lines[:limit], 1):
             try:
                 item = json.loads(line)
@@ -318,21 +323,21 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
                     seen_containers.add(c_name)
                 msg = item.get("_msg") or item.get("message", "")
                 if not full_output and len(msg) > 1000:
-                    msg = msg[:1000] + f"\n... [truncado: +{len(msg) - 1000} chars. Use full=true]"
-                out.append(f"#### {i}. [{ts}] Serviço: `{svc}`\n```text\n{msg}\n```\n")
+                    msg = msg[:1000] + f"\n... [truncated: +{len(msg) - 1000} chars. Use full=true]"
+                out.append(f"#### {i}. [{ts}] Service: `{svc}`\n```text\n{msg}\n```\n")
             except Exception:
                 out.append(f"- {line}")
 
         if not service and seen_containers:
             detected = ", ".join(f"`{c}`" for c in sorted(seen_containers)[:5])
             out.append(
-                f"\n> 💡 **Dica de SRE:** Consulta de erros executada globalmente em todo o homelab. "
-                f"Para focar no serviço da sua tarefa e evitar ruído, informe o parâmetro: `service=\"nome-do-app\"`. "
-                f"Containers com erros nesta amostra: {detected}."
+                f"\n> 💡 **SRE Hint:** Error query executed globally across the homelab. "
+                f"To focus on your task's service and avoid noise, provide parameter: `service=\"app-name\"`. "
+                f"Containers with errors in this sample: {detected}."
             )
         return "\n".join(out)
 
-    # Agrupamento inteligente de erros idênticos ou com a mesma assinatura
+    # Smart grouping of identical errors or errors sharing the same signature
     groups: Dict[Tuple[str, str], Dict[str, Any]] = {}
     for line in lines:
         try:
@@ -343,8 +348,8 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
             if c_name and c_name != "-":
                 seen_containers.add(c_name)
             msg = item.get("_msg") or item.get("message", "")
-            
-            # Assinatura: (serviço, primeira linha da mensagem de erro)
+
+            # Signature: (service, first line of error message)
             first_line = msg.strip().splitlines()[0][:140] if msg.strip() else "empty"
             sig = (svc, first_line)
 
@@ -365,7 +370,7 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
         except Exception:
             pass
 
-    out = [f"### 🚨 Erros Distintos Identificados ({len(groups)} causas-raiz na janela de {time_range})\n"]
+    out = [f"### 🚨 Distinct Errors Identified ({len(groups)} root-causes in {time_range} window)\n"]
     for i, (_, g) in enumerate(list(groups.items())[:limit], 1):
         svc = g["service"]
         count = g["count"]
@@ -374,33 +379,33 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
         msg = g["sample_msg"]
 
         if not full_output and len(msg) > 1200:
-            msg = msg[:1200] + f"\n... [stack trace truncada: +{len(msg) - 1200} caracteres. Use full=true para ver completa]"
+            msg = msg[:1200] + f"\n... [truncated stack trace: +{len(msg) - 1200} characters. Use full=true to view complete]"
 
         if count > 1:
-            out.append(f"#### {i}. 🔴 [{count}x ocorrências] Serviço: `{svc}`")
-            out.append(f"*Primeira ocorrência: `{first_t}` | Última: `{last_t}`*")
+            out.append(f"#### {i}. 🔴 [{count}x occurrences] Service: `{svc}`")
+            out.append(f"*First occurrence: `{first_t}` | Last: `{last_t}`*")
         else:
-            out.append(f"#### {i}. 🔴 [1x ocorrência] Serviço: `{svc}` às `{first_t}`")
+            out.append(f"#### {i}. 🔴 [1x occurrence] Service: `{svc}` at `{first_t}`")
 
         out.append("```text")
         out.append(msg)
         out.append("```\n")
 
-    out.append(f"*Total analisado: {len(lines)} registros consolidados em {len(groups)} grupos. Use full=true ou deduplicate=false se desejar logs brutos.*")
+    out.append(f"*Total analyzed: {len(lines)} records consolidated into {len(groups)} groups. Use full=true or deduplicate=false for raw logs.*")
 
     if not service and seen_containers:
         detected = ", ".join(f"`{c}`" for c in sorted(seen_containers)[:5])
         out.append(
-            f"\n> 💡 **Dica de SRE:** Consulta de erros executada globalmente em todo o homelab. "
-            f"Para focar no serviço da sua tarefa e evitar ruído, informe o parâmetro: `service=\"nome-do-app\"`. "
-            f"Containers com erros nesta amostra: {detected}."
+            f"\n> 💡 **SRE Hint:** Error query executed globally across the homelab. "
+            f"To focus on your task's service and avoid noise, provide parameter: `service=\"app-name\"`. "
+            f"Containers with errors in this sample: {detected}."
         )
 
     return "\n".join(out)
 
 
 def tool_get_context_logs(args: Dict[str, Any]) -> str:
-    """Busca eventos imediatamente anteriores e posteriores a um timestamp de incidente (contexto forense)."""
+    """Fetches events immediately preceding and succeeding an incident timestamp (forensic context)."""
     target_timestamp = clean_query(args.get("target_timestamp", ""))
     service = clean_query(args.get("service", ""))
     window_seconds = max(1, min(int(args.get("window_seconds", 15)), 120))
@@ -408,9 +413,9 @@ def tool_get_context_logs(args: Dict[str, Any]) -> str:
     full_output = bool(args.get("full", False))
 
     if not target_timestamp:
-        return "Erro: parâmetro 'target_timestamp' obrigatório (ex: '2026-09-10T14:18:41Z')."
+        return "Error: parameter 'target_timestamp' is required (e.g. '2026-09-10T14:18:41Z')."
 
-    # Tentar converter target_timestamp para epoch UTC
+    # Convert target_timestamp to UTC datetime
     clean_ts = target_timestamp.replace("Z", "+00:00")
     try:
         if "T" in clean_ts:
@@ -418,7 +423,7 @@ def tool_get_context_logs(args: Dict[str, Any]) -> str:
         else:
             dt = datetime.strptime(clean_ts, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
     except Exception as e:
-        return f"❌ Erro ao decodificar 'target_timestamp' ({target_timestamp}): {e}. Use formato ISO-8601 (ex: '2026-09-10T14:18:41Z')."
+        return f"❌ Error decoding 'target_timestamp' ({target_timestamp}): {e}. Use ISO-8601 format (e.g. '2026-09-10T14:18:41Z')."
 
     t_start = dt - timedelta(seconds=window_seconds)
     t_end = dt + timedelta(seconds=window_seconds)
@@ -435,18 +440,18 @@ def tool_get_context_logs(args: Dict[str, Any]) -> str:
     try:
         resp = make_request("/select/logsql/query", {"query": query, "limit": limit})
     except Exception as e:
-        return f"❌ Erro ao consultar contexto no LogsQL: {enrich_logsql_error(str(e), query)}"
+        return f"❌ Error querying context in LogsQL: {enrich_logsql_error(str(e), query)}"
 
     lines = [l.strip() for l in resp.splitlines() if l.strip()]
     if not lines:
-        target_info = f" para o serviço `{service}`" if service else ""
-        return f"ℹ️ Nenhum log encontrado na janela de ±{window_seconds}s em torno de `{target_timestamp}`{target_info}."
+        target_info = f" for service `{service}`" if service else ""
+        return f"ℹ️ No logs found in ±{window_seconds}s window around `{target_timestamp}`{target_info}."
 
     target_sec = dt.strftime("%Y-%m-%dT%H:%M:%S")
 
     out = [
-        f"### ⏱️ Contexto Forense de Logs (Janela: ±{window_seconds}s em torno de `{target_timestamp}`)",
-        f"**Filtro:** `{service or 'todos os containers'}` | **Registros recuperados:** {len(lines)}\n",
+        f"### ⏱️ Forensic Log Context (Window: ±{window_seconds}s around `{target_timestamp}`)",
+        f"**Filter:** `{service or 'all containers'}` | **Retrieved records:** {len(lines)}\n",
     ]
 
     for idx, line in enumerate(lines, 1):
@@ -458,15 +463,15 @@ def tool_get_context_logs(args: Dict[str, Any]) -> str:
             c_name = item.get("container_name") or svc
             msg = item.get("_msg") or item.get("message") or ""
 
-            # Destaque se o evento coincidir com o segundo alvo do incidente
+            # Highlight if event matches target incident second
             is_target = ts.startswith(target_sec)
-            prefix = "🎯 **[ALVO / INCIDENTE]**" if is_target else f"**[{lvl}]**"
-            
+            prefix = "🎯 **[TARGET / INCIDENT]**" if is_target else f"**[{lvl}]**"
+
             ts_display = ts.replace("T", " ").split(".")[0]
             out.append(f"**{idx}.** `{ts_display}` | `{c_name}` | {prefix}")
 
             if not full_output and len(msg) > 600:
-                msg = msg[:600] + f"\n... [mensagem truncada: {len(msg)} chars totais. Use full=true para ver tudo]"
+                msg = msg[:600] + f"\n... [truncated message: {len(msg)} total chars. Use full=true to view complete]"
 
             out.append("```text")
             out.append(msg)
@@ -478,7 +483,7 @@ def tool_get_context_logs(args: Dict[str, Any]) -> str:
 
 
 def tool_get_log_hits(args: Dict[str, Any]) -> str:
-    """Obtém série temporal agregada de contagem de eventos via /select/logsql/hits."""
+    """Retrieves aggregated time-series event counts via /select/logsql/hits."""
     raw_query = clean_query(args.get("query", "*"))
     time_range = clean_query(args.get("time_range", "1h"))
     step = clean_query(args.get("step", "5m"))
@@ -491,20 +496,20 @@ def tool_get_log_hits(args: Dict[str, Any]) -> str:
         resp = make_request("/select/logsql/hits", {"query": query, "step": step})
         data = json.loads(resp)
     except Exception as e:
-        return f"❌ Erro ao buscar hits: {enrich_logsql_error(str(e), raw_query)}"
+        return f"❌ Error fetching hits: {enrich_logsql_error(str(e), raw_query)}"
 
     hits = data.get("hits", [])
     if not hits:
-        return f"ℹ️ Nenhum dado retornado para hits com query: `{query}`"
+        return f"ℹ️ No data returned for hits with query: `{query}`"
 
     total_events = sum(h.get("total", 0) for h in hits)
     out = [
-        f"### 📈 Histograma de Eventos ({step}/bucket)",
-        f"**Query:** `{query}` | **Total:** {total_events} eventos\n",
-        "| Intervalo | Contagem |",
+        f"### 📈 Event Histogram ({step}/bucket)",
+        f"**Query:** `{query}` | **Total:** {total_events} events\n",
+        "| Interval | Count |",
         "|---|---:|",
     ]
-    for h in hits[-15:]:  # Mostrar até os últimos 15 buckets
+    for h in hits[-15:]:  # Show up to last 15 buckets
         ts = h.get("time", "")
         count = h.get("total", 0)
         out.append(f"| {ts} | {count} |")
@@ -513,10 +518,10 @@ def tool_get_log_hits(args: Dict[str, Any]) -> str:
 
 
 def tool_list_streams(args: Dict[str, Any]) -> str:
-    """Lista containers, serviços e hosts ativos que estão enviando logs."""
+    """Lists active containers, services, and hosts shipping logs."""
     time_range = args.get("time_range", "24h").strip()
 
-    # 1. Tentar o endpoint nativo e instantâneo /select/logsql/streams
+    # 1. Attempt native instant endpoint /select/logsql/streams
     try:
         resp = make_request("/select/logsql/streams", {"start": time_range})
         lines = [l.strip() for l in resp.splitlines() if l.strip()]
@@ -534,28 +539,28 @@ def tool_list_streams(args: Dict[str, Any]) -> str:
                     pass
 
             out = [
-                f"### 📡 Streams Ativos (Endpoint Nativo - Janela: {time_range})\n",
-                "| Container | Serviço | Host | Canal |",
+                f"### 📡 Active Streams (Native Endpoint - Window: {time_range})\n",
+                "| Container | Service | Host | Stream |",
                 "|---|---|---|---|",
             ]
             for c, s, h, st in sorted(streams_set):
                 out.append(f"| `{c}` | `{s}` | `{h}` | `{st}` |")
-            out.append(f"\n*Total de {len(streams_set)} streams ativos identificados.*")
+            out.append(f"\n*Total of {len(streams_set)} active streams identified.*")
             return "\n".join(out)
     except Exception:
         pass
 
-    # 2. Fallback via query agregada com a sintaxe correta do VictoriaLogs
+    # 2. Fallback via aggregated query with proper LogsQL syntax
     query = f"_time:{time_range} | stats by (container_name, service, host) count() as rows | sort by (rows) desc | limit 30"
     try:
         resp = make_request("/select/logsql/query", {"query": query})
         lines = [l.strip() for l in resp.splitlines() if l.strip()]
         if not lines:
-            return f"ℹ️ Nenhum stream ativo encontrado na janela de {time_range}."
+            return f"ℹ️ No active streams found in {time_range} window."
 
         out = [
-            f"### 📡 Streams Ativos (Janela: {time_range})\n",
-            "| Container | Serviço | Host | Volume de Logs |",
+            f"### 📡 Active Streams (Window: {time_range})\n",
+            "| Container | Service | Host | Log Volume |",
             "|---|---|---|---:|",
         ]
         for line in lines:
@@ -570,22 +575,22 @@ def tool_list_streams(args: Dict[str, Any]) -> str:
                 pass
         return "\n".join(out)
     except Exception as e:
-        return f"❌ Erro ao listar streams: {str(e)}"
+        return f"❌ Error listing streams: {str(e)}"
 
 
 def tool_field_names(args: Dict[str, Any]) -> str:
-    """Retorna os nomes dos campos indexados no VictoriaLogs para guiar queries da IA."""
+    """Returns indexed field names in VictoriaLogs to guide AI queries."""
     time_range = args.get("time_range", "24h").strip()
     try:
         resp = make_request("/select/logsql/field_names", {"query": f"_time:{time_range}"})
         data = json.loads(resp)
         items = data.get("values", [])
         if not items:
-            return f"ℹ️ Nenhum campo encontrado na janela de {time_range}."
+            return f"ℹ️ No fields found in {time_range} window."
 
         out = [
-            f"### 🏷️ Campos Indexados no VictoriaLogs (Janela: {time_range})\n",
-            "Estes campos podem ser utilizados em filtros (`campo:valor`) ou agregações (`| stats by (campo)`):\n",
+            f"### 🏷️ Indexed Fields in VictoriaLogs (Window: {time_range})\n",
+            "These fields can be used in filters (`field:value`) or aggregations (`| stats by (field)`):\n",
         ]
         for it in sorted(items, key=lambda x: x.get("hits", 0), reverse=True):
             fld = it.get("value", "")
@@ -593,28 +598,28 @@ def tool_field_names(args: Dict[str, Any]) -> str:
             out.append(f"- `{fld}` ({hits} logs)")
         return "\n".join(out)
     except Exception as e:
-        return f"❌ Erro ao listar nomes de campos: {str(e)}"
+        return f"❌ Error listing field names: {str(e)}"
 
 
 def tool_field_values(args: Dict[str, Any]) -> str:
-    """Retorna os valores mais frequentes de um campo específico (ex: 'level', 'service')."""
+    """Returns the most frequent values for a specific field (e.g. 'level', 'service')."""
     field = args.get("field", "").strip()
     time_range = args.get("time_range", "24h").strip()
     limit = min(int(args.get("limit", 20)), 50)
 
     if not field:
-        return "Erro: parâmetro 'field' obrigatório (ex: 'level', 'service', 'container_name')."
+        return "Error: parameter 'field' is required (e.g. 'level', 'service', 'container_name')."
 
     try:
         resp = make_request("/select/logsql/field_values", {"field": field, "query": f"_time:{time_range}", "limit": limit})
         data = json.loads(resp)
         items = data.get("values", [])
         if not items:
-            return f"ℹ️ Nenhum valor encontrado para o campo `{field}` na janela de {time_range}."
+            return f"ℹ️ No values found for field `{field}` in {time_range} window."
 
         out = [
-            f"### 📊 Valores do Campo `{field}` (Janela: {time_range})\n",
-            "| Valor | Ocorrências (Hits) |",
+            f"### 📊 Field Values for `{field}` (Window: {time_range})\n",
+            "| Value | Hits |",
             "|---|---|",
         ]
         for item in items:
@@ -623,43 +628,44 @@ def tool_field_values(args: Dict[str, Any]) -> str:
             out.append(f"| `{val}` | {hits} |")
         return "\n".join(out)
     except Exception as e:
-        return f"❌ Erro ao buscar valores do campo '{field}': {str(e)}"
+        return f"❌ Error fetching values for field '{field}': {str(e)}"
 
 
 def tool_documentation(args: Dict[str, Any]) -> str:
-    """Manual e guia de referência offline de LogsQL embutido."""
+    """Built-in offline reference manual for LogsQL syntax and operators."""
     query = args.get("query", "").strip().lower()
 
     if not query:
         sections = [
-            "## 📖 VictoriaLogs LogsQL — Guia Rápido de Consulta\n",
-            LOGSQL_DOCS["filtros"],
+            "## 📖 VictoriaLogs LogsQL — Quick Query Guide\n",
+            LOGSQL_DOCS["filters"],
             LOGSQL_DOCS["streams"],
-            LOGSQL_DOCS["tempo"],
+            LOGSQL_DOCS["time"],
             LOGSQL_DOCS["pipes"],
-            LOGSQL_DOCS["funcoes_stats"],
+            LOGSQL_DOCS["stats_functions"],
         ]
         return "\n\n---\n\n".join(sections)
 
     matches = []
     for key, doc in LOGSQL_DOCS.items():
         if query in key or query in doc.lower():
-            matches.append(doc)
+            if doc not in matches:
+                matches.append(doc)
 
     if matches:
-        return f"### 📚 Resultados da Documentação para: `{query}`\n\n" + "\n\n---\n\n".join(matches)
+        return f"### 📚 Documentation Results for: `{query}`\n\n" + "\n\n---\n\n".join(matches)
 
-    return f"ℹ️ Nenhuma seção correspondente encontrada para `{query}`. Tente: 'filtros', 'streams', 'tempo', 'pipes' ou 'stats'."
+    return f"ℹ️ No matching section found for `{query}`. Try: 'filters', 'streams', 'time', 'pipes', or 'stats'."
 
 
 # ==============================================================================
-# CATÁLOGO DE FERRAMENTAS MCP JSON-RPC
+# JSON-RPC MCP TOOL CATALOG
 # ==============================================================================
 
 TOOLS = [
     {
         "name": "health_check",
-        "description": "Verifica se a instância do VictoriaLogs está saudável, conectada e respondendo.",
+        "description": "Verifies whether the VictoriaLogs instance is healthy, connected, and responding.",
         "inputSchema": {
             "type": "object",
             "properties": {},
@@ -668,37 +674,37 @@ TOOLS = [
     },
     {
         "name": "query_logs",
-        "description": "Executa consultas avançadas no VictoriaLogs usando LogsQL. Retorna saída limpa em Markdown com alta economia de tokens.",
+        "description": "Executes advanced queries in VictoriaLogs using LogsQL. Returns clean Markdown with high token savings.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Filtro LogsQL (ex: 'level:error', '\"timeout exceeded\"', 'status:500'). Importante: termos com caracteres especiais (@, :, /, .) devem estar entre aspas duplas.",
+                    "description": "LogsQL filter (e.g. 'level:error', '\"timeout exceeded\"', 'status:500'). Important: terms with special characters (@, :, /, .) must be enclosed in double quotes.",
                 },
                 "service": {
                     "type": "string",
-                    "description": "Nome da aplicação ou container alvo no homelab (ex: 'evolution-api', 'api-gateway', 'nginx'). RECOMENDADO: sempre preencha com o container/serviço da sua tarefa para não misturar logs de outros serviços do homelab.",
+                    "description": "Target homelab application or container name (e.g. 'evolution-api', 'api-gateway', 'nginx'). RECOMMENDED: always set to your task's container/service to avoid noise from other homelab services.",
                 },
                 "time_range": {
                     "type": "string",
-                    "description": "Janela temporal relativa (ex: '15m', '1h', '24h', '7d'). Padrão: '1h'.",
+                    "description": "Relative time window (e.g. '15m', '1h', '24h', '7d'). Default: '1h'.",
                     "default": "1h",
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Limite máximo de registros (padrão 20, máximo 100).",
+                    "description": "Maximum record limit (default 20, maximum 100).",
                     "default": 20,
                 },
                 "format": {
                     "type": "string",
                     "enum": ["markdown", "json"],
-                    "description": "Formato de retorno ('markdown' compacto ou 'json' bruto).",
+                    "description": "Output format ('markdown' compact or 'json' raw).",
                     "default": "markdown",
                 },
                 "full": {
                     "type": "boolean",
-                    "description": "Se verdadeiro, desativa o truncamento de mensagens longas (>350 caracteres).",
+                    "description": "If true, disables truncation of long messages (>350 characters).",
                     "default": False,
                 },
             },
@@ -708,32 +714,32 @@ TOOLS = [
     },
     {
         "name": "get_errors",
-        "description": "Busca rápida e isolada de erros e stack traces. Por padrão, deduplica erros repetitivos preservando 100% da causa-raiz.",
+        "description": "Fast and isolated error and stack trace search. By default, deduplicates repetitive errors while preserving 100% of root cause.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "service": {
                     "type": "string",
-                    "description": "Nome da aplicação ou container alvo no homelab (ex: 'evolution-api', 'api-gateway', 'nginx'). RECOMENDADO: sempre preencha com o container/serviço da sua tarefa para não misturar logs de outros serviços do homelab. Só omita se a solicitação for expressamente uma auditoria global de infraestrutura.",
+                    "description": "Target homelab application or container name (e.g. 'evolution-api', 'api-gateway', 'nginx'). RECOMMENDED: always set to your task's container/service to avoid noise from other homelab services. Only omit for explicit global infrastructure audits.",
                 },
                 "time_range": {
                     "type": "string",
-                    "description": "Janela de tempo relativa (ex: '30m', '1h', '6h'). Padrão: '1h'.",
+                    "description": "Relative time window (e.g. '30m', '1h', '6h'). Default: '1h'.",
                     "default": "1h",
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Máximo de grupos de erro a retornar (padrão 20).",
+                    "description": "Maximum error groups to return (default 20).",
                     "default": 20,
                 },
                 "deduplicate": {
                     "type": "boolean",
-                    "description": "Se verdadeiro (padrão), agrupa erros idênticos exibindo contagem e timestamps de início/fim.",
+                    "description": "If true (default), groups identical errors displaying count and start/end timestamps.",
                     "default": True,
                 },
                 "full": {
                     "type": "boolean",
-                    "description": "Se verdadeiro, exibe a stack trace completa sem truncamento.",
+                    "description": "If true, displays the complete stack trace without truncation.",
                     "default": False,
                 },
             },
@@ -742,31 +748,31 @@ TOOLS = [
     },
     {
         "name": "get_context_logs",
-        "description": "Recupera os eventos cronológicos imediatamente anteriores e posteriores a um timestamp de incidente (contexto forense fore/aft) para entender a causa de crashes e anomalias.",
+        "description": "Retrieves chronological events immediately before and after an incident timestamp (fore/aft forensic context) to understand root causes of crashes and anomalies.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "target_timestamp": {
                     "type": "string",
-                    "description": "Timestamp exato do evento ou erro (formato ISO-8601, ex: '2026-09-10T14:18:41Z').",
+                    "description": "Exact event or error timestamp (ISO-8601 format, e.g. '2026-09-10T14:18:41Z').",
                 },
                 "service": {
                     "type": "string",
-                    "description": "Nome da aplicação ou container para filtrar o contexto (ex: 'auth-api').",
+                    "description": "Application or container name to scope context (e.g. 'auth-api').",
                 },
                 "window_seconds": {
                     "type": "integer",
-                    "description": "Janela em segundos antes e depois do timestamp alvo (padrão: 15s).",
+                    "description": "Window in seconds before and after target timestamp (default: 15s).",
                     "default": 15,
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Máximo de eventos de contexto a retornar (padrão 30).",
+                    "description": "Maximum context events to return (default 30).",
                     "default": 30,
                 },
                 "full": {
                     "type": "boolean",
-                    "description": "Se verdadeiro, não trunca mensagens longas.",
+                    "description": "If true, does not truncate long messages.",
                     "default": False,
                 },
             },
@@ -776,23 +782,23 @@ TOOLS = [
     },
     {
         "name": "get_log_hits",
-        "description": "Retorna série temporal de contagem de eventos por intervalo de tempo (/select/logsql/hits) para identificar picos de falha.",
+        "description": "Returns time series of event counts per time bucket (/select/logsql/hits) to identify failure spikes.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Filtro LogsQL (ex: 'level:error'). Padrão: '*'.",
+                    "description": "LogsQL filter (e.g. 'level:error'). Default: '*'.",
                     "default": "*",
                 },
                 "time_range": {
                     "type": "string",
-                    "description": "Janela temporal (ex: '1h', '6h', '24h'). Padrão: '1h'.",
+                    "description": "Time window (e.g. '1h', '6h', '24h'). Default: '1h'.",
                     "default": "1h",
                 },
                 "step": {
                     "type": "string",
-                    "description": "Tamanho do bucket de tempo (ex: '1m', '5m', '1h'). Padrão: '5m'.",
+                    "description": "Time bucket size (e.g. '1m', '5m', '1h'). Default: '5m'.",
                     "default": "5m",
                 },
             },
@@ -801,13 +807,13 @@ TOOLS = [
     },
     {
         "name": "list_streams",
-        "description": "Lista instantaneamente os containers, serviços e hosts ativos que estão emitindo logs.",
+        "description": "Instantly lists active containers, services, and hosts shipping logs.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "time_range": {
                     "type": "string",
-                    "description": "Janela de tempo para buscar streams ativos. Padrão: '24h'.",
+                    "description": "Time window to search active streams. Default: '24h'.",
                     "default": "24h",
                 },
             },
@@ -816,13 +822,13 @@ TOOLS = [
     },
     {
         "name": "field_names",
-        "description": "Descobre todos os nomes de campos estruturados indexados no VictoriaLogs (ex: 'service', 'userId', 'status').",
+        "description": "Discovers all structured field names indexed in VictoriaLogs (e.g. 'service', 'userId', 'status').",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "time_range": {
                     "type": "string",
-                    "description": "Janela de tempo para descobrir campos. Padrão: '24h'.",
+                    "description": "Time window to discover fields. Default: '24h'.",
                     "default": "24h",
                 },
             },
@@ -831,22 +837,22 @@ TOOLS = [
     },
     {
         "name": "field_values",
-        "description": "Lista os valores mais frequentes de um campo específico indexado no VictoriaLogs.",
+        "description": "Lists the most frequent values for a specific field indexed in VictoriaLogs.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "field": {
                     "type": "string",
-                    "description": "Nome do campo para inspecionar (ex: 'level', 'service', 'container_name').",
+                    "description": "Field name to inspect (e.g. 'level', 'service', 'container_name').",
                 },
                 "time_range": {
                     "type": "string",
-                    "description": "Janela temporal. Padrão: '24h'.",
+                    "description": "Time window. Default: '24h'.",
                     "default": "24h",
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Quantidade máxima de valores a retornar (padrão 20).",
+                    "description": "Maximum values to return (default 20).",
                     "default": 20,
                 },
             },
@@ -856,13 +862,13 @@ TOOLS = [
     },
     {
         "name": "documentation",
-        "description": "Consulta o manual e guia de referência offline de sintaxe, operadores e pipes do LogsQL.",
+        "description": "Queries the built-in offline reference manual for LogsQL syntax, operators, and pipes.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Tópico de interesse (ex: 'stats', 'streams', 'filtros', 'pipes'). Se omitido, traz o guia completo.",
+                    "description": "Topic of interest (e.g. 'stats', 'streams', 'filters', 'pipes'). If omitted, returns the full guide.",
                 },
             },
         },
@@ -874,19 +880,19 @@ TOOLS_BY_NAME = {t["name"]: t for t in TOOLS}
 
 
 def send_response(response: Dict[str, Any]) -> None:
-    """Envia mensagem JSON-RPC para stdout com flush garantido."""
+    """Sends JSON-RPC response to stdout with guaranteed flush."""
     payload = json.dumps(response, ensure_ascii=False)
     sys.stdout.write(payload + "\n")
     sys.stdout.flush()
 
 
 def handle_request(req: Dict[str, Any]) -> None:
-    """Processa requisições JSON-RPC 2.0 do cliente MCP."""
+    """Processes JSON-RPC 2.0 requests from MCP clients."""
     req_id = req.get("id")
     method = req.get("method", "")
     params = req.get("params", {})
 
-    # 1. Handshake inicial
+    # 1. Initial Handshake
     if method == "initialize":
         send_response({
             "jsonrpc": "2.0",
@@ -899,22 +905,22 @@ def handle_request(req: Dict[str, Any]) -> None:
                 "serverInfo": {
                     "name": "victorialogs-mcp",
                     "version": "1.1.0",
-                    "description": "Servidor MCP Otimizado para VictoriaLogs (Homelab Stack)"
+                    "description": "Native Optimized MCP Server for VictoriaLogs (Homelab Stack)"
                 }
             }
         })
         return
 
-    # Notificação pós-inicialização
+    # Post-initialization notification
     if method == "notifications/initialized":
         return
 
-    # Ping de liveness
+    # Liveness ping
     if method == "ping":
         send_response({"jsonrpc": "2.0", "id": req_id, "result": {}})
         return
 
-    # 2. Catálogo de ferramentas
+    # 2. Tool Catalog
     if method == "tools/list":
         tools_list = []
         for t in TOOLS:
@@ -932,7 +938,7 @@ def handle_request(req: Dict[str, Any]) -> None:
         })
         return
 
-    # 3. Execução de ferramenta
+    # 3. Tool Execution
     if method == "tools/call":
         tool_name = params.get("name", "")
         arguments = params.get("arguments", {})
@@ -943,7 +949,7 @@ def handle_request(req: Dict[str, Any]) -> None:
                 "id": req_id,
                 "error": {
                     "code": -32601,
-                    "message": f"Ferramenta '{tool_name}' não encontrada.",
+                    "message": f"Tool '{tool_name}' not found.",
                 }
             })
             return
@@ -972,7 +978,7 @@ def handle_request(req: Dict[str, Any]) -> None:
                     "content": [
                         {
                             "type": "text",
-                            "text": f"Erro inesperado ao executar '{tool_name}': {str(e)}",
+                            "text": f"Unexpected error executing '{tool_name}': {str(e)}",
                         }
                     ],
                     "isError": True,
@@ -980,20 +986,20 @@ def handle_request(req: Dict[str, Any]) -> None:
             })
         return
 
-    # Método não suportado
+    # Unsupported method
     if req_id is not None:
         send_response({
             "jsonrpc": "2.0",
             "id": req_id,
             "error": {
                 "code": -32601,
-                "message": f"Método '{method}' não suportado.",
+                "message": f"Method '{method}' not supported.",
             }
         })
 
 
 def main() -> None:
-    """Loop principal de leitura stdio JSON-RPC."""
+    """Main stdio JSON-RPC loop."""
     for line in sys.stdin:
         line = line.strip()
         if not line:
@@ -1007,11 +1013,11 @@ def main() -> None:
                 "id": None,
                 "error": {
                     "code": -32700,
-                    "message": "Erro de decodificação JSON.",
+                    "message": "JSON decode error.",
                 }
             })
         except Exception as e:
-            sys.stderr.write(f"Erro interno no servidor MCP: {e}\n")
+            sys.stderr.write(f"Internal MCP server error: {e}\n")
             sys.stderr.flush()
 
 

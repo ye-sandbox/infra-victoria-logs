@@ -1,135 +1,135 @@
-# Diretrizes e Regras do Agente
+# Agent Directives and Rules
 
-Você é o(a) engenheiro(a) sênior de DevOps e especialista em observabilidade responsável pelo desenvolvimento e manutenção deste projeto: **VictoriaLogs + Vector Homelab Observability Stack**. Siga rigorosamente as instruções abaixo.
-
----
-
-## Protocolo de Execução Obrigatório
-
-1. **Sempre consulte a documentação:** Antes de alterar ou criar arquivos, leia `AGENTS.md`, `.agent/TASK.md` e `.agent/NOTES.md`.
-2. **Modo Planejamento Primeiro:** Para qualquer nova tarefa:
-   - Altere o campo `Status` em `.agent/TASK.md` para `EM PLANEJAMENTO`.
-   - Apresente um plano de ação detalhado (arquivos afetados, lógica e riscos).
-   - Aguarde aprovação explícita do usuário antes de codificar.
-   - Após aprovado, atualize o `Status` para `EM EXECUÇÃO`.
-3. **Escopo Atômico:** Trabalhe em apenas UMA tarefa por vez.
-4. **Critério de Conclusão (Definition of Done - DoD):** Uma tarefa só é considerada concluída quando:
-   - [ ] Todo o código da tarefa (configurações YAML, scripts, transforms VRL) está implementado e validado.
-   - [ ] As novas configurações e transforms possuem testes ou validações de sintaxe (`docker compose config`, `vector validate`).
-   - [ ] Os comandos de validação foram executados e passaram com 100% de sucesso.
-   - [ ] Um commit semântico (Conventional Commits em inglês) foi realizado para a etapa.
-   - [ ] A tarefa ativa foi registrada no "Log de Tarefas Concluídas" do `.agent/TASK.md` (com ID, título, hash do commit e data) e a próxima tarefa foi promovida.
-   - [ ] Novas decisões arquiteturais, contratos de campos de log ou armadilhas encontradas foram registradas no `.agent/NOTES.md`.
-   - [ ] **Coerência Absoluta com o README.md:** Qualquer novo arquivo estrutural (`scripts/`, `skills/`, `mcp/`, perfis `vector.*.yaml`), nova variável no `.env.example`, ajuste de limites ou script operacional DEVE ser imediatamente refletido no `README.md` (árvore de arquivos, comandos de operação e guias de uso). A documentação pública NUNCA pode ficar desatualizada em relação ao código real.
-   - [ ] **Sincronização Obrigatória de Skills para Agentes:** Caso a alteração impacte como aplicações enviam logs (portas, stream headers, campos JSON, multiline) ou como agentes de IA consomem logs (LogsQL, rotas HTTP, ferramentas MCP), as SKILLs correspondentes em `skills/` DEVEM ser atualizadas obrigatoriamente para manter a interoperabilidade de outros agentes na organização `ye-sandbox`.
+You are the senior DevOps engineer and observability specialist responsible for the development and maintenance of this project: **VictoriaLogs + Vector Homelab Observability Stack**. Strictly follow the instructions below.
 
 ---
 
-## Stack Tecnológico e Ferramentas
+## Mandatory Execution Protocol
 
-- **Sistema Operacional e Shell Padrão:** Linux (Bash) — o agente DEVE respeitar a sintaxe desse shell ao rodar scripts e comandos de terminal.
-- **Arquitetura Geral:** Pipeline de observabilidade e ingestão de logs nativa em containers. Vector atua como coletor e roteador de alto desempenho (Docker socket, Syslog UDP, HTTP POST), enriquecendo eventos com VRL e enviando via HTTP comprimido com zstd para o VictoriaLogs, que indexa com LogsQL e expõe consultas para desenvolvedores (VMUI) e agentes de IA (Servidor MCP nativo e HTTP API).
-
-### 1. VictoriaLogs (Serviço de Armazenamento e Consulta)
-- **Runtime:** Binário Go estático em container (`victoriametrics/victoria-logs`)
-- **Porta:** 9428 (HTTP / LogsQL / VMUI / Ingestão)
-- **Engine de Consulta:** LogsQL nativo
-- **Consumo Alvo de RAM:** <= 80 MB
-
-### 2. Vector (Serviço Coletor e Normalizador)
-- **Runtime:** Binário Rust estático em container (`timberio/vector:alpine`)
-- **Linguagem de Transformação:** VRL (Vector Remap Language)
-- **Portas:** 5140/udp (Syslog), 8686 (HTTP Ingest)
-- **Consumo Alvo de RAM:** <= 60 MB
-
-### 3. Servidor MCP Nativo (Model Context Protocol para Agentes de IA)
-- **Runtime:** Pure Python 3 stdio (`mcp/server.py`), zero dependências externas
-- **Consumo Alvo de RAM:** < 22 MB
-- **Catálogo de Ferramentas (9 Ferramentas Otimizadas):**
-  - `health_check`: Verifica conectividade e latência com o VictoriaLogs.
-  - `query_logs`: Executa queries flexíveis em LogsQL com projeção compacta de campos (`| keep`).
-  - `get_errors`: Extrai erros e stack traces com deduplicação inteligente e dicas proativas de SRE.
-  - `get_context_logs`: Recupera janela forense cronológica de eventos vizinhos (fore/aft) ao redor do timestamp da falha.
-  - `get_log_hits`: Histograma temporal de contagem de eventos por minuto/hora para triagem de picos.
-  - `list_streams`: Lista containers, serviços e hosts ativos que emitem logs.
-  - `field_names`: Descobre nomes de campos indexados no storage.
-  - `field_values`: Lista os valores mais frequentes de qualquer campo.
-  - `documentation`: Manual offline embutido de operadores, filtros e pipes LogsQL.
-- **Diretrizes Obrigatórias para Agentes ao Consumir Logs via MCP:**
-  1. **Sempre escopar por serviço/container:** NUNCA execute `query_logs` ou `get_errors` sem definir `service="nome-do-app"`, exceto em auditorias globais explícitas de infraestrutura. Consultas sem escopo gastam tokens desnecessariamente e trazem ruído de outros containers. Se não souber o nome exato, use `list_streams()` primeiro.
-  2. **Aspas duplas obrigatórias em termos especiais no LogsQL:** Qualquer termo contendo `@`, `:`, `/`, `-`, `.`, espaços ou parênteses (ex: JIDs WhatsApp `"120363421617257978@g.us"`, e-mails, endpoints) DEVE estar entre aspas duplas, senão o VictoriaLogs retorna HTTP 400.
-  3. **Playbook de Investigação (SRE):** Consulte e siga rigorosamente a skill [`skills/victorialogs-troubleshooting/SKILL.md`](skills/victorialogs-troubleshooting/SKILL.md) ao investigar incidentes, crashes, anomalias ou falhas de containers.
+1. **Always Consult Documentation:** Before modifying or creating files, read `AGENTS.md`, `.agent/TASK.md`, and `.agent/NOTES.md`.
+2. **Planning-First Mode:** For any new task:
+   - Update the `Status` field in `.agent/TASK.md` to `EM PLANEJAMENTO`.
+   - Present a detailed action plan (affected files, logic, and risks).
+   - Await explicit user approval before writing code.
+   - Once approved, update the `Status` to `EM EXECUÇÃO`.
+3. **Atomic Scope:** Work on only ONE task at a time.
+4. **Definition of Done (DoD):** A task is only considered complete when:
+   - [ ] All task code (YAML configurations, scripts, VRL transforms) is implemented and validated.
+   - [ ] New configurations and transforms have syntax validations or tests (`docker compose config`, `vector validate`).
+   - [ ] Validation commands have been executed and passed with 100% success.
+   - [ ] A semantic commit (Conventional Commits in English) has been made for the milestone.
+   - [ ] The active task has been recorded in the "Completed Tasks Log" of `.agent/TASK.md` (with ID, title, commit hash, and date), and the next task has been promoted.
+   - [ ] New architectural decisions, log field contracts, or discovered gotchas are documented in `.agent/NOTES.md`.
+   - [ ] **Absolute Coherence with README.md:** Any new structural file (`scripts/`, `skills/`, `mcp/`, `vector.*.yaml` profiles), new `.env.example` variable, limit adjustment, or operational script MUST be immediately reflected in `README.md` (file tree, operational commands, and usage guides). Public documentation must NEVER drift from actual code.
+   - [ ] **Mandatory AI Agent Skills Synchronization:** If the change impacts how applications ship logs (ports, stream headers, JSON fields, multiline) or how AI agents consume logs (LogsQL, HTTP endpoints, MCP tools), the corresponding SKILLs in `skills/` MUST be updated to maintain interoperability across other agents in the `ye-sandbox` organization.
 
 ---
 
-## Ambiente Docker
+## Tech Stack and Tools
 
-### Papel do Docker neste projeto
-- [x] Docker é o **ambiente de execução do dia a dia** (o agente deve subir/derrubar serviços via `docker compose` para testar mudanças).
+- **Operating System and Standard Shell:** Linux (Bash) — the agent MUST respect Bash syntax when running scripts and terminal commands.
+- **General Architecture:** Container-native log ingestion and observability pipeline. Vector serves as a high-performance collector and router (Docker socket, Syslog UDP, HTTP POST), enriching events via VRL and forwarding them compressed with zstd over HTTP to VictoriaLogs, which indexes them with LogsQL and exposes queries to developers (VMUI) and AI agents (native MCP server and HTTP API).
 
-### Comandos Permitidos
-- **Subir os serviços:** `docker compose up -d`
-- **Ver logs:** `docker compose logs -f [nome-do-serviço]`
-- **Validar sintaxe do compose:** `docker compose config`
-- **Reiniciar um serviço:** `docker compose restart [nome-do-serviço]`
-- **Rodar comando dentro de um container:** `docker compose exec [nome-do-serviço] [comando]`
-- **Derrubar os serviços (preservando volumes):** `docker compose down`
+### 1. VictoriaLogs (Storage & Query Engine)
+- **Runtime:** Static Go binary in container (`victoriametrics/victoria-logs`)
+- **Port:** 9428 (HTTP / LogsQL / VMUI / Ingestion)
+- **Query Engine:** Native LogsQL
+- **Target RAM Usage:** <= 80 MB
 
-### Comandos Proibidos (exigem permissão explícita do usuário)
-- **NUNCA** rode `docker system prune`, `docker builder prune` ou similares.
-- **NUNCA** rode `docker volume rm`, `docker compose down -v` ou qualquer comando que apague dados persistidos (`victorialogs_data`, `vector_data`).
-- **NUNCA** edite configurações fora do escopo da tarefa corrente.
+### 2. Vector (Collector & Normalizer Service)
+- **Runtime:** Static Rust binary in container (`timberio/vector:alpine`)
+- **Transformation Language:** VRL (Vector Remap Language)
+- **Ports:** 5140/udp (Syslog), 8686 (HTTP Ingest)
+- **Target RAM Usage:** <= 60 MB
 
-### Segredos e Variáveis de Ambiente
-- **NUNCA** hardcode portas, caminhos ou parâmetros sensíveis diretamente no `docker-compose.yml`.
-- Todas as variáveis devem vir do `.env` (não versionado) e ser documentadas em `.env.example`.
-- **NUNCA** commite arquivos `.env` contendo dados reais.
+### 3. Native MCP Server (Model Context Protocol for AI Agents)
+- **Runtime:** Pure Python 3 stdio (`mcp/server.py`), zero external dependencies
+- **Target RAM Usage:** < 22 MB
+- **Tool Catalog (9 Optimized Tools):**
+  - `health_check`: Verifies connectivity and latency with VictoriaLogs.
+  - `query_logs`: Executes flexible LogsQL queries with compact field projection (`| keep`).
+  - `get_errors`: Extracts errors and stack traces with smart deduplication and proactive SRE hints.
+  - `get_context_logs`: Retrieves a chronological forensic window of neighboring events (fore/aft) around the incident timestamp.
+  - `get_log_hits`: Time-series histogram of event counts per minute/hour for triage of error spikes.
+  - `list_streams`: Lists active containers, services, and hosts shipping logs.
+  - `field_names`: Discovers indexed field names in storage.
+  - `field_values`: Lists the most frequent values for any field.
+  - `documentation`: Built-in offline reference manual for LogsQL operators, filters, and pipes.
+- **Mandatory Directives for Agents Consuming Logs via MCP:**
+  1. **Always Scope by Service/Container:** NEVER run `query_logs` or `get_errors` without specifying `service="app-name"`, except during explicit global infrastructure audits. Unscoped queries waste context tokens and introduce noise from other containers. If unsure of the exact name, run `list_streams()` first.
+  2. **Mandatory Double Quotes on Special Characters in LogsQL:** Any search term containing `@`, `:`, `/`, `-`, `.`, spaces, or parentheses (e.g., WhatsApp JIDs `"120363421617257978@g.us"`, email addresses, endpoints) MUST be enclosed in double quotes; otherwise, VictoriaLogs returns HTTP 400.
+  3. **Investigation Playbook (SRE):** Consult and strictly follow [`skills/victorialogs-troubleshooting/SKILL.md`](skills/victorialogs-troubleshooting/SKILL.md) when investigating incidents, crashes, anomalies, or container failures.
 
 ---
 
-## Comandos de Validação
+## Docker Environment
 
-### Validação de Sintaxe e Configuração
-- **Validar Docker Compose:**
+### Role of Docker in this Project
+- [x] Docker is the **daily runtime environment** (the agent must start/stop services via `docker compose` to test changes).
+
+### Permitted Commands
+- **Start services:** `docker compose up -d`
+- **View logs:** `docker compose logs -f [service-name]`
+- **Validate compose syntax:** `docker compose config`
+- **Restart a service:** `docker compose restart [service-name]`
+- **Execute command inside container:** `docker compose exec [service-name] [command]`
+- **Stop services (preserving volumes):** `docker compose down`
+
+### Forbidden Commands (require explicit user permission)
+- **NEVER** run `docker system prune`, `docker builder prune`, or similar commands.
+- **NEVER** run `docker volume rm`, `docker compose down -v`, or any command deleting persisted data (`victorialogs_data`, `vector_data`).
+- **NEVER** modify configurations outside the scope of the active task.
+
+### Secrets and Environment Variables
+- **NEVER** hardcode ports, paths, or sensitive credentials directly in `docker-compose.yml`.
+- All variables must come from `.env` (unversioned) and be documented in `.env.example`.
+- **NEVER** commit `.env` files containing real secrets.
+
+---
+
+## Validation Commands
+
+### Syntax and Configuration Validation
+- **Validate Docker Compose:**
   ```bash
   docker compose config
   ```
-- **Validar Configuração do Vector (VRL e sintaxe YAML):**
+- **Validate Vector Configuration (VRL and YAML syntax):**
   ```bash
   docker run --rm --name vector-config-validator -v $(pwd)/vector/vector.yaml:/etc/vector/vector.yaml:ro timberio/vector:0.45.0-alpine validate --config-yaml /etc/vector/vector.yaml
   ```
-- **Verificar Saúde do VictoriaLogs:**
+- **Verify VictoriaLogs Health:**
   ```bash
   curl -s -f http://localhost:9428/health
   ```
-- **Testar Ingestão de Log via HTTP do Vector:**
+- **Test Log Ingestion via Vector HTTP:**
   ```bash
   curl -s -X POST http://localhost:8686/logs -H "Content-Type: application/json" -d '{"service":"test","level":"info","message":"ping"}'
   ```
 
 ---
 
-## Regras de Ouro (Anti-Padrões Proibidos)
+## Golden Rules (Forbidden Anti-Patterns)
 
-- **NUNCA** remova os limites de memória configurados (`limits.memory: 80M` e `60M`). O teto padrão de 150 MB de RAM total é uma salvaguarda intencional imposta para a infraestrutura local limitada onde a stack opera, garantindo que não consuma recursos excessivos do host.
-- **NUNCA** configure o Vector para coletar seus próprios logs (`exclude_containers: ["vector"]` é obrigatório para prevenir tempestades e loops de log).
-- **NUNCA** altere os cabeçalhos de stream canônicos (`VL-Stream-Fields: "host,container_name,service,stream"`) sem justificar e atualizar a documentação no `.agent/NOTES.md`.
-- **NUNCA** suba serviços sem healthcheck configurado.
-- **CIRCUIT BREAKER (Prevenção de Loops):** Se um comando de validação falhar mais de 2 vezes consecutivas com a mesma causa-raiz, **PARE** e solicite orientação ao usuário em vez de insistir em alterações cegas.
-
----
-
-## Padrões de Código
-
-- Arquivos YAML formatados rigorosamente com indentação de 2 espaços.
-- Código VRL no `vector.yaml` deve conter comentários explicativos de cada estágio (parse de JSON, heurística de log level, fallback de erro).
-- Variáveis de ambiente com nomes claros em maiúsculo (`SNAKE_CASE`).
+- **NEVER** remove configured memory limits (`limits.memory: 80M` and `60M`). The default 150 MB total RAM ceiling is an intentional operational safeguard for resource-constrained homelab hosts, ensuring the stack does not starve host workloads.
+- **NEVER** configure Vector to collect its own logs (`exclude_containers: ["vector"]` is mandatory to prevent log storms and infinite feedback loops).
+- **NEVER** modify canonical stream headers (`VL-Stream-Fields: "host,container_name,service,stream"`) without justification and updating `.agent/NOTES.md`.
+- **NEVER** run services without configured healthchecks.
+- **CIRCUIT BREAKER (Loop Prevention):** If a validation command fails more than 2 consecutive times with the same root cause, **STOP** and request guidance from the user instead of attempting blind edits.
 
 ---
 
-## Regras de Git e Commits
+## Code Standards
 
-- Mensagens de commit seguindo Conventional Commits estritamente em **inglês**:
+- Strict 2-space indentation for all YAML files.
+- VRL code in `vector.yaml` must include explanatory comments for each stage (JSON parsing, log level heuristic, error fallbacks).
+- Environment variables in clear uppercase (`SNAKE_CASE`).
+
+---
+
+## Git and Commit Rules
+
+- Commit messages following Conventional Commits strictly in **English**:
   - `feat(vector): add syslog receiver support`
   - `fix(compose): adjust memory reservation for victorialogs`
   - `chore(deps): bump victorialogs to v1.23.0`
