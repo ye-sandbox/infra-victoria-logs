@@ -14,20 +14,20 @@
 
 ### 📌 Nenhuma tarefa ativa no momento
 
-- **Descrição:** A tradução 1:1 das SKILLs e templates para inglês técnico (Tarefa 38.0) foi concluída com sucesso. Os documentos (`github-bug-issue`, `victorialogs-troubleshooting`, `victorialogs-integration`, `examples/README.md`) e seus exemplos de código operam agora em inglês direto, maximizando a economia de tokens (30% a 50%) e precisão de raciocínio de agentes de IA com zero perda de contexto de SRE e paridade com a infraestrutura.
-- **Sistema(s) Envolvido(s):** `skills`, `docs`, `agents`
+- **Descrição:** A tradução de `AGENTS.md`, do Servidor MCP (`mcp/server.py`), dos testes unitários (`test_mcp_error_enricher.py`) e do script de integração (`test-mcp.sh`) para inglês técnico (Tarefa 39.0) foi concluída com sucesso. Todos os schemas JSON-RPC, descrições de ferramentas, parâmetros, dicas de SRE, docstrings e saídas formatadas operam agora em inglês idiomático de alta densidade semântica, proporcionando máxima economia de tokens e alinhamento de raciocínio com LLMs modernos.
+- **Sistema(s) Envolvido(s):** `docs`, `mcp`, `tests`, `agents`
 - **Tipo de Ação:**
-  - [x] Somente leitura / Documentação / Skills
+  - [x] Somente leitura / Documentação / Skills / MCP
 - **Status:** CONCLUÍDO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] Traduzir 1:1 `skills/github-bug-issue/SKILL.md` para inglês técnico de alta concisão, preservando a semântica, placeholders e fluxo de ponteiros.
-- [x] Traduzir 1:1 `skills/victorialogs-troubleshooting/SKILL.md` (frontmatter description e corpo) para inglês técnico, preservando todas as 9 ferramentas MCP, dicas de SRE, aspas obrigatórias e consultas LogsQL.
-- [x] Traduzir 1:1 `skills/victorialogs-integration/SKILL.md` (frontmatter description e corpo) para inglês técnico, preservando o contrato canônico de campos, regras de stream fields vs campos de eventos, armadilhas e exemplos de linguagens.
-- [x] Traduzir 1:1 `skills/victorialogs-integration/examples/README.md` e os comentários/docstrings dos arquivos de exemplo (`python-loguru`, `python-stdlib`, `nodejs-pino`, `go-slog`) para inglês.
-- [x] Executar `./scripts/install-agent-skills.sh --all` para sincronizar os symlinks locais nos ambientes de agentes (`~/.cursor/skills`, `~/.gemini/config/skills`, `~/.gemini/antigravity/skills`).
-- [x] Garantir coerência técnica absoluta com `README.md`, `README.pt-br.md`, `AGENTS.md` e `.agent/NOTES.md`.
+- [x] Traduzir integralmente `AGENTS.md` para inglês técnico idiomático de alta precisão (preservando todas as regras, limites de hardware, DoD, comandos de validação e diretrizes do MCP).
+- [x] Traduzir `mcp/server.py` para inglês técnico: catálogo de ferramentas JSON-RPC (`TOOLS` - descrições de ferramentas e parâmetros no `inputSchema`), mensagens de erro enriquecidas e dicas de SRE (`enrich_logsql_error`), cabeçalhos e mensagens de resposta das ferramentas (`tool_health_check`, `tool_query_logs`, `tool_get_errors`, `tool_get_context_logs`, `tool_get_log_hits`, etc.) e docstrings.
+- [x] Atualizar a suíte de testes unitários `tests/test_mcp_error_enricher.py` para validar as novas saídas e dicas de SRE em inglês, garantindo 100% de aprovação.
+- [x] Atualizar o script de integração `scripts/test-mcp.sh` com comentários e mensagens em inglês, mantendo a validação completa de conformidade com o protocolo JSON-RPC 2.0.
+- [x] Garantir coerência técnica absoluta com `README.md`, `README.pt-br.md`, `skills/` e `.agent/NOTES.md`.
+- [x] Executar os testes de validação (`python3 -m unittest discover -s tests` e `./scripts/test-mcp.sh`) com 100% de sucesso.
 - [x] Realizar commit semântico em inglês e atualizar o log em `.agent/TASK.md`.
 
 ---
@@ -36,6 +36,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 39.0 | Tradução de AGENTS.md, Servidor MCP e Guias Correlacionados para Inglês Técnico | `6da715e` | 2026-09-15 |
 | 38.0 | Tradução 1:1 das SKILLs para Inglês com Foco em Economia de Tokens e Entendimento de Agentes | `093602d` | 2026-09-15 |
 | 37.0 | Alinhamento das Diretrizes de MCP no `AGENTS.md` e Sincronização da SKILL | `57076a8` | 2026-09-13 |
 | 36.1 | Correção de Conflito Udev e Aplicação Imediata de Scheduler em `tune-disk-host.sh` | `64e4ca0` | 2026-09-12 |
