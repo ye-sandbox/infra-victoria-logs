@@ -14,7 +14,7 @@
 
 ### 📌 Nenhuma tarefa ativa no momento (Aguardando definição do usuário ou backlog)
 
-- **Descrição:** Nenhuma tarefa em andamento. Aguardando novo item prioritário do usuário ou definição de backlog.
+- **Descrição:** Tarefa 45.0 concluída com sucesso. Aguardando autorização para iniciar a próxima tarefa do backlog (46.0).
 - **Sistema(s) Envolvido(s):** N/A
 - **Tipo de Ação:** N/A
 - **Status:** AGUARDANDO TAREFA
@@ -23,7 +23,12 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] [Próxima tarefa a ser definida no backlog]
+- [ ] **46.0** — Clamping Preventivo de 8 KB no `remap_syslog` (paridade com `remap_docker` e `remap_http`)
+- [ ] **47.0** — Parâmetro `max_buckets` e Aviso de Truncamento em `get_log_hits` no Servidor MCP
+- [ ] **48.0** — Parâmetro `service` em `field_names` para Escopo por Aplicação no Servidor MCP
+- [ ] **49.0** — Hardening de Containers: `read_only: true` + `tmpfs` para VictoriaLogs e Vector
+- [ ] **50.0** — Correção do Healthcheck HTTP Real do vmalert (`wget /health` na porta 8880)
+- [ ] **51.0** — Adição de `no-new-privileges: true` em Todos os Containers
 
 ---
 
@@ -31,6 +36,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 45.0 | Alinhamento do Fallback de Retenção Padrão (`30d` → `1y`) no `docker-compose.yml` | `b352a3f` | 2026-09-21 |
 | 43.0 | Governança de Orçamento de Tokens nas SKILLs e Playbook de SRE | `45b6bc0` | 2026-09-21 |
 | 42.0 | Economia de Tokens no Servidor MCP (Colapso Consecutivo, Limpeza ANSI e Projeção `fields`) | `cc78e9f` | 2026-09-21 |
 | 41.0 | Otimização de Ingestão no Vector (Descarte de Scrapes /metrics e Teto Preventivo de Tamanho) | `9692f62` | 2026-09-21 |
@@ -93,8 +99,7 @@
 > uma issue no tracker do projeto (GitHub Issues, Linear, etc.) em vez de inchar
 > este arquivo.
 
-- [ ] [Ideia / feature futura 1]
-- [ ] [Ideia / feature futura 2]
+- [ ] [Ideia / feature futura a ser definida]
 
 ---
 
