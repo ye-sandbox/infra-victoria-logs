@@ -12,24 +12,12 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 43.0: Governança de Orçamento de Tokens nas SKILLs e Playbook de SRE
+### 📌 Nenhuma tarefa ativa no momento (Aguardando definição do usuário ou backlog)
 
-- **Descrição:** Formalizar o funil de triagem eficiente de SRE nas diretrizes e SKILLs de agentes de IA para maximizar a economia de tokens em toda a organização `ye-sandbox`:
-  1. Atualizar `skills/victorialogs-troubleshooting/SKILL.md` formalizando o funil em 3 fases (`get_log_hits` -> `get_errors` -> `get_context_logs`).
-  2. Reduzir limites padrão recomendados (`limit=5..10`) e documentar o uso intensivo do parâmetro `fields` para agentes de IA.
-  3. Sincronizar diretrizes no `AGENTS.md` e `README.md`.
-- **Sistema(s) Envolvido(s):** `skills`, `docs`
-- **Tipo de Ação:**
-  - [x] Documentação / SKILLs / Governança
-- **Status:** PRONTO PARA PLANEJAMENTO
-  *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
-
-### Critérios de Aceite
-- [ ] Formalizar o funil de triagem em 3 fases em `skills/victorialogs-troubleshooting/SKILL.md`.
-- [ ] Atualizar recomendações de limites padrão de amostragem (`limit=5..10`) e uso de `fields`.
-- [ ] Sincronizar diretrizes no `AGENTS.md` e `README.md`.
-- [ ] Atualizar `.agent/NOTES.md` se aplicável.
-- [ ] Realizar commit semântico em inglês e registrar a conclusão no log de tarefas de `.agent/TASK.md`.
+- **Descrição:** Nenhuma tarefa em andamento. Aguardando novo item prioritário do usuário ou definição de backlog.
+- **Sistema(s) Envolvido(s):** N/A
+- **Tipo de Ação:** N/A
+- **Status:** AGUARDANDO TAREFA
 
 ---
 
@@ -43,6 +31,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 43.0 | Governança de Orçamento de Tokens nas SKILLs e Playbook de SRE | `45b6bc0` | 2026-09-21 |
 | 42.0 | Economia de Tokens no Servidor MCP (Colapso Consecutivo, Limpeza ANSI e Projeção `fields`) | `cc78e9f` | 2026-09-21 |
 | 41.0 | Otimização de Ingestão no Vector (Descarte de Scrapes /metrics e Teto Preventivo de Tamanho) | `9692f62` | 2026-09-21 |
 | 40.0 | Supressão Padrão de Ruído de Telemetria (docker-stats e cadvisor) em Buscas Globais no MCP | `913d0cb` | 2026-09-21 |
