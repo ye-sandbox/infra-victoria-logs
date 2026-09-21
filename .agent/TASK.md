@@ -12,36 +12,30 @@
 
 ## Tarefa Ativa
 
-### 📌 Tarefa 42.0: Economia de Tokens no Servidor MCP (Colapso Consecutivo, Limpeza ANSI e Projeção `fields`)
+### 📌 Tarefa 43.0: Governança de Orçamento de Tokens nas SKILLs e Playbook de SRE
 
-- **Descrição:** Otimizar o Servidor MCP nativo (`mcp/server.py`) para reduzir drasticamente o consumo de tokens de contexto do LLM em consultas forenses:
-  1. Implementar colapso de eventos repetidos consecutivos em `tool_query_logs` e `tool_get_context_logs` com marcador `(repeats Nx until HH:MM:SS)`.
-  2. Implementar higienização de sequências de escape ANSI em todas as respostas formatadas em Markdown.
-  3. Adicionar parâmetro opcional `fields` em `tool_query_logs` projetando colunas (`| keep`) e renderizando saída chave-valor ultra-compacta.
-  4. Expandir testes unitários em `tests/test_mcp_error_enricher.py` e validar via `./scripts/test-mcp.sh`.
-- **Sistema(s) Envolvido(s):** `mcp`, `tests`, `docs`
+- **Descrição:** Formalizar o funil de triagem eficiente de SRE nas diretrizes e SKILLs de agentes de IA para maximizar a economia de tokens em toda a organização `ye-sandbox`:
+  1. Atualizar `skills/victorialogs-troubleshooting/SKILL.md` formalizando o funil em 3 fases (`get_log_hits` -> `get_errors` -> `get_context_logs`).
+  2. Reduzir limites padrão recomendados (`limit=5..10`) e documentar o uso intensivo do parâmetro `fields` para agentes de IA.
+  3. Sincronizar diretrizes no `AGENTS.md` e `README.md`.
+- **Sistema(s) Envolvido(s):** `skills`, `docs`
 - **Tipo de Ação:**
-  - [x] Python / MCP / Testes / Documentação
+  - [x] Documentação / SKILLs / Governança
 - **Status:** PRONTO PARA PLANEJAMENTO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [ ] Implementar colapso de logs repetidos consecutivos em `tool_query_logs` e `tool_get_context_logs` com marcador `(repeats Nx until HH:MM:SS)`.
-- [ ] Implementar higienização de sequências de escape ANSI em todas as respostas formatadas em Markdown.
-- [ ] Adicionar parâmetro opcional `fields` em `tool_query_logs` projetando colunas (`| keep`) e renderizando saída chave-valor ultra-compacta.
-- [ ] Expandir testes unitários em `tests/test_mcp_error_enricher.py` e validar via `./scripts/test-mcp.sh`.
-- [ ] Validar conformidade de tipos e protocolo JSON-RPC 2.0.
-- [ ] Atualizar `.agent/NOTES.md` e a documentação técnica relevante.
+- [ ] Formalizar o funil de triagem em 3 fases em `skills/victorialogs-troubleshooting/SKILL.md`.
+- [ ] Atualizar recomendações de limites padrão de amostragem (`limit=5..10`) e uso de `fields`.
+- [ ] Sincronizar diretrizes no `AGENTS.md` e `README.md`.
+- [ ] Atualizar `.agent/NOTES.md` se aplicável.
 - [ ] Realizar commit semântico em inglês e registrar a conclusão no log de tarefas de `.agent/TASK.md`.
 
 ---
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] **Tarefa 43.0: Governança de Orçamento de Tokens nas SKILLs e Playbook de SRE**
-  - Atualizar `skills/victorialogs-troubleshooting/SKILL.md` formalizando o funil de triagem em 3 fases (`get_log_hits` -> `get_errors` -> `get_context_logs`).
-  - Reduzir limites padrão recomendados (`limit=5..10`) e documentar o uso do parâmetro `fields` para agentes de IA da organização.
-  - Sincronizar diretrizes no `AGENTS.md` e `README.md`.
+- [ ] [Próxima tarefa a ser definida no backlog]
 
 ---
 
@@ -49,6 +43,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 42.0 | Economia de Tokens no Servidor MCP (Colapso Consecutivo, Limpeza ANSI e Projeção `fields`) | `cc78e9f` | 2026-09-21 |
 | 41.0 | Otimização de Ingestão no Vector (Descarte de Scrapes /metrics e Teto Preventivo de Tamanho) | `9692f62` | 2026-09-21 |
 | 40.0 | Supressão Padrão de Ruído de Telemetria (docker-stats e cadvisor) em Buscas Globais no MCP | `913d0cb` | 2026-09-21 |
 | 39.0 | Tradução de AGENTS.md, Servidor MCP e Guias Correlacionados para Inglês Técnico | `6da715e` | 2026-09-15 |
