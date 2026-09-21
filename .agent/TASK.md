@@ -14,21 +14,23 @@
 
 ### 📌 Nenhuma tarefa ativa no momento
 
-- **Descrição:** A tradução de `AGENTS.md`, do Servidor MCP (`mcp/server.py`), dos testes unitários (`test_mcp_error_enricher.py`) e do script de integração (`test-mcp.sh`) para inglês técnico (Tarefa 39.0) foi concluída com sucesso. Todos os schemas JSON-RPC, descrições de ferramentas, parâmetros, dicas de SRE, docstrings e saídas formatadas operam agora em inglês idiomático de alta densidade semântica, proporcionando máxima economia de tokens e alinhamento de raciocínio com LLMs modernos.
-- **Sistema(s) Envolvido(s):** `docs`, `mcp`, `tests`, `agents`
+- **Descrição:** A supressão padrão de ruído de telemetria (`docker-stats` e `cadvisor`) em buscas globais no Servidor MCP (`mcp/server.py`) foi implementada e validada com 100% de sucesso (Tarefa 40.0). Todas as consultas não delimitadas por `service` agora filtram automaticamente ruídos de métricas, gerando economia massiva de tokens de contexto para LLMs e entregando resultados forenses limpos e focados nas aplicações reais.
+- **Sistema(s) Envolvido(s):** `mcp`, `tests`, `docs`, `skills`, `agents`
 - **Tipo de Ação:**
   - [x] Somente leitura / Documentação / Skills / MCP
 - **Status:** CONCLUÍDO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] Traduzir integralmente `AGENTS.md` para inglês técnico idiomático de alta precisão (preservando todas as regras, limites de hardware, DoD, comandos de validação e diretrizes do MCP).
-- [x] Traduzir `mcp/server.py` para inglês técnico: catálogo de ferramentas JSON-RPC (`TOOLS` - descrições de ferramentas e parâmetros no `inputSchema`), mensagens de erro enriquecidas e dicas de SRE (`enrich_logsql_error`), cabeçalhos e mensagens de resposta das ferramentas (`tool_health_check`, `tool_query_logs`, `tool_get_errors`, `tool_get_context_logs`, `tool_get_log_hits`, etc.) e docstrings.
-- [x] Atualizar a suíte de testes unitários `tests/test_mcp_error_enricher.py` para validar as novas saídas e dicas de SRE em inglês, garantindo 100% de aprovação.
-- [x] Atualizar o script de integração `scripts/test-mcp.sh` com comentários e mensagens em inglês, mantendo a validação completa de conformidade com o protocolo JSON-RPC 2.0.
-- [x] Garantir coerência técnica absoluta com `README.md`, `README.pt-br.md`, `skills/` e `.agent/NOTES.md`.
-- [x] Executar os testes de validação (`python3 -m unittest discover -s tests` e `./scripts/test-mcp.sh`) com 100% de sucesso.
-- [x] Realizar commit semântico em inglês e atualizar o log em `.agent/TASK.md`.
+- [x] Implementar constante canônica de exclusão de ruído no `mcp/server.py` (`DEFAULT_NOISE_EXCLUSION`).
+- [x] Aplicar exclusão transparente em `tool_query_logs`, `tool_get_errors`, `tool_get_context_logs` e `tool_get_log_hits` quando `service` estiver ausente e a query não fizer menção explícita a esses serviços.
+- [x] Preservar comportamento irrestrito de descoberta no `tool_list_streams`, `tool_field_names` e `tool_field_values`.
+- [x] Permitir consultas explícitas a `service="cadvisor"` ou `service="docker-stats"` sem qualquer bloqueio ou exclusão.
+- [x] Atualizar as descrições das ferramentas no schema JSON-RPC (`TOOLS`) informando os agentes sobre a exclusão padrão em buscas globais.
+- [x] Expandir a suíte de testes unitários `tests/test_mcp_error_enricher.py` cobrindo todos os cenários com e sem filtro de exclusão.
+- [x] Validar conformidade JSON-RPC com `./scripts/test-mcp.sh` com 100% de sucesso.
+- [x] Sincronizar documentação técnica (`README.md`, `README.pt-br.md`, `skills/victorialogs-troubleshooting/SKILL.md` e `.agent/NOTES.md`).
+- [x] Realizar commit semântico em inglês e registrar a conclusão no log de tarefas de `.agent/TASK.md`.
 
 ---
 
@@ -36,6 +38,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 40.0 | Supressão Padrão de Ruído de Telemetria (docker-stats e cadvisor) em Buscas Globais no MCP | `913d0cb` | 2026-09-21 |
 | 39.0 | Tradução de AGENTS.md, Servidor MCP e Guias Correlacionados para Inglês Técnico | `6da715e` | 2026-09-15 |
 | 38.0 | Tradução 1:1 das SKILLs para Inglês com Foco em Economia de Tokens e Entendimento de Agentes | `093602d` | 2026-09-15 |
 | 37.0 | Alinhamento das Diretrizes de MCP no `AGENTS.md` e Sincronização da SKILL | `57076a8` | 2026-09-13 |
