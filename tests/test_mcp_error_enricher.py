@@ -11,7 +11,15 @@ import os
 # Add root directory to path to import mcp.server
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mcp.server import clean_query, enrich_logsql_error, tool_query_logs
+from mcp.server import (
+    DEFAULT_NOISE_EXCLUSION,
+    clean_query,
+    enrich_logsql_error,
+    tool_get_context_logs,
+    tool_get_errors,
+    tool_get_log_hits,
+    tool_query_logs,
+)
 
 
 class TestMcpErrorEnricher(unittest.TestCase):
@@ -90,6 +98,85 @@ class TestMcpErrorEnricher(unittest.TestCase):
         self.assertIn("💡 **SRE Hint:** Query executed globally across the homelab", result)
         self.assertIn("`evolution-api`", result)
         self.assertIn("`nginx`", result)
+
+    @patch("mcp.server.make_request")
+    def test_tool_query_logs_default_noise_exclusion(self, mock_request):
+        mock_request.return_value = '{"_time":"2026-09-21T03:00:00Z","container_name":"app","level":"info","_msg":"ok"}'
+
+        # Test generic query without service
+        tool_query_logs({"query": "level:error", "time_range": "30m"})
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertIn(DEFAULT_NOISE_EXCLUSION, called_query)
+
+        # Test query="*" without service
+        tool_query_logs({"query": "*", "time_range": "30m"})
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertIn(DEFAULT_NOISE_EXCLUSION, called_query)
+
+        # Test explicit service="cadvisor" -> noise exclusion must NOT be added
+        tool_query_logs({"query": "*", "service": "cadvisor", "time_range": "30m"})
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertNotIn(DEFAULT_NOISE_EXCLUSION, called_query)
+        self.assertIn('_stream:{container_name="cadvisor"}', called_query)
+
+        # Test query mentioning "docker-stats" -> noise exclusion must NOT be added
+        tool_query_logs({"query": 'service:"docker-stats"', "time_range": "30m"})
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertNotIn(DEFAULT_NOISE_EXCLUSION, called_query)
+
+    @patch("mcp.server.make_request")
+    def test_tool_get_errors_default_noise_exclusion(self, mock_request):
+        mock_request.return_value = '{"_time":"2026-09-21T03:00:00Z","container_name":"app","level":"error","_msg":"err"}'
+
+        # Without service -> noise exclusion should be added
+        tool_get_errors({"time_range": "1h"})
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertIn(DEFAULT_NOISE_EXCLUSION, called_query)
+
+        # With service="app" -> noise exclusion should NOT be added
+        tool_get_errors({"service": "app", "time_range": "1h"})
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertNotIn(DEFAULT_NOISE_EXCLUSION, called_query)
+        self.assertIn('_stream:{container_name="app"}', called_query)
+
+    @patch("mcp.server.make_request")
+    def test_tool_get_context_logs_default_noise_exclusion(self, mock_request):
+        mock_request.return_value = '{"_time":"2026-09-21T03:00:00Z","container_name":"app","level":"info","_msg":"context"}'
+
+        # Without service -> noise exclusion should be added
+        tool_get_context_logs({"target_timestamp": "2026-09-21T03:00:00Z"})
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertIn(DEFAULT_NOISE_EXCLUSION, called_query)
+
+        # With service -> noise exclusion should NOT be added
+        tool_get_context_logs({"target_timestamp": "2026-09-21T03:00:00Z", "service": "app"})
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertNotIn(DEFAULT_NOISE_EXCLUSION, called_query)
+        self.assertIn('_stream:{container_name="app"}', called_query)
+
+    @patch("mcp.server.make_request")
+    def test_tool_get_log_hits_default_noise_exclusion(self, mock_request):
+        mock_request.return_value = '{"hits":[{"time":"2026-09-21T03:00:00Z","total":10}]}'
+
+        # Generic query "*" -> noise exclusion should be added
+        tool_get_log_hits({"query": "*", "time_range": "1h"})
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertIn(DEFAULT_NOISE_EXCLUSION, called_query)
+
+        # Query targeting cadvisor -> noise exclusion should NOT be added
+        tool_get_log_hits({"query": 'service:"cadvisor"', "time_range": "1h"})
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertNotIn(DEFAULT_NOISE_EXCLUSION, called_query)
 
 
 if __name__ == "__main__":

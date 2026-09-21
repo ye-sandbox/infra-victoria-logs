@@ -33,6 +33,8 @@ When the user reports an issue ("the API crashed", "the worker stopped", "I'm ge
 ```
 
 > ⚠️ **SRE Golden Rule:** NEVER execute generic queries without specifying `service="app-name"`. Global queries pull noise from other homelab containers and waste context tokens unnecessarily. If you don't know the exact service name, run `list_streams()` first.
+>
+> 💡 **Default Telemetry Suppression:** In global searches without `service`, query tools (`query_logs`, `get_errors`, `get_context_logs`, `get_log_hits`) automatically exclude high-frequency telemetry streams (`docker-stats` and `cadvisor`). If you explicitly need to inspect container CPU/RAM stats or cAdvisor logs, specify `service="docker-stats"` or `service="cadvisor"`.
 
 ---
 

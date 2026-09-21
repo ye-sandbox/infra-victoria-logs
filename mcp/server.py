@@ -63,6 +63,9 @@ VL_BASE_URL = get_config("VICTORIALOGS_URL", f"http://{VL_HOST}:{VL_PORT}").rstr
 AUTH_USER = get_config("VICTORIALOGS_AUTH_USERNAME", "")
 AUTH_PASS = get_config("VICTORIALOGS_AUTH_PASSWORD", "")
 
+# Default noise exclusion for global queries (saving LLM context tokens)
+DEFAULT_NOISE_EXCLUSION = 'NOT service:in("docker-stats", "cadvisor") AND NOT container_name:"cadvisor"'
+
 
 def make_request(path: str, params: Optional[Dict[str, Any]] = None, timeout: int = 15) -> str:
     """Executes HTTP request to VictoriaLogs with optional authentication."""
@@ -218,6 +221,8 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
     query = raw_query
     if service and "_stream:" not in query and "container_name:" not in query and "service:" not in query:
         query = f'_stream:{{container_name="{service}"}} AND ({query})'
+    elif not service and "docker-stats" not in query and "cadvisor" not in query:
+        query = f"({query}) AND {DEFAULT_NOISE_EXCLUSION}" if query != "*" else DEFAULT_NOISE_EXCLUSION
 
     # Inject time filter if omitted
     if time_range and "_time:" not in query:
@@ -290,6 +295,8 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
     query_parts = ["level:error"]
     if service:
         query_parts.append(f'_stream:{{container_name="{service}"}}')
+    else:
+        query_parts.append(DEFAULT_NOISE_EXCLUSION)
     if time_range:
         query_parts.append(f"_time:{time_range}")
 
@@ -434,6 +441,8 @@ def tool_get_context_logs(args: Dict[str, Any]) -> str:
     query = f"_time:[{start_iso},{end_iso}]"
     if service:
         query = f'{query} AND (_stream:{{container_name="{service}"}} OR _stream:{{service="{service}"}})'
+    else:
+        query = f'{query} AND ({DEFAULT_NOISE_EXCLUSION})'
 
     query = f"{query} | sort by (_time) asc"
 
@@ -489,8 +498,11 @@ def tool_get_log_hits(args: Dict[str, Any]) -> str:
     step = clean_query(args.get("step", "5m"))
 
     query = raw_query
+    if "docker-stats" not in query and "cadvisor" not in query:
+        query = f"({query}) AND {DEFAULT_NOISE_EXCLUSION}" if query != "*" else DEFAULT_NOISE_EXCLUSION
+
     if time_range and "_time:" not in query:
-        query = f"_time:{time_range} AND ({query})" if query != "*" else f"_time:{time_range}"
+        query = f"_time:{time_range} AND ({query})"
 
     try:
         resp = make_request("/select/logsql/hits", {"query": query, "step": step})
@@ -674,7 +686,7 @@ TOOLS = [
     },
     {
         "name": "query_logs",
-        "description": "Executes advanced queries in VictoriaLogs using LogsQL. Returns clean Markdown with high token savings.",
+        "description": "Executes advanced queries in VictoriaLogs using LogsQL. Returns clean Markdown with high token savings. Excludes high-volume telemetry noise ('docker-stats', 'cadvisor') by default in global queries unless explicitly scoped.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -684,7 +696,7 @@ TOOLS = [
                 },
                 "service": {
                     "type": "string",
-                    "description": "Target homelab application or container name (e.g. 'evolution-api', 'api-gateway', 'nginx'). RECOMMENDED: always set to your task's container/service to avoid noise from other homelab services.",
+                    "description": "Target homelab application or container name (e.g. 'evolution-api', 'api-gateway', 'nginx'). Pass 'cadvisor' or 'docker-stats' explicitly if metric inspection is required. RECOMMENDED: always set to your task's container/service to avoid noise from other homelab services.",
                 },
                 "time_range": {
                     "type": "string",
@@ -714,13 +726,13 @@ TOOLS = [
     },
     {
         "name": "get_errors",
-        "description": "Fast and isolated error and stack trace search. By default, deduplicates repetitive errors while preserving 100% of root cause.",
+        "description": "Fast and isolated error and stack trace search. By default, deduplicates repetitive errors and excludes high-volume telemetry noise ('docker-stats', 'cadvisor') in global queries unless explicitly requested.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "service": {
                     "type": "string",
-                    "description": "Target homelab application or container name (e.g. 'evolution-api', 'api-gateway', 'nginx'). RECOMMENDED: always set to your task's container/service to avoid noise from other homelab services. Only omit for explicit global infrastructure audits.",
+                    "description": "Target homelab application or container name (e.g. 'evolution-api', 'api-gateway', 'nginx'). Pass 'cadvisor' or 'docker-stats' explicitly if metric inspection is required. RECOMMENDED: always set to your task's container/service to avoid noise from other homelab services. Only omit for explicit global infrastructure audits.",
                 },
                 "time_range": {
                     "type": "string",
@@ -748,7 +760,7 @@ TOOLS = [
     },
     {
         "name": "get_context_logs",
-        "description": "Retrieves chronological events immediately before and after an incident timestamp (fore/aft forensic context) to understand root causes of crashes and anomalies.",
+        "description": "Retrieves chronological events immediately before and after an incident timestamp (fore/aft forensic context) to understand root causes of crashes and anomalies. Excludes high-volume telemetry noise ('docker-stats', 'cadvisor') by default unless scoped.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -758,7 +770,7 @@ TOOLS = [
                 },
                 "service": {
                     "type": "string",
-                    "description": "Application or container name to scope context (e.g. 'auth-api').",
+                    "description": "Application or container name to scope context (e.g. 'auth-api'). Pass 'cadvisor' or 'docker-stats' explicitly if metric inspection is required.",
                 },
                 "window_seconds": {
                     "type": "integer",
@@ -782,13 +794,13 @@ TOOLS = [
     },
     {
         "name": "get_log_hits",
-        "description": "Returns time series of event counts per time bucket (/select/logsql/hits) to identify failure spikes.",
+        "description": "Returns time series of event counts per time bucket (/select/logsql/hits) to identify failure spikes. Excludes high-volume telemetry noise ('docker-stats', 'cadvisor') by default unless query targets them.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "LogsQL filter (e.g. 'level:error'). Default: '*'.",
+                    "description": "LogsQL filter (e.g. 'level:error'). Default: '*'. Pass 'cadvisor' or 'docker-stats' explicitly if metric inspection is required.",
                     "default": "*",
                 },
                 "time_range": {

@@ -198,15 +198,18 @@ The repository includes a **native stdio MCP Server** ([`mcp/server.py`](./mcp/s
 #### Available MCP Tools (9 Specialized Tools):
 | Tool Name | Purpose | Token Optimization |
 |---|---|---|
-| `get_errors` | Extracts distinct errors and stack traces with **smart deduplication**, application filtering (`service`), and proactive SRE tips. | High (deduplicates repeated identical errors) |
-| `get_context_logs` | Fetches chronological logs immediately before and after an error timestamp (fore/aft incident window). | High (bounded surrounding context) |
-| `query_logs` | Executes flexible LogsQL queries with `service` scoping, newline sanitization, syntax tips, and compact markdown format (`| keep`). | Configurable |
-| `get_log_hits` | Visual event histogram over time grouped by minutes or hours for rapid anomaly triage. | Extreme (aggregated counts) |
+| `get_errors` | Extracts distinct errors and stack traces with **smart deduplication**, application filtering (`service`), default telemetry noise exclusion, and proactive SRE tips. | High (deduplicates errors, filters noise) |
+| `get_context_logs` | Fetches chronological logs immediately before and after an error timestamp (fore/aft incident window; filters noise by default). | High (bounded surrounding context) |
+| `query_logs` | Executes flexible LogsQL queries with `service` scoping, default telemetry noise exclusion, newline sanitization, syntax tips, and compact markdown format (`| keep`). | Configurable (filters metrics by default) |
+| `get_log_hits` | Visual event histogram over time grouped by minutes or hours for rapid anomaly triage (filters metric noise by default). | Extreme (aggregated counts) |
 | `list_streams` | Instantly lists active containers, services, and hosts via native stream endpoints. | High |
 | `field_names` | Discovers indexed field keys (e.g., `service`, `userId`, `http_status`). | High |
 | `field_values` | Lists the top most frequent values for any indexed field. | High |
 | `documentation` | Built-in offline quick reference for LogsQL syntax, filters, pipes, and regex. | Offline reference |
 | `health_check` | Tests reachability and response latency of VictoriaLogs. | Negligible |
+
+> [!TIP]
+> **Default Telemetry Noise Suppression:** To protect LLM context windows, global queries in `query_logs`, `get_errors`, `get_context_logs`, and `get_log_hits` automatically exclude high-frequency telemetry streams (`docker-stats` and `cadvisor`). If you explicitly need to inspect host metrics or cAdvisor logs, specify `service="docker-stats"` or `service="cadvisor"`.
 
 #### Client Configuration:
 
