@@ -72,6 +72,7 @@ The repository's native MCP server (`mcp/server.py`) exposes **9 optimized tools
   - `query`: `_stream:{service="payments"} AND level:error`
   - `time_range`: `"30m"`, `"1h"`, `"6h"`, `"24h"`
   - `step`: `"1m"`, `"5m"`, `"1h"`
+  - `max_buckets`: `15` (default: `15`, displays most recent buckets; increase if a wider timespan is needed)
 
 ### 3. `get_errors` ⭐ (Phase 2: Primary for Debugging)
 - **When to use:** Extracts errors and multiline stack traces formatted in code blocks without `info` log noise.

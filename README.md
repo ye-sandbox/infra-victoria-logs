@@ -216,7 +216,7 @@ The repository includes a **native stdio MCP Server** ([`mcp/server.py`](./mcp/s
 To prevent context window exhaustion and maximize diagnostic accuracy, AI agents operating on this stack follow the **3-Phase SRE Triage Funnel**:
 
 1. **Phase 1 — Aggregate Time & Spike Triage (`get_log_hits`)**:
-   - Query error counts over time (e.g. `query='_stream:{service="api"} AND level:error'`, `step="1m"` or `"5m"`).
+   - Query error counts over time (e.g. `query='_stream:{service="api"} AND level:error'`, `step="1m"` or `"5m"`, `max_buckets=15`).
    - Zero log body extraction (~50–150 tokens) to pinpoint the exact incident onset without message bloat.
 2. **Phase 2 — Deduplicated Error Isolation (`get_errors`)**:
    - Query with `service="app-name"` and conservative sampling (`limit=5..10`).

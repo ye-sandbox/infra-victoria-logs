@@ -214,7 +214,7 @@ O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py))
 Para evitar o esgotamento da janela de contexto do LLM e maximizar a precisão diagnóstica, agentes de IA devem seguir rigorosamente o **Funil de Triagem em 3 Fases**:
 
 1. **Fase 1 — Triagem Temporal e Detecção de Picos (`get_log_hits`)**:
-   - Consulta a contagem de erros no tempo (ex: `query='_stream:{service="api"} AND level:error'`, `step="1m"` ou `"5m"`).
+   - Consulta a contagem de erros no tempo (ex: `query='_stream:{service="api"} AND level:error'`, `step="1m"` ou `"5m"`, `max_buckets=15`).
    - Extração com zero payload de corpo de log (~50–150 tokens) para isolar o segundo exato do incidente sem poluição.
 2. **Fase 2 — Isolamento de Erros Deduplicados (`get_errors`)**:
    - Consulta delimitada por `service="app-name"` e amostragem conservadora (`limit=5..10`).

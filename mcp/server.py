@@ -670,6 +670,13 @@ def tool_get_log_hits(args: Dict[str, Any]) -> str:
     time_range = clean_query(args.get("time_range", "1h"))
     step = clean_query(args.get("step", "5m"))
 
+    try:
+        max_buckets = int(args.get("max_buckets", 15))
+        if max_buckets <= 0:
+            max_buckets = 15
+    except (ValueError, TypeError):
+        max_buckets = 15
+
     query = raw_query
     if "docker-stats" not in query and "cadvisor" not in query:
         query = f"({query}) AND {DEFAULT_NOISE_EXCLUSION}" if query != "*" else DEFAULT_NOISE_EXCLUSION
@@ -694,10 +701,19 @@ def tool_get_log_hits(args: Dict[str, Any]) -> str:
         "| Interval | Count |",
         "|---|---:|",
     ]
-    for h in hits[-15:]:  # Show up to last 15 buckets
+
+    total_buckets = len(hits)
+    displayed_hits = hits[-max_buckets:] if total_buckets > max_buckets else hits
+
+    for h in displayed_hits:
         ts = h.get("time", "")
         count = h.get("total", 0)
         out.append(f"| {ts} | {count} |")
+
+    if total_buckets > max_buckets:
+        out.append(f"\n*Showing last {max_buckets} of {total_buckets} time buckets. Use 'max_buckets' to expand or adjust 'step' / 'time_range'.*")
+    else:
+        out.append(f"\n*Showing all {total_buckets} time buckets.*")
 
     return "\n".join(out)
 
@@ -989,6 +1005,11 @@ TOOLS = [
                     "type": "string",
                     "description": "Time bucket size (e.g. '1m', '5m', '1h'). Default: '5m'.",
                     "default": "5m",
+                },
+                "max_buckets": {
+                    "type": "integer",
+                    "description": "Maximum number of most recent time buckets to display in the histogram. Default: 15. Set higher if wider timeline is needed.",
+                    "default": 15,
                 },
             },
         },

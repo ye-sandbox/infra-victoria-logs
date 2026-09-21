@@ -5,6 +5,7 @@ Unit tests for the MCP Server query sanitization, error enrichment, and SRE hint
 
 import unittest
 from unittest.mock import patch
+import json
 import sys
 import os
 
@@ -179,6 +180,34 @@ class TestMcpErrorEnricher(unittest.TestCase):
         args, kwargs = mock_request.call_args
         called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
         self.assertNotIn(DEFAULT_NOISE_EXCLUSION, called_query)
+
+    @patch("mcp.server.make_request")
+    def test_tool_get_log_hits_max_buckets(self, mock_request):
+        # 20 mock buckets
+        mock_hits = [{"time": f"2026-09-21T03:{i:02d}:00Z", "total": i + 1} for i in range(20)]
+        mock_request.return_value = json.dumps({"hits": mock_hits})
+
+        # 1. Default max_buckets (15): should show 15 and warn about 20
+        res_default = tool_get_log_hits({"query": 'service:"app"'})
+        self.assertIn("Showing last 15 of 20 time buckets", res_default)
+        self.assertIn("2026-09-21T03:19:00Z", res_default)
+        self.assertNotIn("2026-09-21T03:00:00Z", res_default)  # First bucket omitted
+
+        # 2. Custom max_buckets (5): should show 5 and warn about 20
+        res_5 = tool_get_log_hits({"query": 'service:"app"', "max_buckets": 5})
+        self.assertIn("Showing last 5 of 20 time buckets", res_5)
+        self.assertIn("2026-09-21T03:19:00Z", res_5)
+        self.assertNotIn("2026-09-21T03:14:00Z", res_5)
+
+        # 3. Fits within max_buckets (e.g. max_buckets=30): should show all 20
+        res_30 = tool_get_log_hits({"query": 'service:"app"', "max_buckets": 30})
+        self.assertIn("Showing all 20 time buckets", res_30)
+        self.assertIn("2026-09-21T03:00:00Z", res_30)
+        self.assertIn("2026-09-21T03:19:00Z", res_30)
+
+        # 4. Invalid max_buckets: defaults gracefully to 15
+        res_invalid = tool_get_log_hits({"query": 'service:"app"', "max_buckets": "invalid"})
+        self.assertIn("Showing last 15 of 20 time buckets", res_invalid)
 
     def test_strip_ansi(self):
         self.assertEqual(strip_ansi(""), "")
