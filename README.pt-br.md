@@ -294,7 +294,8 @@ O projeto inclui perfis dinâmicos selecionáveis através da variável `STORAGE
 | **Buffer do Vector** | `memory` (RAM, máx 10.000 eventos) — *Zero escrita dupla no HD mecânico* | `disk` (256 MB persistentes no volume) — *Máxima resiliência contra quedas* | `memory` (5.000 eventos) — *Lookup em RAM de alta velocidade* |
 | **Lotes de Envio (`batch`)** | `2 MB` / `15s` — *Gera gravações sequenciais consolidadas e corta I/O contínuo* | `1 MB` / `1s` — *Logs disponíveis para busca quase instantaneamente* | `1 MB` / `2s` — *Equilíbrio entre latência e throughput* |
 | **Enriquecimento GeoIP** | Desativado (economia de memória) | Desativado (economia de memória) | **Ativo** (extrai país, cidade e ISO de `client_ip`) |
-| **Filtro de Ruído no Edge** | **Ativo** — *Descarta pings vazios (`/health`, `/ping`) para poupar disco* | **Desativado** — *Ingestão de 100% dos logs* | **Desativado** — *Ingestão integral de tráfego web* |
+| **Filtro de Ruído no Edge** | **Ativo** — *Descarta pings de rotina (`/health`, `/ping`, scrapes `GET /metrics`)* | **Ativo** — *Descarta pings de rotina (`/health`, `/ping`, scrapes `GET /metrics`)* | **Ativo** — *Descarta pings de rotina (`/health`, `/ping`, scrapes `GET /metrics`)* |
+| **Clamping Preventivo** | **Ativo** — *Trunca `.message` > 8 KB em logs não-críticos com `.truncated=true`* | **Ativo** — *Trunca `.message` > 8 KB em logs não-críticos com `.truncated=true`* | **Ativo** — *Trunca `.message` > 8 KB em logs não-críticos com `.truncated=true`* |
 | **Flush em Memória (VL)** | `15s` (`VL_INMEMORY_FLUSH_INTERVAL=15s`) — *Reduz merges e fragmentação no HD* | `5s` (`VL_INMEMORY_FLUSH_INTERVAL=5s`) — *Disponibilização rápida no disco* | `15s` |
 | **Concorrência de Busca (VL)**| `2 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=2`) | `4 buscas simultâneas` (`VL_MAX_CONCURRENT_REQUESTS=4`) | `2 buscas simultâneas` |
 

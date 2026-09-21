@@ -51,8 +51,8 @@ transforms:
     source: |
       msg = string(.message) ?? ""
 
-      # OTIMIZAÇÃO: Descarta pings vazios de healthcheck para poupar IOPS
-      if match(msg, r'(?i)\b(healthcheck|kube-probe|GET /health|GET /ping|GET /ready)\b') && !match(msg, r'(?i)\b(error|fail|warn)\b') {
+      # OTIMIZAÇÃO: Descarta pings vazios de healthcheck e scrapes de rotina para poupar IOPS e armazenamento
+      if match(msg, r'(?i)\b(healthcheck|kube-probe|GET /health|GET /ping|GET /ready|GET /metrics|scrape)\b') && !match(msg, r'(?i)\b(error\w*|fail\w*|warn\w*|401|403|500|502|503|504)\b') {
         abort
       }
 
@@ -133,6 +133,16 @@ transforms:
       .env = .env || "production"
       .service = .service || string(.container_name) ?? "unknown"
 
+      # Salvaguarda: Teto preventivo de tamanho de mensagem (clamping em 8 KB para logs não-críticos)
+      if .level != "error" {
+        msg_str = string(.message) ?? ""
+        msg_len = length(msg_str)
+        if msg_len > 8192 {
+          .message = truncate(msg_str, 8192) + " ... [truncated by collector: " + to_string(msg_len) + " bytes total]"
+          .truncated = true
+        }
+      }
+
   remap_syslog:
     type: remap
     inputs:
@@ -202,6 +212,22 @@ transforms:
       }
 
       .message = string(.message) ?? encode_json(.)
+
+      # OTIMIZAÇÃO: Descarta pings vazios de healthcheck e scrapes de rotina para poupar IOPS e armazenamento
+      http_msg = string(.message)
+      if match(http_msg, r'(?i)\b(healthcheck|kube-probe|GET /health|GET /ping|GET /ready|GET /metrics|scrape)\b') && !match(http_msg, r'(?i)\b(error\w*|fail\w*|warn\w*|401|403|500|502|503|504)\b') && (.level != "error" && .level != "warn") {
+        abort
+      }
+
+      # Salvaguarda: Teto preventivo de tamanho de mensagem (clamping em 8 KB para logs não-críticos)
+      if .level != "error" {
+        msg_str = string(.message)
+        msg_len = length(msg_str)
+        if msg_len > 8192 {
+          .message = truncate(msg_str, 8192) + " ... [truncated by collector: " + to_string(msg_len) + " bytes total]"
+          .truncated = true
+        }
+      }
 
 # ------------------------------------------------------------------------------
 # SINKS (Destino: VictoriaLogs)

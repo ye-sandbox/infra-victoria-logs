@@ -297,7 +297,8 @@ Select the storage profile via `STORAGE_PROFILE` in your `.env` file to dynamica
 | **Vector Buffer** | `memory` (RAM, max 10,000 events) — *Zero double disk writes on spinning disks* | `disk` (256 MB persistent volume) — *Crash resilience across restarts* | `memory` (5,000 events) — *Fast in-memory enrichment* |
 | **Batching Strategy** | `2 MB` / `15s` — *Consolidates sequential disk writes, stops continuous I/O* | `1 MB` / `1s` — *Logs visible in queries almost instantly* | `1 MB` / `2s` — *Balanced latency and throughput* |
 | **GeoIP Enrichment** | Disabled (saves memory) | Disabled (saves memory) | **Enabled** (extracts country, city, and ISO from `client_ip`) |
-| **Edge Noise Filter** | **Active** — *Drops healthcheck pings (`/health`, `/ping`) to protect disk* | **Disabled** — *100% log ingestion* | **Disabled** — *Full ingestion of HTTP traffic* |
+| **Edge Noise Filter** | **Active** — *Drops routine pings (`/health`, `/ping`, `GET /metrics` scrapes)* | **Active** — *Drops routine pings (`/health`, `/ping`, `GET /metrics` scrapes)* | **Active** — *Drops routine pings (`/health`, `/ping`, `GET /metrics` scrapes)* |
+| **Oversized Clamping** | **Active** — *Clamps non-error `.message` > 8 KB with `.truncated=true`* | **Active** — *Clamps non-error `.message` > 8 KB with `.truncated=true`* | **Active** — *Clamps non-error `.message` > 8 KB with `.truncated=true`* |
 | **In-Memory Flush (VL)**| `15s` (`VL_INMEMORY_FLUSH_INTERVAL=15s`) — *Reduces small LSM merges on HDD* | `5s` (`VL_INMEMORY_FLUSH_INTERVAL=5s`) — *Rapid disk persistence* | `15s` |
 | **Concurrent Queries (VL)**| `2 queries` (`VL_MAX_CONCURRENT_REQUESTS=2`) | `4 queries` (`VL_MAX_CONCURRENT_REQUESTS=4`) | `2 queries` |
 

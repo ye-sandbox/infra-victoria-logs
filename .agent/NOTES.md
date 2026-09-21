@@ -8,6 +8,13 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-09-21 — Otimização de Ingestão no Vector (Descarte de Scrapes /metrics e Teto Preventivo de Tamanho)
+- **Contexto:** Logs de acesso de rotina a endpoints de métricas (`GET /metrics`) originados de scrapes regulares de Prometheus e vmalert representavam volume considerável de eventos desprovidos de valor diagnóstico forense quando bem-sucedidos (`200 OK`). Além disso, logs anômalos de tamanho excessivo (dumps acidentais de JSON/HTML ou payloads em base64) consumiam desproporcionalmente buffers de memória e janelas de contexto de agentes de IA quando emitidos em níveis informativos.
+- **Decisão:** Implementar duas salvaguardas nos transforms VRL do Vector (`remap_docker` e `remap_http`) em todos os perfis (`vector.yaml`, `vector.hdd.yaml`, `vector.ssd.yaml`, `vector.geoip.yaml`):
+  1. *Supressão de Scrapes de Métricas:* Descarte imediato via `abort` de logs casando com `r'(?i)\b(healthcheck|kube-probe|GET /health|GET /ping|GET /ready|GET /metrics|scrape)\b'` quando ausentes indícios de erro/falha (`r'(?i)\b(error\w*|fail\w*|warn\w*|401|403|500|502|503|504)\b'`) e fora dos níveis `error`/`warn`.
+  2. *Clamping Preventivo de 8 KB:* Truncamento determinístico via `truncate(msg_str, 8192)` em `.message` quando `.level != "error"` e o tamanho excede 8192 caracteres, inserindo o marcador ` ... [truncated by collector: N bytes total]` e a flag booleana `.truncated = true`. Logs com `.level == "error"` e tracebacks nunca sofrem truncamento, preservando a capacidade de análise de causa-raiz.
+- **Consequências:** Redução drástica de ruído de telemetria repetitiva no armazenamento do VictoriaLogs, proteção contra buffer overflows e estouro de contexto em modelos de linguagem, mantendo 100% de integridade e detalhe em logs de erro.
+
 ### 2026-09-21 — Supressão Padrão de Ruído de Telemetria (docker-stats e cadvisor) em Buscas Globais no MCP
 - **Contexto:** Em auditorias da stack via VictoriaLogs, constatou-se que ~87% a 90% do volume total de logs ingeridos no cluster corresponde a telemetria periódica (`docker-stats` coletando CPU/RAM a cada 60s por container) e spam contínuo de advertências inofensivas do cAdvisor (`handler.go:422] Cannot read smaps files for any PID from CONTAINER`, decorrente da falta de privilégios de root para leitura de `/proc/<PID>/smaps`). Quando agentes de IA executavam consultas globais (`query_logs`, `get_errors`, `get_log_hits` ou `get_context_logs` sem o parâmetro `service`), os resultados eram dominados por esse ruído de métricas, gerando desperdício massivo de tokens de contexto do LLM e ofuscando erros reais de aplicações.
 - **Decisão:** Implementar filtro canônico transparente no Servidor MCP (`mcp/server.py`):
