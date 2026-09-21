@@ -433,9 +433,9 @@ Para garantir conformidade contínua e prevenir vulnerabilidades ou permissões 
 
 #### Pilares Inspecionados:
 1. **Permissões do Host:** `.env` protegido com `600`/`400`, bloqueio de commit no Git e scripts executáveis sem permissão de escrita pública (`o+w`).
-2. **Hardening do Docker Compose:** Socket Docker (`/var/run/docker.sock`) montado estritamente como somente leitura (`:ro`), sistema de arquivos raiz imutável (`read_only: true`) com montagens efêmeras (`tmpfs: [/tmp]`), limites de memória aplicados (`<= 80M` e `<= 60M`, total `<= 150M`), prevenção de loops de log (`exclude_containers: ["vector"]`) e healthchecks ativos.
+2. **Hardening do Docker Compose:** Socket Docker (`/var/run/docker.sock`) montado estritamente como somente leitura (`:ro`), sistema de arquivos raiz imutável (`read_only: true`) com montagens efêmeras (`tmpfs: [/tmp]`), bloqueio de escalonamento de privilégios (`security_opt: ["no-new-privileges:true"]`), limites de memória aplicados (`<= 80M` e `<= 60M`, total `<= 150M`), prevenção de loops de log (`exclude_containers: ["vector"]`) e healthchecks ativos.
 3. **Exposição de Rede:** Auditoria de portas abertas em `0.0.0.0` desprotegidas e verificação de HTTP Basic Auth.
-4. **Runtime Real:** Validação de limites de memória, sistema de arquivos raiz somente leitura (`ReadonlyRootfs`) e montagem `:ro` aplicados diretamente nos containers em execução.
+4. **Runtime Real:** Validação de limites de memória, sistema de arquivos raiz somente leitura (`ReadonlyRootfs`), montagem `:ro` do socket Docker e `no-new-privileges` aplicados diretamente nos containers em execução (`HostConfig.SecurityOpt`).
 
 ---
 

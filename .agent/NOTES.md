@@ -8,6 +8,15 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-09-21 — Bloqueio de Escalonamento de Privilégios (`no-new-privileges: true`) em Todos os Containers
+- **Contexto:** Embora os containers da stack já operassem com `read_only: true` (rootfs imutável) e `tmpfs: [/tmp]` (escrita volátil segregada), ainda era possível que processos internos explorassem binários com bit SUID ou SGID (`su`, `sudo`, `ping`, `mount`, ou qualquer binário comprometido via exploração de pacote) para elevar privilégios de um usuário sem privilégios para root dentro do namespace do container. Essa técnica é frequentemente explorada como segundo estágio de ataques *container escape* em ambientes Linux.
+- **Decisão:**
+  1. *Flag de Kernel `PR_SET_NO_NEW_PRIVS`:* Configurar `security_opt: ["no-new-privileges:true"]` em todos os serviços (`victorialogs`, `vector` e `vmalert`) no `docker-compose.yml`. Isso aciona a syscall `prctl(PR_SET_NO_NEW_PRIVS, 1)` no processo raiz do container e em todos os seus descendentes, impedindo irreversivelmente qualquer elevação de privilégio via SUID/SGID no ciclo de vida do container.
+  2. *Compatibilidade Zero-Impacto:* Os três componentes são binários Go (`victorialogs`, `vmalert`) e Rust (`vector`) auto-contidos em imagens distroless e Alpine, sem dependência de utilitários SUID no caminho de execução normal. O flag não impacta funcionalidade operacional.
+  3. *Auditoria Estática e de Runtime:* Adicionar verificação `COMPOSE-NO-NEW-PRIVS` (análise estática via `docker compose config --format json`) e `RUNTIME-VL-NO-NEW-PRIVS` / `RUNTIME-VEC-NO-NEW-PRIVS` (inspeção em runtime via `docker inspect --format '{{json .HostConfig.SecurityOpt}}'`) no script `scripts/audit-security.sh`.
+  4. *Sincronização de Documentação:* Atualizar `docs/proxmox-hardening.md` (nova seção 4.5), `SECURITY.md` (item 5 nas Boas Práticas), `README.md` e `README.pt-br.md` (pilares 2 e 4 da auditoria de segurança).
+- **Consequências:** Terceiro pilar do hardening de containers (após `read_only` e `tmpfs`), consolidando proteção de nível enterprise contra escalonamento de privilégios com zero overhead de performance e total retrocompatibilidade com runtimes distroless e Alpine.
+
 ### 2026-09-21 — Sonda de Saúde HTTP Real no vmalert via BusyBox wget (`/health`)
 - **Contexto:** Anteriormente, o container do `vmalert` utilizava um healthcheck genérico de execução do binário (`["CMD", "/vmalert-prod", "-version"]`). Embora confirmasse que o executável estava íntegro, essa sonda não validava o funcionamento do servidor HTTP interno, o carregamento do arquivo de regras (`rules.yaml`) nem a capacidade de o serviço responder a requisições de saúde. Enquanto o VictoriaLogs utiliza uma imagem estritamente distroless (`gcr.io/distroless/static`) que carece de qualquer shell ou utilitário HTTP e depende do healthcheck via binário nativo, a imagem oficial do `vmalert` (`victoriametrics/vmalert`) é baseada em Alpine Linux e contém o utilitário BusyBox `/usr/bin/wget` e o shell `/bin/sh`.
 - **Decisão:**

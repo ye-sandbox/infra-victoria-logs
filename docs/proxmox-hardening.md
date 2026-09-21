@@ -161,7 +161,21 @@ Para evitar que tempestades acidentais de logs disparem o *Out of Memory (OOM) K
 - O ponto de montagem volátil `tmpfs: ["/tmp"]` garante suporte a buffers temporários de runtime sem persistir dados no disco e sem poluir o host.
 - A persistência legítima de dados ocorre estritamente em volumes dedicados e gerenciados (`victorialogs_data:/victoria-logs-data` e `vector_data:/var/lib/vector`).
 
-### 4.5 Permissões de Arquivos no Host
+### 4.5 Bloqueio de Escalonamento de Privilégios (`security_opt: no-new-privileges`)
+- Todos os serviços da stack (`victorialogs`, `vector` e `vmalert`) operam com o flag de kernel `PR_SET_NO_NEW_PRIVS` ativo:
+  ```yaml
+  security_opt:
+    - no-new-privileges:true
+  ```
+- Essa diretiva aciona a syscall `prctl(PR_SET_NO_NEW_PRIVS, 1)` no processo raiz do container, garantindo que **nenhum processo filho** possa elevar permissões via binários com bit SUID ou SGID (como `su`, `sudo`, `ping`, `mount` etc.), mesmo que um atacante consiga executar código arbitrário dentro do container.
+- Como os três componentes da stack são binários Go/Rust auto-contidos e não dependem de utilitários SUID, esse hardening não provoca nenhuma degradação funcional.
+- Verifique a aplicação em runtime com:
+  ```bash
+  docker inspect victorialogs --format '{{json .HostConfig.SecurityOpt}}'
+  docker inspect vector --format '{{json .HostConfig.SecurityOpt}}'
+  ```
+
+### 4.6 Permissões de Arquivos no Host
 Arquivos de configuração e segredos no host devem possuir permissões restritivas:
 ```bash
 # Permissão estrita no .env (leitura/escrita apenas pelo proprietário)

@@ -66,8 +66,9 @@ Checagens executadas:
   [Compose] Prevenção de loop recursivo de logs (exclude_containers: ["vector"])
   [Compose] Healthchecks e políticas de reinicialização configuradas
   [Compose] Hardening de containers (read_only: true) e tmpfs (/tmp)
+  [Compose] Bloqueio de escalonamento de privilégios (no-new-privileges: true)
   [Network] Auditoria de portas abertas em 0.0.0.0 vs proteção com HTTP Basic Auth
-  [Runtime] Validação de limites aplicados e rootfs somente leitura nos containers ativos
+  [Runtime] Validação de limites aplicados, rootfs somente leitura e no-new-privileges nos containers ativos
 EOF
       exit 0
       ;;
@@ -449,6 +450,42 @@ print("true" if (vl_tmp and vec_tmp) else "false")
   else
     record_result "COMPOSE-TMPFS-TMP" "DockerCompose" "WARN" "Montagem tmpfs (/tmp) ausente em containers com read_only ativo" "Configure 'tmpfs: [/tmp]' no docker-compose.yml"
   fi
+
+  # 2.9 Bloqueio de escalonamento de privilégios (security_opt: [no-new-privileges:true])
+  NO_NEW_PRIVS_OK=false
+  if [[ -n "${COMPOSE_JSON}" ]] && command -v python3 &>/dev/null; then
+    NO_NEW_PRIVS_OK=$(echo "${COMPOSE_JSON}" | python3 -c '
+import sys, json
+data = json.load(sys.stdin)
+svcs = data.get("services", {})
+def has_no_new_privs(svc):
+    opts = svc.get("security_opt", [])
+    if isinstance(opts, list):
+        return any("no-new-privileges:true" in str(opt).lower() or "no-new-privileges" in str(opt).lower() for opt in opts)
+    if isinstance(opts, str):
+        return "no-new-privileges" in opts.lower()
+    return False
+
+vl_np = has_no_new_privs(svcs.get("victorialogs", {}))
+vec_np = has_no_new_privs(svcs.get("vector", {}))
+vma = svcs.get("vmalert")
+vma_np = True if vma is None else has_no_new_privs(vma)
+print("true" if (vl_np and vec_np and vma_np) else "false")
+' 2>/dev/null || echo "false")
+  else
+    if grep -q "victorialogs:" "${COMPOSE_FILE}" && grep -q "vector:" "${COMPOSE_FILE}"; then
+      if grep -A 15 "victorialogs:" "${COMPOSE_FILE}" | grep -q "no-new-privileges" && \
+         grep -A 15 "vector:" "${COMPOSE_FILE}" | grep -q "no-new-privileges"; then
+        NO_NEW_PRIVS_OK=true
+      fi
+    fi
+  fi
+
+  if [[ "${NO_NEW_PRIVS_OK}" == "true" ]]; then
+    record_result "COMPOSE-NO-NEW-PRIVS" "DockerCompose" "PASS" "Bloqueio de escalonamento de privilégios (no-new-privileges: true) configurado nos serviços" ""
+  else
+    record_result "COMPOSE-NO-NEW-PRIVS" "DockerCompose" "WARN" "Bloqueio de privilégios (no-new-privileges: true) ausente em serviços do Compose" "Configure 'security_opt: [\"no-new-privileges:true\"]' para mitigar escalonamento de privilégios"
+  fi
 fi
 
 # ==============================================================================
@@ -527,6 +564,14 @@ if command -v docker &>/dev/null && docker info &>/dev/null; then
     else
       record_result "RUNTIME-VL-READONLY" "Runtime" "WARN" "Container victorialogs ativo SEM sistema de arquivos raiz somente leitura (ReadonlyRootfs=false)" "Reinicie os containers com 'docker compose up -d --force-recreate'"
     fi
+
+    # Checar se o kernel aplicou no-new-privileges ao victorialogs
+    VL_RUN_NNP=$(docker inspect victorialogs --format '{{json .HostConfig.SecurityOpt}}' 2>/dev/null || echo "null")
+    if echo "${VL_RUN_NNP}" | grep -qi "no-new-privileges"; then
+      record_result "RUNTIME-VL-NO-NEW-PRIVS" "Runtime" "PASS" "Container victorialogs ativo com no-new-privileges aplicado no kernel (SecurityOpt confirmado)" ""
+    else
+      record_result "RUNTIME-VL-NO-NEW-PRIVS" "Runtime" "WARN" "Container victorialogs ativo SEM no-new-privileges no kernel (escalonamento de privilégios possível)" "Reinicie os containers com 'docker compose up -d --force-recreate'"
+    fi
   else
     record_result "RUNTIME-VL-STATUS" "Runtime" "PASS" "Container victorialogs não está em execução (inspeção de runtime ignorada)" ""
   fi
@@ -555,6 +600,14 @@ if command -v docker &>/dev/null && docker info &>/dev/null; then
       record_result "RUNTIME-VEC-SOCK-RO" "Runtime" "PASS" "Montagem ativa de /var/run/docker.sock no container vector é somente leitura (RW=false)" ""
     elif [[ "${SOCK_RO}" == "true" ]]; then
       record_result "RUNTIME-VEC-SOCK-RO" "Runtime" "FAIL" "Montagem ativa de /var/run/docker.sock no container vector possui permissão de ESCRITA (RW=true)" "Reinicie os containers com 'docker compose up -d --force-recreate'"
+    fi
+
+    # Checar se o kernel aplicou no-new-privileges ao vector
+    VEC_RUN_NNP=$(docker inspect vector --format '{{json .HostConfig.SecurityOpt}}' 2>/dev/null || echo "null")
+    if echo "${VEC_RUN_NNP}" | grep -qi "no-new-privileges"; then
+      record_result "RUNTIME-VEC-NO-NEW-PRIVS" "Runtime" "PASS" "Container vector ativo com no-new-privileges aplicado no kernel (SecurityOpt confirmado)" ""
+    else
+      record_result "RUNTIME-VEC-NO-NEW-PRIVS" "Runtime" "WARN" "Container vector ativo SEM no-new-privileges no kernel (escalonamento de privilégios possível)" "Reinicie os containers com 'docker compose up -d --force-recreate'"
     fi
   else
     record_result "RUNTIME-VEC-STATUS" "Runtime" "PASS" "Container vector não está em execução (inspeção de runtime ignorada)" ""

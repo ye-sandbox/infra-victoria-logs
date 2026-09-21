@@ -6,6 +6,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    security_opt:
+      - no-new-privileges:true
     stop_grace_period: 30s
     ulimits:
       nofile:
@@ -53,6 +55,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    security_opt:
+      - no-new-privileges:true
     stop_grace_period: 15s
     environment:
       VECTOR_LOG: ${VECTOR_LOG_LEVEL:-warn}
@@ -99,6 +103,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - alerting
     command:
