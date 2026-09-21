@@ -12,25 +12,36 @@
 
 ## Tarefa Ativa
 
-### 📌 Nenhuma tarefa ativa no momento
+### 📌 Tarefa 42.0: Economia de Tokens no Servidor MCP (Colapso Consecutivo, Limpeza ANSI e Projeção `fields`)
 
-- **Descrição:** A supressão padrão de ruído de telemetria (`docker-stats` e `cadvisor`) em buscas globais no Servidor MCP (`mcp/server.py`) foi implementada e validada com 100% de sucesso (Tarefa 40.0). Todas as consultas não delimitadas por `service` agora filtram automaticamente ruídos de métricas, gerando economia massiva de tokens de contexto para LLMs e entregando resultados forenses limpos e focados nas aplicações reais.
-- **Sistema(s) Envolvido(s):** `mcp`, `tests`, `docs`, `skills`, `agents`
+- **Descrição:** Otimizar o Servidor MCP nativo (`mcp/server.py`) para reduzir drasticamente o consumo de tokens de contexto do LLM em consultas forenses:
+  1. Implementar colapso de eventos repetidos consecutivos em `tool_query_logs` e `tool_get_context_logs` com marcador `(repeats Nx until HH:MM:SS)`.
+  2. Implementar higienização de sequências de escape ANSI em todas as respostas formatadas em Markdown.
+  3. Adicionar parâmetro opcional `fields` em `tool_query_logs` projetando colunas (`| keep`) e renderizando saída chave-valor ultra-compacta.
+  4. Expandir testes unitários em `tests/test_mcp_error_enricher.py` e validar via `./scripts/test-mcp.sh`.
+- **Sistema(s) Envolvido(s):** `mcp`, `tests`, `docs`
 - **Tipo de Ação:**
-  - [x] Somente leitura / Documentação / Skills / MCP
-- **Status:** CONCLUÍDO
+  - [x] Python / MCP / Testes / Documentação
+- **Status:** PRONTO PARA PLANEJAMENTO
   *(Fluxo: Definido como `PRONTO PARA PLANEJAMENTO` -> Agente assume como `EM PLANEJAMENTO` ao apresentar plano -> Usuário aprova -> Agente altera para `EM EXECUÇÃO` ao codificar)*
 
 ### Critérios de Aceite
-- [x] Implementar constante canônica de exclusão de ruído no `mcp/server.py` (`DEFAULT_NOISE_EXCLUSION`).
-- [x] Aplicar exclusão transparente em `tool_query_logs`, `tool_get_errors`, `tool_get_context_logs` e `tool_get_log_hits` quando `service` estiver ausente e a query não fizer menção explícita a esses serviços.
-- [x] Preservar comportamento irrestrito de descoberta no `tool_list_streams`, `tool_field_names` e `tool_field_values`.
-- [x] Permitir consultas explícitas a `service="cadvisor"` ou `service="docker-stats"` sem qualquer bloqueio ou exclusão.
-- [x] Atualizar as descrições das ferramentas no schema JSON-RPC (`TOOLS`) informando os agentes sobre a exclusão padrão em buscas globais.
-- [x] Expandir a suíte de testes unitários `tests/test_mcp_error_enricher.py` cobrindo todos os cenários com e sem filtro de exclusão.
-- [x] Validar conformidade JSON-RPC com `./scripts/test-mcp.sh` com 100% de sucesso.
-- [x] Sincronizar documentação técnica (`README.md`, `README.pt-br.md`, `skills/victorialogs-troubleshooting/SKILL.md` e `.agent/NOTES.md`).
-- [x] Realizar commit semântico em inglês e registrar a conclusão no log de tarefas de `.agent/TASK.md`.
+- [ ] Implementar colapso de logs repetidos consecutivos em `tool_query_logs` e `tool_get_context_logs` com marcador `(repeats Nx until HH:MM:SS)`.
+- [ ] Implementar higienização de sequências de escape ANSI em todas as respostas formatadas em Markdown.
+- [ ] Adicionar parâmetro opcional `fields` em `tool_query_logs` projetando colunas (`| keep`) e renderizando saída chave-valor ultra-compacta.
+- [ ] Expandir testes unitários em `tests/test_mcp_error_enricher.py` e validar via `./scripts/test-mcp.sh`.
+- [ ] Validar conformidade de tipos e protocolo JSON-RPC 2.0.
+- [ ] Atualizar `.agent/NOTES.md` e a documentação técnica relevante.
+- [ ] Realizar commit semântico em inglês e registrar a conclusão no log de tarefas de `.agent/TASK.md`.
+
+---
+
+## Backlog (Próximas, em ordem)
+
+- [ ] **Tarefa 43.0: Governança de Orçamento de Tokens nas SKILLs e Playbook de SRE**
+  - Atualizar `skills/victorialogs-troubleshooting/SKILL.md` formalizando o funil de triagem em 3 fases (`get_log_hits` -> `get_errors` -> `get_context_logs`).
+  - Reduzir limites padrão recomendados (`limit=5..10`) e documentar o uso do parâmetro `fields` para agentes de IA da organização.
+  - Sincronizar diretrizes no `AGENTS.md` e `README.md`.
 
 ---
 
@@ -38,6 +49,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 41.0 | Otimização de Ingestão no Vector (Descarte de Scrapes /metrics e Teto Preventivo de Tamanho) | `9692f62` | 2026-09-21 |
 | 40.0 | Supressão Padrão de Ruído de Telemetria (docker-stats e cadvisor) em Buscas Globais no MCP | `913d0cb` | 2026-09-21 |
 | 39.0 | Tradução de AGENTS.md, Servidor MCP e Guias Correlacionados para Inglês Técnico | `6da715e` | 2026-09-15 |
 | 38.0 | Tradução 1:1 das SKILLs para Inglês com Foco em Economia de Tokens e Entendimento de Agentes | `093602d` | 2026-09-15 |
@@ -87,12 +99,6 @@
 | 11.3 | Otimização do Host (noatime, mq-deadline e APM) | `c8bc25d` | 2026-09-05 |
 | 12.0 | Contrato JSON na skill de integração e descoberta Cursor | `3a69f85` | 2026-09-06 |
 | 13.0 | Skill github-bug-issue (fila GitHub + ponteiro VictoriaLogs) | `62e9535` | 2026-09-06 |
-
----
-
-## Backlog (Próximas, em ordem)
-
-*(Nenhuma tarefa pendente no backlog ordenado. Stack e governança comunitária 100% implementadas e validadas).*
 
 ---
 
