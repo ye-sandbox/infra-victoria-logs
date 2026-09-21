@@ -39,4 +39,5 @@ Para proteger o seu servidor e os logs da sua infraestrutura:
 1. **Permissões do Arquivo `.env`:** Garanta que o arquivo `.env` contenha permissões restritas (`chmod 600 .env`) para que outros usuários do host não tenham acesso a senhas ou parâmetros sensíveis.
 2. **Isolamento do Docker Socket:** Nunca monte `/var/run/docker.sock` com permissão de escrita (`:rw`). A stack já vem pré-configurada com `:ro` (somente leitura).
 3. **Autenticação em Redes Abertas:** Se a porta `9428` for exposta fora de `127.0.0.1` em redes sem firewall, ative obrigatoriamente `VICTORIALOGS_AUTH_USERNAME` e `VICTORIALOGS_AUTH_PASSWORD`.
-4. **Auditoria Automatizada:** Execute regularmente `./scripts/audit-security.sh --strict` para certificar que as permissões e limites de memória continuam em conformidade.
+4. **Sistema de Arquivos Raiz Somente Leitura:** Os containers operam com `read_only: true` e `tmpfs: [/tmp]`, impedindo modificações em binários ou persistência arbitrária de arquivos fora dos volumes de dados.
+5. **Auditoria Automatizada:** Execute regularmente `./scripts/audit-security.sh --strict` para certificar que as permissões, isolamento e limites de memória continuam em conformidade.

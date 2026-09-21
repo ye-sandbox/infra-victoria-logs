@@ -65,8 +65,9 @@ Checagens executadas:
   [Compose] Limites de memória ativos e rígidos (VictoriaLogs <= 80M, Vector <= 60M, Total <= 150M)
   [Compose] Prevenção de loop recursivo de logs (exclude_containers: ["vector"])
   [Compose] Healthchecks e políticas de reinicialização configuradas
+  [Compose] Hardening de containers (read_only: true) e tmpfs (/tmp)
   [Network] Auditoria de portas abertas em 0.0.0.0 vs proteção com HTTP Basic Auth
-  [Runtime] Validação de limites aplicados nos containers Docker ativos
+  [Runtime] Validação de limites aplicados e rootfs somente leitura nos containers ativos
 EOF
       exit 0
       ;;
@@ -387,6 +388,66 @@ print("true" if (vl_rst and vec_rst) else "false")
   else
     record_result "COMPOSE-RESTART-POLICY" "DockerCompose" "WARN" "Política de reinicialização não configurada ou insegura" "Configure 'restart: unless-stopped'"
   fi
+
+  # 2.7 Sistema de arquivos raiz somente leitura (read_only: true)
+  READ_ONLY_OK=false
+  if [[ -n "${COMPOSE_JSON}" ]] && command -v python3 &>/dev/null; then
+    READ_ONLY_OK=$(echo "${COMPOSE_JSON}" | python3 -c '
+import sys, json
+data = json.load(sys.stdin)
+svcs = data.get("services", {})
+vl_ro = svcs.get("victorialogs", {}).get("read_only", False) is True
+vec_ro = svcs.get("vector", {}).get("read_only", False) is True
+print("true" if (vl_ro and vec_ro) else "false")
+' 2>/dev/null || echo "false")
+  else
+    if grep -q "victorialogs:" "${COMPOSE_FILE}" && grep -q "vector:" "${COMPOSE_FILE}"; then
+      if grep -A 10 "victorialogs:" "${COMPOSE_FILE}" | grep -q "read_only: true" && \
+         grep -A 10 "vector:" "${COMPOSE_FILE}" | grep -q "read_only: true"; then
+        READ_ONLY_OK=true
+      fi
+    fi
+  fi
+
+  if [[ "${READ_ONLY_OK}" == "true" ]]; then
+    record_result "COMPOSE-READ-ONLY-ROOTFS" "DockerCompose" "PASS" "Containers principais (victorialogs e vector) configurados com sistema de arquivos somente leitura (read_only: true)" ""
+  else
+    record_result "COMPOSE-READ-ONLY-ROOTFS" "DockerCompose" "WARN" "Sistema de arquivos somente leitura (read_only: true) ausente em victorialogs ou vector" "Configure 'read_only: true' no docker-compose.yml para endurecimento de segurança"
+  fi
+
+  # 2.8 Montagem tmpfs para arquivos efêmeros (/tmp)
+  TMPFS_OK=false
+  if [[ -n "${COMPOSE_JSON}" ]] && command -v python3 &>/dev/null; then
+    TMPFS_OK=$(echo "${COMPOSE_JSON}" | python3 -c '
+import sys, json
+data = json.load(sys.stdin)
+svcs = data.get("services", {})
+def has_tmpfs(svc):
+    t = svc.get("tmpfs", [])
+    if isinstance(t, list):
+        return any("/tmp" in str(item) for item in t)
+    if isinstance(t, str):
+        return "/tmp" in t
+    return False
+
+vl_tmp = has_tmpfs(svcs.get("victorialogs", {}))
+vec_tmp = has_tmpfs(svcs.get("vector", {}))
+print("true" if (vl_tmp and vec_tmp) else "false")
+' 2>/dev/null || echo "false")
+  else
+    if grep -q "victorialogs:" "${COMPOSE_FILE}" && grep -q "vector:" "${COMPOSE_FILE}"; then
+      if grep -A 12 "victorialogs:" "${COMPOSE_FILE}" | grep -q "/tmp" && \
+         grep -A 12 "vector:" "${COMPOSE_FILE}" | grep -q "/tmp"; then
+        TMPFS_OK=true
+      fi
+    fi
+  fi
+
+  if [[ "${TMPFS_OK}" == "true" ]]; then
+    record_result "COMPOSE-TMPFS-TMP" "DockerCompose" "PASS" "Montagem tmpfs (/tmp) configurada para suportar escritas efêmeras sob rootfs somente leitura" ""
+  else
+    record_result "COMPOSE-TMPFS-TMP" "DockerCompose" "WARN" "Montagem tmpfs (/tmp) ausente em containers com read_only ativo" "Configure 'tmpfs: [/tmp]' no docker-compose.yml"
+  fi
 fi
 
 # ==============================================================================
@@ -457,6 +518,14 @@ if command -v docker &>/dev/null && docker info &>/dev/null; then
     else
       record_result "RUNTIME-VL-MEM" "Runtime" "WARN" "Container victorialogs ativo com limite de memória de $((VL_RUN_MEM / 1024 / 1024))MB (> 80MB)" ""
     fi
+
+    # Checar se o sistema de arquivos raiz do victorialogs é somente leitura
+    VL_RUN_RO=$(docker inspect victorialogs --format '{{.HostConfig.ReadonlyRootfs}}' 2>/dev/null || echo "false")
+    if [[ "${VL_RUN_RO}" == "true" ]]; then
+      record_result "RUNTIME-VL-READONLY" "Runtime" "PASS" "Container victorialogs ativo com sistema de arquivos raiz somente leitura (ReadonlyRootfs=true)" ""
+    else
+      record_result "RUNTIME-VL-READONLY" "Runtime" "WARN" "Container victorialogs ativo SEM sistema de arquivos raiz somente leitura (ReadonlyRootfs=false)" "Reinicie os containers com 'docker compose up -d --force-recreate'"
+    fi
   else
     record_result "RUNTIME-VL-STATUS" "Runtime" "PASS" "Container victorialogs não está em execução (inspeção de runtime ignorada)" ""
   fi
@@ -469,6 +538,14 @@ if command -v docker &>/dev/null && docker info &>/dev/null; then
       record_result "RUNTIME-VEC-MEM" "Runtime" "FAIL" "Container vector ativo SEM limite de memória no kernel (HostConfig.Memory == 0)" "Suba com 'docker compose up -d' respeitando o compose"
     else
       record_result "RUNTIME-VEC-MEM" "Runtime" "WARN" "Container vector ativo com limite de memória de $((VEC_RUN_MEM / 1024 / 1024))MB (> 60MB)" ""
+    fi
+
+    # Checar se o sistema de arquivos raiz do vector é somente leitura
+    VEC_RUN_RO=$(docker inspect vector --format '{{.HostConfig.ReadonlyRootfs}}' 2>/dev/null || echo "false")
+    if [[ "${VEC_RUN_RO}" == "true" ]]; then
+      record_result "RUNTIME-VEC-READONLY" "Runtime" "PASS" "Container vector ativo com sistema de arquivos raiz somente leitura (ReadonlyRootfs=true)" ""
+    else
+      record_result "RUNTIME-VEC-READONLY" "Runtime" "WARN" "Container vector ativo SEM sistema de arquivos raiz somente leitura (ReadonlyRootfs=false)" "Reinicie os containers com 'docker compose up -d --force-recreate'"
     fi
 
     # Checar se a montagem do docker.sock no container vector ativo é somente leitura

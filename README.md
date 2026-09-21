@@ -424,9 +424,9 @@ Validate host security, file permissions, and Compose hardening with the built-i
 
 #### Pillars Inspected:
 1. **Host Permissions:** `.env` restricted to `600`/`400`, excluded from Git, and scripts free of world-writable (`o+w`) permissions.
-2. **Docker Compose Hardening:** Docker socket (`/var/run/docker.sock`) mounted strictly read-only (`:ro`), hard memory limits enforced (`<= 80M` and `<= 60M`, total `<= 150M`), log loop prevention (`exclude_containers: ["vector"]`), and active healthchecks.
+2. **Docker Compose Hardening:** Docker socket (`/var/run/docker.sock`) mounted strictly read-only (`:ro`), immutable root filesystem (`read_only: true`) with ephemeral volatile mounts (`tmpfs: [/tmp]`), hard memory limits enforced (`<= 80M` and `<= 60M`, total `<= 150M`), log loop prevention (`exclude_containers: ["vector"]`), and active healthchecks.
 3. **Network Exposure:** Flags unauthenticated public ports listening on `0.0.0.0`.
-4. **Runtime Inspection:** Verifies that active kernel cgroups match the configured limits.
+4. **Runtime Inspection:** Verifies that active kernel cgroups match configured limits, `/var/run/docker.sock` is read-only, and running containers enforce read-only root filesystems.
 
 ---
 

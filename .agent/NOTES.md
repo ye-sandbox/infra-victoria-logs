@@ -8,6 +8,15 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-09-21 — Hardening de Containers: `read_only: true` + `tmpfs` para VictoriaLogs, Vector e vmalert
+- **Contexto:** Em ambientes de produção e homelab (especialmente servidores Proxmox com múltiplos containers), containers que rodam com sistemas de arquivos raiz graváveis (`rw`) expõem uma superfície de ataque considerável: caso um container seja comprometido (via vulnerabilidade de dependência, injeção em logs ou exploração de socket), o invasor pode alterar binários, injetar scripts maliciosos em cron/init, ou persistir artefatos no rootfs. Tanto o VictoriaLogs quanto o Vector e o vmalert são binários autocontidos que não dependem de gravação na árvore do sistema operacional para operar, desde que seus caminhos de dados dedicados permaneçam mapeados para volumes externos e um diretório volátil `/tmp` esteja acessível para operações efêmeras.
+- **Decisão:**
+  1. *Rootfs Imutável (`read_only: true`):* Ativar `read_only: true` em todos os serviços do `docker-compose.yml` (`victorialogs`, `vector` e `vmalert`). Isso bloqueia qualquer gravação em `/etc`, `/bin`, `/usr`, `/var` ou no sistema raiz do container.
+  2. *Memória Volátil Efêmera (`tmpfs: ["/tmp"]`):* Prover montagens `tmpfs` em `/tmp` para cada container. Isso permite que operações temporárias do runtime Go (VictoriaLogs/vmalert) e do Alpine/Rust (Vector) ocorram na RAM sem tocar o disco físico e sem risco de contaminação persistente.
+  3. *Auditoria Automatizada:* Atualizar `scripts/audit-security.sh` para auditar a configuração estática no Docker Compose (`COMPOSE-READ-ONLY-ROOTFS` e `COMPOSE-TMPFS-TMP`) e inspecionar o estado de execução no kernel dos containers ativos (`RUNTIME-VL-READONLY` e `RUNTIME-VEC-READONLY` via `HostConfig.ReadonlyRootfs`).
+  4. *Sincronização de Documentação:* Documentar as salvaguardas no guia de hardening do Proxmox (`docs/proxmox-hardening.md`), na política de segurança (`SECURITY.md`) e nos manuais públicos (`README.md` e `README.pt-br.md`).
+- **Consequências:** Endurecimento defensivo de nível enterprise sem degradar performance de I/O, preservando 100% da integridade dos volumes persistentes de dados e dos limites rígidos de memória (<= 150 MB total).
+
 ### 2026-09-21 — Parâmetro service em field_names para Escopo por Aplicação no Servidor MCP
 - **Contexto:** A ferramenta `field_names` do servidor MCP nativo (`/select/logsql/field_names`) provê introspecção de esquema para orientar agentes de IA e desenvolvedores sobre quais campos estruturados estão indexados no cluster. Anteriormente, a ferramenta aceitava apenas o parâmetro `time_range`, realizando busca global irrestrita em todos os containers e fluxos ativos. Em um cluster heterogêneo de homelab, essa abordagem retornava dezenas de campos irrelevantes (métricas de `docker-stats`, dumps de `cadvisor`, labels de infraestrutura e atributos aninhados de outras aplicações), poluindo a janela de contexto de LLMs e dificultando identificar quais campos realmente pertenciam à aplicação sob diagnóstico.
 - **Decisão:**

@@ -150,7 +150,18 @@ Para evitar que tempestades acidentais de logs disparem o *Out of Memory (OOM) K
   ```
 - Isso elimina o risco de tempestade recursiva onde os logs gerados pelo próprio coletor seriam reingeridos indefinidamente.
 
-### 4.4 Permissões de Arquivos no Host
+### 4.4 Sistema de Arquivos Raiz Somente Leitura (`read_only`) e `tmpfs`
+- Todos os serviços da stack (`victorialogs`, `vector` e `vmalert`) rodam com o sistema de arquivos raiz imutável:
+  ```yaml
+  read_only: true
+  tmpfs:
+    - /tmp
+  ```
+- O flag `read_only: true` bloqueia qualquer tentativa de escrita em diretórios de sistema (`/etc`, `/bin`, `/usr`, `/var`), contendo malware, injeção de binários e ataques de persistência.
+- O ponto de montagem volátil `tmpfs: ["/tmp"]` garante suporte a buffers temporários de runtime sem persistir dados no disco e sem poluir o host.
+- A persistência legítima de dados ocorre estritamente em volumes dedicados e gerenciados (`victorialogs_data:/victoria-logs-data` e `vector_data:/var/lib/vector`).
+
+### 4.5 Permissões de Arquivos no Host
 Arquivos de configuração e segredos no host devem possuir permissões restritivas:
 ```bash
 # Permissão estrita no .env (leitura/escrita apenas pelo proprietário)

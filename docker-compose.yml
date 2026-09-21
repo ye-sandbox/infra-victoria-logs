@@ -3,6 +3,9 @@ services:
     image: victoriametrics/victoria-logs:${VICTORIALOGS_VERSION:-latest}
     container_name: victorialogs
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
     stop_grace_period: 30s
     ulimits:
       nofile:
@@ -47,6 +50,9 @@ services:
     image: timberio/vector:${VECTOR_VERSION:-0.45.0-alpine}
     container_name: vector
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
     stop_grace_period: 15s
     environment:
       VECTOR_LOG: ${VECTOR_LOG_LEVEL:-warn}
@@ -90,6 +96,9 @@ services:
     image: victoriametrics/vmalert:${VMALERT_VERSION:-latest}
     container_name: vmalert
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
     profiles:
       - alerting
     command:
