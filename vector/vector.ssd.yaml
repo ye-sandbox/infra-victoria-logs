@@ -167,6 +167,16 @@ transforms:
         .level = base_level
       }
 
+      # Salvaguarda: Teto preventivo de tamanho de mensagem (clamping em 8 KB para logs não-críticos)
+      if .level != "error" {
+        msg_str = string(.message) ?? ""
+        msg_len = length(msg_str)
+        if msg_len > 8192 {
+          .message = truncate(msg_str, 8192) + " ... [truncated by collector: " + to_string(msg_len) + " bytes total]"
+          .truncated = true
+        }
+      }
+
   remap_http:
     type: remap
     inputs:
