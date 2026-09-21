@@ -107,6 +107,20 @@ else
   exit 1
 fi
 
+# 7. Test 'field_names' tool execution with 'service' parameter
+echo "7️⃣  Testing 'field_names' tool execution with 'service' scoping..."
+FIELD_NAMES_REQ='{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"field_names","arguments":{"service":"docker-stats","time_range":"1h"}}}'
+FIELD_NAMES_RESP=$(echo "${FIELD_NAMES_REQ}" | python3 "${SERVER_SCRIPT}")
+
+if echo "${FIELD_NAMES_RESP}" | grep -q '"type": "text"'; then
+  echo "   ✅ 'field_names' with 'service' scoping executed successfully:"
+  echo "      $(echo "${FIELD_NAMES_RESP}" | head -c 200)..."
+else
+  echo "❌ Failed to call 'field_names' tool with service. Response:"
+  echo "${FIELD_NAMES_RESP}"
+  exit 1
+fi
+
 echo "================================================================================"
 echo "🎉 [SUCCESS] MCP server is 100% validated and compliant with JSON-RPC 2.0!"
 echo "================================================================================"

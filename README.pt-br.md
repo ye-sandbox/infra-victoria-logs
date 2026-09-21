@@ -201,7 +201,7 @@ O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py))
 - `query_logs`: Executa buscas flexíveis com LogsQL com suporte a filtro por aplicação (`service`), colapso de eventos repetidos consecutivos, limpeza de sequências ANSI, projeção opcional de colunas (`fields`) e saída compacta em Markdown.
 - `get_log_hits`: Gráfico temporal/histograma de eventos agrupados por minuto/hora para triagem de anomalias (filtrando ruído de métricas por padrão).
 - `list_streams`: Lista containers, serviços e hosts ativos instantaneamente via endpoint nativo do VictoriaLogs.
-- `field_names`: Descobre os nomes de campos indexados no storage (ex: `service`, `userId`, `status`).
+- `field_names`: Descobre os nomes de campos indexados no storage (ex: `service`, `userId`, `status`; suporta escopo por aplicação via `service`).
 - `field_values`: Lista os valores mais frequentes de qualquer campo.
 - `documentation`: Manual e guia de referência offline de LogsQL (filtros, pipes, stats e regex) embutido no servidor.
 - `health_check`: Testa a conexão com o VictoriaLogs.

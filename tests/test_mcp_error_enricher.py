@@ -18,6 +18,7 @@ from mcp.server import (
     enrich_logsql_error,
     extract_time_part,
     strip_ansi,
+    tool_field_names,
     tool_get_context_logs,
     tool_get_errors,
     tool_get_log_hits,
@@ -301,6 +302,53 @@ class TestMcpErrorEnricher(unittest.TestCase):
         result_err = tool_get_errors({"service": "app"})
         self.assertNotIn("\x1b[31m", result_err)
         self.assertIn("Fatal Exception: connection closed", result_err)
+
+    @patch("mcp.server.make_request")
+    def test_tool_field_names_unscoped(self, mock_request):
+        mock_request.return_value = json.dumps({
+            "values": [
+                {"value": "_msg", "hits": 100},
+                {"value": "service", "hits": 100},
+                {"value": "level", "hits": 50},
+            ]
+        })
+        result = tool_field_names({"time_range": "12h"})
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertEqual(called_query, "_time:12h")
+        self.assertIn("### 🏷️ Indexed Fields in VictoriaLogs (Window: 12h)", result)
+        self.assertIn("- `_msg` (100 logs)", result)
+        self.assertIn("- `level` (50 logs)", result)
+
+    @patch("mcp.server.make_request")
+    def test_tool_field_names_with_service(self, mock_request):
+        mock_request.return_value = json.dumps({
+            "values": [
+                {"value": "_msg", "hits": 40},
+                {"value": "structured.user_id", "hits": 40},
+                {"value": "structured.status", "hits": 20},
+            ]
+        })
+        result = tool_field_names({"service": "evolution-api", "time_range": "24h"})
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertIn('_stream:{container_name="evolution-api"}', called_query)
+        self.assertIn('_stream:{service="evolution-api"}', called_query)
+        self.assertIn("### 🏷️ Indexed Fields in VictoriaLogs for `evolution-api` (Window: 24h)", result)
+        self.assertIn("- `structured.user_id` (40 logs)", result)
+
+    @patch("mcp.server.make_request")
+    def test_tool_field_names_empty_service(self, mock_request):
+        mock_request.return_value = json.dumps({"values": []})
+        result = tool_field_names({"service": "unknown-svc", "time_range": "24h"})
+        self.assertIn("ℹ️ No fields found for service `unknown-svc` in 24h window.", result)
+
+    @patch("mcp.server.make_request")
+    def test_tool_field_names_syntax_error(self, mock_request):
+        mock_request.side_effect = RuntimeError("HTTP Error 400: unclosed quote at position 10")
+        result = tool_field_names({"service": 'bad"service', "time_range": "24h"})
+        self.assertIn("❌ Error listing field names:", result)
+        self.assertIn("💡 **LogsQL Hint (Unclosed Quotes):**", result)
 
 
 if __name__ == "__main__":

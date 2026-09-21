@@ -781,16 +781,26 @@ def tool_list_streams(args: Dict[str, Any]) -> str:
 
 def tool_field_names(args: Dict[str, Any]) -> str:
     """Returns indexed field names in VictoriaLogs to guide AI queries."""
-    time_range = args.get("time_range", "24h").strip()
+    service = clean_query(args.get("service", ""))
+    time_range = clean_query(args.get("time_range", "24h")) or "24h"
+
+    if service:
+        query = f'_time:{time_range} AND (_stream:{{container_name="{service}"}} OR _stream:{{service="{service}"}})'
+    else:
+        query = f"_time:{time_range}"
+
     try:
-        resp = make_request("/select/logsql/field_names", {"query": f"_time:{time_range}"})
+        resp = make_request("/select/logsql/field_names", {"query": query})
         data = json.loads(resp)
         items = data.get("values", [])
         if not items:
+            if service:
+                return f"ℹ️ No fields found for service `{service}` in {time_range} window."
             return f"ℹ️ No fields found in {time_range} window."
 
+        target_header = f" for `{service}`" if service else ""
         out = [
-            f"### 🏷️ Indexed Fields in VictoriaLogs (Window: {time_range})\n",
+            f"### 🏷️ Indexed Fields in VictoriaLogs{target_header} (Window: {time_range})\n",
             "These fields can be used in filters (`field:value`) or aggregations (`| stats by (field)`):\n",
         ]
         for it in sorted(items, key=lambda x: x.get("hits", 0), reverse=True):
@@ -799,7 +809,7 @@ def tool_field_names(args: Dict[str, Any]) -> str:
             out.append(f"- `{fld}` ({hits} logs)")
         return "\n".join(out)
     except Exception as e:
-        return f"❌ Error listing field names: {str(e)}"
+        return f"❌ Error listing field names: {enrich_logsql_error(str(e), query)}"
 
 
 def tool_field_values(args: Dict[str, Any]) -> str:
@@ -1032,10 +1042,14 @@ TOOLS = [
     },
     {
         "name": "field_names",
-        "description": "Discovers all structured field names indexed in VictoriaLogs (e.g. 'service', 'userId', 'status').",
+        "description": "Discovers all structured field names indexed in VictoriaLogs (e.g. 'service', 'userId', 'status'). Supports scoping to a specific application/service.",
         "inputSchema": {
             "type": "object",
             "properties": {
+                "service": {
+                    "type": "string",
+                    "description": "Target application or container name (e.g. 'evolution-api', 'api-gateway', 'nginx'). When provided, scopes field discovery strictly to this service to avoid cross-container noise.",
+                },
                 "time_range": {
                     "type": "string",
                     "description": "Time window to discover fields. Default: '24h'.",

@@ -203,7 +203,7 @@ The repository includes a **native stdio MCP Server** ([`mcp/server.py`](./mcp/s
 | `query_logs` | Executes flexible LogsQL queries with `service` scoping, consecutive repeated collapse, ANSI sanitization, optional `fields` projection, and compact markdown. | Configurable (filters metrics by default, collapses repeats) |
 | `get_log_hits` | Visual event histogram over time grouped by minutes or hours for rapid anomaly triage (filters metric noise by default). | Extreme (aggregated counts) |
 | `list_streams` | Instantly lists active containers, services, and hosts via native stream endpoints. | High |
-| `field_names` | Discovers indexed field keys (e.g., `service`, `userId`, `http_status`). | High |
+| `field_names` | Discovers indexed field keys (e.g., `service`, `userId`, `http_status`; supports application scoping via `service`). | High (scopes discovery to service) |
 | `field_values` | Lists the top most frequent values for any indexed field. | High |
 | `documentation` | Built-in offline quick reference for LogsQL syntax, filters, pipes, and regex. | Offline reference |
 | `health_check` | Tests reachability and response latency of VictoriaLogs. | Negligible |

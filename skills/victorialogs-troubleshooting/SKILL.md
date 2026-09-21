@@ -112,8 +112,9 @@ The repository's native MCP server (`mcp/server.py`) exposes **9 optimized tools
   - `time_range`: `"24h"`
 
 ### 7. `field_names`
-- **When to use:** To inspect all indexed field names in VictoriaLogs (e.g. `user_id`, `path`, `status`).
+- **When to use:** To inspect indexed field names in VictoriaLogs (e.g. `user_id`, `path`, `status`). Use `service` to isolate fields belonging to a specific container/application and eliminate cross-container noise.
 - **Parameters:**
+  - `service`: `"app-name"` (optional, recommended when diagnosing a specific service)
   - `time_range`: `"24h"`
 
 ### 8. `field_values`
