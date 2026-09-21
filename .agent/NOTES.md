@@ -8,6 +8,14 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-09-21 — Sonda de Saúde HTTP Real no vmalert via BusyBox wget (`/health`)
+- **Contexto:** Anteriormente, o container do `vmalert` utilizava um healthcheck genérico de execução do binário (`["CMD", "/vmalert-prod", "-version"]`). Embora confirmasse que o executável estava íntegro, essa sonda não validava o funcionamento do servidor HTTP interno, o carregamento do arquivo de regras (`rules.yaml`) nem a capacidade de o serviço responder a requisições de saúde. Enquanto o VictoriaLogs utiliza uma imagem estritamente distroless (`gcr.io/distroless/static`) que carece de qualquer shell ou utilitário HTTP e depende do healthcheck via binário nativo, a imagem oficial do `vmalert` (`victoriametrics/vmalert`) é baseada em Alpine Linux e contém o utilitário BusyBox `/usr/bin/wget` e o shell `/bin/sh`.
+- **Decisão:**
+  1. *Sonda HTTP Nativa (`wget /health`):* Configurar no `docker-compose.yml` a sonda de saúde ativa `["CMD-SHELL", "wget --spider -q http://127.0.0.1:8880/health || exit 1"]`. O endpoint `/health` é padrão em componentes VictoriaMetrics e retorna status HTTP 200 apenas quando o daemon está operacional e apto a avaliar alertas.
+  2. *Consistência de Porta Interna:* Fixar `-httpListenAddr=:8880` no comando do container para assegurar que a porta interna coincida rigorosamente com a porta de destino do mapeamento de portas (`"${VMALERT_HTTP_PORT:-8880}:8880"`).
+  3. *Auditoria no Script de Segurança:* Atualizar `scripts/audit-security.sh` para auditar a presença de healthcheck também no serviço `vmalert` caso carregado na configuração do Docker Compose.
+- **Consequências:** Detecção imediata de deadlocks, falhas na inicialização do servidor HTTP ou falhas na leitura de regras do `vmalert`, sem falsos positivos e com zero overhead na stack.
+
 ### 2026-09-21 — Hardening de Containers: `read_only: true` + `tmpfs` para VictoriaLogs, Vector e vmalert
 - **Contexto:** Em ambientes de produção e homelab (especialmente servidores Proxmox com múltiplos containers), containers que rodam com sistemas de arquivos raiz graváveis (`rw`) expõem uma superfície de ataque considerável: caso um container seja comprometido (via vulnerabilidade de dependência, injeção em logs ou exploração de socket), o invasor pode alterar binários, injetar scripts maliciosos em cron/init, ou persistir artefatos no rootfs. Tanto o VictoriaLogs quanto o Vector e o vmalert são binários autocontidos que não dependem de gravação na árvore do sistema operacional para operar, desde que seus caminhos de dados dedicados permaneçam mapeados para volumes externos e um diretório volátil `/tmp` esteja acessível para operações efêmeras.
 - **Decisão:**

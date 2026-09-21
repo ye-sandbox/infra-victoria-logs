@@ -108,7 +108,7 @@ services:
       - "-datasource.basicAuth.password=${VICTORIALOGS_AUTH_PASSWORD:-}"
       - "-notifier.url=${VMALERT_NOTIFIER_URL:-http://127.0.0.1:9093}"
       - "-evaluationInterval=30s"
-      - "-httpListenAddr=:${VMALERT_HTTP_PORT:-8880}"
+      - "-httpListenAddr=:8880"
     ports:
       - "${VMALERT_HTTP_PORT:-8880}:8880"
     volumes:
@@ -131,7 +131,7 @@ services:
         reservations:
           memory: 10M
     healthcheck:
-      test: ["CMD", "/vmalert-prod", "-version"]
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8880/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

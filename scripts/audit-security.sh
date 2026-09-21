@@ -352,7 +352,8 @@ data = json.load(sys.stdin)
 svcs = data.get("services", {})
 has_vl = "healthcheck" in svcs.get("victorialogs", {})
 has_vec = "healthcheck" in svcs.get("vector", {})
-print("true" if (has_vl and has_vec) else "false")
+has_vmalert = ("vmalert" not in svcs) or ("healthcheck" in svcs.get("vmalert", {}))
+print("true" if (has_vl and has_vec and has_vmalert) else "false")
 ' 2>/dev/null || echo "false")
   else
     if grep -q "victorialogs:" "${COMPOSE_FILE}" && grep -q "vector:" "${COMPOSE_FILE}"; then
@@ -361,9 +362,9 @@ print("true" if (has_vl and has_vec) else "false")
   fi
 
   if [[ "${HC_OK}" == "true" ]]; then
-    record_result "COMPOSE-HEALTHCHECKS" "DockerCompose" "PASS" "Healthchecks configurados para os serviços principais (victorialogs e vector)" ""
+    record_result "COMPOSE-HEALTHCHECKS" "DockerCompose" "PASS" "Healthchecks configurados para os serviços (victorialogs, vector e vmalert)" ""
   else
-    record_result "COMPOSE-HEALTHCHECKS" "DockerCompose" "WARN" "Healthcheck ausente em victorialogs ou vector" "Defina blocos de healthcheck no docker-compose.yml"
+    record_result "COMPOSE-HEALTHCHECKS" "DockerCompose" "WARN" "Healthcheck ausente em serviços do compose" "Defina blocos de healthcheck no docker-compose.yml"
   fi
 
   # 2.6 Política de reinicialização (restart: unless-stopped)
