@@ -197,8 +197,8 @@ O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py))
 
 #### Ferramentas MCP Disponíveis (9 Ferramentas Especializadas):
 - `get_errors`: Extrai erros e stack traces limpas com **deduplicação inteligente** de falhas repetidas, filtro de escopo por aplicação (`service`), supressão padrão de ruído de telemetria e dicas proativas de SRE em consultas globais.
-- `get_context_logs`: Recupera os eventos cronológicos imediatamente anteriores e posteriores a um timestamp de erro/incidente (contexto forense fore/aft) com destaque do ponto de falha e filtro de ruído padrão.
-- `query_logs`: Executa buscas flexíveis com LogsQL com suporte a filtro por aplicação (`service`), exclusão padrão de telemetria de alto volume em buscas globais, sanitização de quebras de linha, dicas contextuais de sintaxe e saída compacta em Markdown (`| keep`).
+- `get_context_logs`: Recupera os eventos cronológicos imediatamente anteriores e posteriores a um timestamp de erro/incidente (contexto forense fore/aft) com destaque do ponto de falha, filtro de ruído padrão e colapso de repetições consecutivas.
+- `query_logs`: Executa buscas flexíveis com LogsQL com suporte a filtro por aplicação (`service`), colapso de eventos repetidos consecutivos, limpeza de sequências ANSI, projeção opcional de colunas (`fields`) e saída compacta em Markdown.
 - `get_log_hits`: Gráfico temporal/histograma de eventos agrupados por minuto/hora para triagem de anomalias (filtrando ruído de métricas por padrão).
 - `list_streams`: Lista containers, serviços e hosts ativos instantaneamente via endpoint nativo do VictoriaLogs.
 - `field_names`: Descobre os nomes de campos indexados no storage (ex: `service`, `userId`, `status`).

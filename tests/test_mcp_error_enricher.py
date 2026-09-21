@@ -15,6 +15,8 @@ from mcp.server import (
     DEFAULT_NOISE_EXCLUSION,
     clean_query,
     enrich_logsql_error,
+    extract_time_part,
+    strip_ansi,
     tool_get_context_logs,
     tool_get_errors,
     tool_get_log_hits,
@@ -177,6 +179,99 @@ class TestMcpErrorEnricher(unittest.TestCase):
         args, kwargs = mock_request.call_args
         called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
         self.assertNotIn(DEFAULT_NOISE_EXCLUSION, called_query)
+
+    def test_strip_ansi(self):
+        self.assertEqual(strip_ansi(""), "")
+        self.assertEqual(strip_ansi("plain text"), "plain text")
+        self.assertEqual(strip_ansi("\x1b[31mError message\x1b[0m"), "Error message")
+        self.assertEqual(strip_ansi("\x1b[1;32m[SUCCESS]\x1b[0m \x1b[38;5;208mwarning\x1b[0m"), "[SUCCESS] warning")
+        self.assertEqual(strip_ansi("\x1b[2K\x1b[1GLine cleared"), "Line cleared")
+
+    def test_extract_time_part(self):
+        self.assertEqual(extract_time_part(""), "")
+        self.assertEqual(extract_time_part("2026-09-21T14:18:42Z"), "14:18:42")
+        self.assertEqual(extract_time_part("2026-09-21T14:18:42.123456Z"), "14:18:42")
+        self.assertEqual(extract_time_part("2026-09-21 14:18:42"), "14:18:42")
+        self.assertEqual(extract_time_part("14:18:42"), "14:18:42")
+
+    @patch("mcp.server.make_request")
+    def test_tool_query_logs_consecutive_collapse(self, mock_request):
+        mock_request.return_value = (
+            '{"_time":"2026-09-21T14:18:40Z","container_name":"app","level":"info","_msg":"Heartbeat OK"}\n'
+            '{"_time":"2026-09-21T14:18:41Z","container_name":"app","level":"info","_msg":"Heartbeat OK"}\n'
+            '{"_time":"2026-09-21T14:18:42Z","container_name":"app","level":"info","_msg":"Heartbeat OK"}\n'
+            '{"_time":"2026-09-21T14:18:45Z","container_name":"app","level":"info","_msg":"Connection opened"}'
+        )
+        result = tool_query_logs({"query": "*", "service": "app"})
+        self.assertIn("(repeats 3x until 14:18:42)", result)
+        self.assertIn("Connection opened", result)
+        self.assertIn("records collapsed", result)
+
+    @patch("mcp.server.make_request")
+    def test_tool_query_logs_fields_projection(self, mock_request):
+        mock_request.return_value = (
+            '{"_time":"2026-09-21T14:18:40Z","level":"error","http_status":500,"duration_ms":124,"request_id":"req-abc"}'
+        )
+        result = tool_query_logs({
+            "query": "status:500",
+            "service": "api-gateway",
+            "fields": "http_status, duration_ms, request_id"
+        })
+
+        # Verify query had | keep injected with _time and requested fields
+        args, kwargs = mock_request.call_args
+        called_query = kwargs.get("params", {}).get("query", "") if kwargs.get("params") else args[1].get("query", "")
+        self.assertIn("| keep _time, http_status, duration_ms, request_id", called_query)
+
+        # Verify key-value compact output
+        self.assertIn("http_status=500", result)
+        self.assertIn("duration_ms=124", result)
+        self.assertIn("request_id=req-abc", result)
+
+    @patch("mcp.server.make_request")
+    def test_tool_query_logs_fields_collapse(self, mock_request):
+        mock_request.return_value = (
+            '{"_time":"2026-09-21T14:18:40Z","http_status":502,"error_code":"BAD_GATEWAY"}\n'
+            '{"_time":"2026-09-21T14:18:41Z","http_status":502,"error_code":"BAD_GATEWAY"}\n'
+            '{"_time":"2026-09-21T14:18:45Z","http_status":200,"error_code":"NONE"}'
+        )
+        result = tool_query_logs({
+            "query": "*",
+            "service": "nginx",
+            "fields": ["http_status", "error_code"]
+        })
+        self.assertIn("(repeats 2x until 14:18:41)", result)
+        self.assertIn("http_status=502 error_code=BAD_GATEWAY", result)
+        self.assertIn("http_status=200 error_code=NONE", result)
+
+    @patch("mcp.server.make_request")
+    def test_tool_get_context_logs_consecutive_collapse(self, mock_request):
+        mock_request.return_value = (
+            '{"_time":"2026-09-10T14:18:38Z","container_name":"app","level":"info","_msg":"polling"}\n'
+            '{"_time":"2026-09-10T14:18:39Z","container_name":"app","level":"info","_msg":"polling"}\n'
+            '{"_time":"2026-09-10T14:18:41Z","container_name":"app","level":"error","_msg":"crash occurred"}'
+        )
+        result = tool_get_context_logs({
+            "target_timestamp": "2026-09-10T14:18:41Z",
+            "service": "app",
+            "window_seconds": 10
+        })
+        self.assertIn("(repeats 2x until 14:18:39)", result)
+        self.assertIn("🎯 **[TARGET / INCIDENT]**", result)
+        self.assertIn("crash occurred", result)
+
+    @patch("mcp.server.make_request")
+    def test_strip_ansi_in_tools(self, mock_request):
+        mock_request.return_value = (
+            '{"_time":"2026-09-21T14:18:40Z","container_name":"app","level":"error","_msg":"\x1b[31mFatal Exception\x1b[0m: connection closed"}'
+        )
+        result_query = tool_query_logs({"query": "level:error", "service": "app"})
+        self.assertNotIn("\x1b[31m", result_query)
+        self.assertIn("Fatal Exception: connection closed", result_query)
+
+        result_err = tool_get_errors({"service": "app"})
+        self.assertNotIn("\x1b[31m", result_err)
+        self.assertIn("Fatal Exception: connection closed", result_err)
 
 
 if __name__ == "__main__":

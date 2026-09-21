@@ -18,6 +18,7 @@ Key features:
 
 import sys
 import os
+import re
 import json
 import base64
 import urllib.request
@@ -65,6 +66,28 @@ AUTH_PASS = get_config("VICTORIALOGS_AUTH_PASSWORD", "")
 
 # Default noise exclusion for global queries (saving LLM context tokens)
 DEFAULT_NOISE_EXCLUSION = 'NOT service:in("docker-stats", "cadvisor") AND NOT container_name:"cadvisor"'
+
+# Regex to match ANSI escape sequences (CSI, OSC, and standard 2-char escape sequences)
+ANSI_ESCAPE_RE = re.compile(
+    r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\].*?(?:\x07|\x1B\\))"
+)
+
+
+def strip_ansi(text: str) -> str:
+    """Removes ANSI escape codes (colors, styling, cursor controls) from text."""
+    if not text or ("\x1b" not in text and "\x1B" not in text):
+        return text
+    return ANSI_ESCAPE_RE.sub("", text)
+
+
+def extract_time_part(ts_str: str) -> str:
+    """Extracts HH:MM:SS from ISO or formatted timestamp string."""
+    if not ts_str:
+        return ""
+    cleaned = ts_str.replace("T", " ").rstrip("Z").split(".")[0].strip()
+    if " " in cleaned:
+        return cleaned.split(" ")[1]
+    return cleaned
 
 
 def make_request(path: str, params: Optional[Dict[str, Any]] = None, timeout: int = 15) -> str:
@@ -214,6 +237,14 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
     output_format = args.get("format", "markdown").lower()
     full_output = bool(args.get("full", False))
 
+    raw_fields = args.get("fields")
+    if isinstance(raw_fields, list):
+        field_list = [clean_query(str(f)) for f in raw_fields if clean_query(str(f))]
+    elif isinstance(raw_fields, str) and raw_fields.strip():
+        field_list = [clean_query(f) for f in raw_fields.split(",") if clean_query(f)]
+    else:
+        field_list = []
+
     if not raw_query:
         return "Error: parameter 'query' is required."
 
@@ -228,8 +259,12 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
     if time_range and "_time:" not in query:
         query = f"_time:{time_range} AND ({query})"
 
-    # I/O and network optimization: project canonical fields if query lacks transformation pipes
-    if "|" not in query:
+    # I/O and network optimization: project canonical or custom fields
+    if field_list:
+        if "| keep" not in query:
+            keep_fields = ["_time"] + [f for f in field_list if f != "_time"]
+            query = f"{query} | keep {', '.join(keep_fields)}"
+    elif "|" not in query:
         query = f"{query} | keep _time, level, service, container_name, _msg, stream, host"
 
     try:
@@ -245,32 +280,121 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
     if output_format == "json":
         return resp
 
-    # Compact Markdown formatting
-    out = [f"### 🪵 Logs ({len(lines)} records found in {time_range} window)\n"]
+    # Parse and sanitize records
+    parsed_items = []
     seen_containers = set()
     for line in lines:
         try:
-            item = json.loads(line)
-            ts = item.get("_time") or item.get("timestamp", "")
+            item = json.loads(line, strict=False)
+            raw_ts = item.get("_time") or item.get("timestamp", "")
+            ts = raw_ts
             if "T" in ts:
-                ts = ts.replace("T", " ").split(".")[0]
+                ts = ts.replace("T", " ").rstrip("Z").split(".")[0]
             lvl = (item.get("level") or "info").upper()
             svc = item.get("service") or item.get("container_name") or "app"
             c_name = item.get("container_name") or svc
             if c_name and c_name != "-":
                 seen_containers.add(c_name)
-            msg = item.get("_msg") or item.get("message", "")
+            raw_msg = item.get("_msg") or item.get("message", "")
+            msg = strip_ansi(str(raw_msg))
 
             # Smart truncation if message is excessively long
             if not full_output and len(msg) > 350:
                 msg = msg[:350] + f"... [truncated: +{len(msg) - 350} characters. Use full=true to view complete message]"
 
-            icon = "🔴" if lvl == "ERROR" else "🟡" if lvl == "WARN" else "⚪"
-            out.append(f"{icon} **[{ts}] [{svc}] [{lvl}]** {msg}")
-        except Exception:
-            out.append(f"- {line}")
+            if field_list:
+                kv_parts = []
+                sig_parts = []
+                for f in field_list:
+                    if f == "_time":
+                        continue
+                    val = item.get(f)
+                    if val is None:
+                        val_str = "-"
+                    elif isinstance(val, (int, float, bool)):
+                        val_str = str(val)
+                    else:
+                        clean_v = strip_ansi(str(val))
+                        val_str = f'"{clean_v}"' if (" " in clean_v or "=" in clean_v) else clean_v
+                    kv_parts.append(f"{f}={val_str}")
+                    sig_parts.append((f, val_str))
 
-    out.append(f"\n*Showing {len(lines)} logs. Parameter 'full': {full_output}. Adjust 'limit' if more data is needed.*")
+                kv_str = " ".join(kv_parts)
+                raw_lvl = item.get("level")
+                icon = "🔴 " if raw_lvl and str(raw_lvl).upper() == "ERROR" else "🟡 " if raw_lvl and str(raw_lvl).upper() == "WARN" else ""
+                parsed_items.append({
+                    "is_json": True,
+                    "ts": ts,
+                    "raw_ts": raw_ts,
+                    "signature": ("fields", tuple(sig_parts)),
+                    "content": kv_str,
+                    "icon": icon,
+                    "is_fields": True,
+                })
+            else:
+                icon = "🔴" if lvl == "ERROR" else "🟡" if lvl == "WARN" else "⚪"
+                parsed_items.append({
+                    "is_json": True,
+                    "ts": ts,
+                    "raw_ts": raw_ts,
+                    "svc": svc,
+                    "lvl": lvl,
+                    "signature": ("log", svc, lvl, msg),
+                    "content": msg,
+                    "icon": icon,
+                    "is_fields": False,
+                })
+        except Exception:
+            clean_line = strip_ansi(line)
+            parsed_items.append({
+                "is_json": False,
+                "signature": ("raw", clean_line),
+                "content": clean_line,
+            })
+
+    # Group consecutive identical items
+    collapsed = []
+    for p in parsed_items:
+        if not collapsed:
+            collapsed.append([p])
+        else:
+            if p["signature"] == collapsed[-1][0]["signature"]:
+                collapsed[-1].append(p)
+            else:
+                collapsed.append([p])
+
+    out = [f"### 🪵 Logs ({len(lines)} records found in {time_range} window)\n"]
+    for group in collapsed:
+        count = len(group)
+        first = group[0]
+        last = group[-1]
+
+        if not first.get("is_json"):
+            if count > 1:
+                out.append(f"- {first['content']} (repeats {count}x)")
+            else:
+                out.append(f"- {first['content']}")
+            continue
+
+        ts = first["ts"]
+        end_time = extract_time_part(last["raw_ts"]) or extract_time_part(last["ts"])
+        repeats_str = f" (repeats {count}x until {end_time})" if count > 1 else ""
+
+        if first["is_fields"]:
+            icon = first["icon"]
+            kv_str = first["content"]
+            out.append(f"{icon}**[{ts}]**{repeats_str} {kv_str}".strip())
+        else:
+            icon = first["icon"]
+            svc = first["svc"]
+            lvl = first["lvl"]
+            msg = first["content"]
+            out.append(f"{icon} **[{ts}] [{svc}] [{lvl}]**{repeats_str} {msg}")
+
+    if len(collapsed) < len(lines):
+        out.append(f"\n*Showing {len(collapsed)} entries ({len(lines)} records collapsed). Parameter 'full': {full_output}. Adjust 'limit' if more data is needed.*")
+    else:
+        out.append(f"\n*Showing {len(lines)} logs. Parameter 'full': {full_output}. Adjust 'limit' if more data is needed.*")
 
     # Proactive SRE hint when search was global to educate agent to scope by application
     if not service and seen_containers:
@@ -322,18 +446,18 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
         out = [f"### 🚨 Detected Errors ({len(lines)} occurrences in {time_range} window)\n"]
         for i, line in enumerate(lines[:limit], 1):
             try:
-                item = json.loads(line)
+                item = json.loads(line, strict=False)
                 ts = item.get("_time") or item.get("timestamp", "")
                 svc = item.get("service") or item.get("container_name") or "app"
                 c_name = item.get("container_name") or svc
                 if c_name and c_name != "-":
                     seen_containers.add(c_name)
-                msg = item.get("_msg") or item.get("message", "")
+                msg = strip_ansi(str(item.get("_msg") or item.get("message", "")))
                 if not full_output and len(msg) > 1000:
                     msg = msg[:1000] + f"\n... [truncated: +{len(msg) - 1000} chars. Use full=true]"
                 out.append(f"#### {i}. [{ts}] Service: `{svc}`\n```text\n{msg}\n```\n")
             except Exception:
-                out.append(f"- {line}")
+                out.append(f"- {strip_ansi(line)}")
 
         if not service and seen_containers:
             detected = ", ".join(f"`{c}`" for c in sorted(seen_containers)[:5])
@@ -348,13 +472,13 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
     groups: Dict[Tuple[str, str], Dict[str, Any]] = {}
     for line in lines:
         try:
-            item = json.loads(line)
+            item = json.loads(line, strict=False)
             ts = item.get("_time") or item.get("timestamp", "")
             svc = item.get("service") or item.get("container_name") or "app"
             c_name = item.get("container_name") or svc
             if c_name and c_name != "-":
                 seen_containers.add(c_name)
-            msg = item.get("_msg") or item.get("message", "")
+            msg = strip_ansi(str(item.get("_msg") or item.get("message", "")))
 
             # Signature: (service, first line of error message)
             first_line = msg.strip().splitlines()[0][:140] if msg.strip() else "empty"
@@ -458,35 +582,84 @@ def tool_get_context_logs(args: Dict[str, Any]) -> str:
 
     target_sec = dt.strftime("%Y-%m-%dT%H:%M:%S")
 
+    parsed_items = []
+    for line in lines:
+        try:
+            item = json.loads(line, strict=False)
+            raw_ts = item.get("_time") or item.get("timestamp", "")
+            lvl = (item.get("level") or "info").upper()
+            svc = item.get("service") or item.get("container_name") or "app"
+            c_name = item.get("container_name") or svc
+            raw_msg = item.get("_msg") or item.get("message") or ""
+            msg = strip_ansi(str(raw_msg))
+
+            if not full_output and len(msg) > 600:
+                msg = msg[:600] + f"\n... [truncated message: {len(msg)} total chars. Use full=true to view complete]"
+
+            is_target = raw_ts.startswith(target_sec)
+            parsed_items.append({
+                "is_json": True,
+                "raw_ts": raw_ts,
+                "lvl": lvl,
+                "c_name": c_name,
+                "msg": msg,
+                "is_target": is_target,
+                "signature": ("log", c_name, lvl, msg),
+            })
+        except Exception:
+            clean_line = strip_ansi(line)
+            parsed_items.append({
+                "is_json": False,
+                "line": clean_line,
+                "signature": ("raw", clean_line),
+            })
+
+    collapsed = []
+    for p in parsed_items:
+        if not collapsed:
+            collapsed.append([p])
+        else:
+            if p["signature"] == collapsed[-1][0]["signature"]:
+                collapsed[-1].append(p)
+            else:
+                collapsed.append([p])
+
     out = [
         f"### ⏱️ Forensic Log Context (Window: ±{window_seconds}s around `{target_timestamp}`)",
         f"**Filter:** `{service or 'all containers'}` | **Retrieved records:** {len(lines)}\n",
     ]
 
-    for idx, line in enumerate(lines, 1):
-        try:
-            item = json.loads(line)
-            ts = item.get("_time") or item.get("timestamp", "")
-            lvl = (item.get("level") or "info").upper()
-            svc = item.get("service") or item.get("container_name") or "app"
-            c_name = item.get("container_name") or svc
-            msg = item.get("_msg") or item.get("message") or ""
+    for idx, group in enumerate(collapsed, 1):
+        first = group[0]
+        last = group[-1]
+        count = len(group)
 
-            # Highlight if event matches target incident second
-            is_target = ts.startswith(target_sec)
-            prefix = "🎯 **[TARGET / INCIDENT]**" if is_target else f"**[{lvl}]**"
+        if not first.get("is_json"):
+            if count > 1:
+                out.append(f"```text\n{first['line']} (repeats {count}x)\n```\n")
+            else:
+                out.append(f"```text\n{first['line']}\n```\n")
+            continue
 
-            ts_display = ts.replace("T", " ").split(".")[0]
-            out.append(f"**{idx}.** `{ts_display}` | `{c_name}` | {prefix}")
+        raw_ts = first["raw_ts"]
+        ts_display = raw_ts.replace("T", " ").rstrip("Z").split(".")[0]
+        c_name = first["c_name"]
+        lvl = first["lvl"]
+        msg = first["msg"]
 
-            if not full_output and len(msg) > 600:
-                msg = msg[:600] + f"\n... [truncated message: {len(msg)} total chars. Use full=true to view complete]"
+        is_target = any(it.get("is_target") for it in group)
+        prefix = "🎯 **[TARGET / INCIDENT]**" if is_target else f"**[{lvl}]**"
 
-            out.append("```text")
-            out.append(msg)
-            out.append("```\n")
-        except Exception:
-            out.append(f"```text\n{line}\n```\n")
+        if count > 1:
+            end_time = extract_time_part(last["raw_ts"])
+            header = f"**{idx}.** `{ts_display}` | `{c_name}` | {prefix} (repeats {count}x until {end_time})"
+        else:
+            header = f"**{idx}.** `{ts_display}` | `{c_name}` | {prefix}"
+
+        out.append(header)
+        out.append("```text")
+        out.append(msg)
+        out.append("```\n")
 
     return "\n".join(out)
 
@@ -718,6 +891,10 @@ TOOLS = [
                     "type": "boolean",
                     "description": "If true, disables truncation of long messages (>350 characters).",
                     "default": False,
+                },
+                "fields": {
+                    "type": "string",
+                    "description": "Optional comma-separated list of field names to project (e.g. 'http_status, duration_ms, request_id'). Projects columns via '| keep' and renders ultra-compact key-value output.",
                 },
             },
             "required": ["query"],
@@ -969,6 +1146,8 @@ def handle_request(req: Dict[str, Any]) -> None:
         tool = TOOLS_BY_NAME[tool_name]
         try:
             result_text = tool["handler"](arguments)
+            if isinstance(result_text, str):
+                result_text = strip_ansi(result_text)
             send_response({
                 "jsonrpc": "2.0",
                 "id": req_id,

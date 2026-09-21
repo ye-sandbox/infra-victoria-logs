@@ -93,6 +93,20 @@ else
   exit 1
 fi
 
+# 6. Test 'query_logs' tool execution with 'fields' projection
+echo "6️⃣  Testing 'query_logs' tool execution with 'fields' parameter..."
+QUERY_REQ='{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"query_logs","arguments":{"query":"*","fields":"service,level"}}}'
+QUERY_RESP=$(echo "${QUERY_REQ}" | python3 "${SERVER_SCRIPT}")
+
+if echo "${QUERY_RESP}" | grep -q '"type": "text"'; then
+  echo "   ✅ 'query_logs' with 'fields' projection executed successfully:"
+  echo "      $(echo "${QUERY_RESP}" | head -c 200)..."
+else
+  echo "❌ Failed to call 'query_logs' tool with fields. Response:"
+  echo "${QUERY_RESP}"
+  exit 1
+fi
+
 echo "================================================================================"
 echo "🎉 [SUCCESS] MCP server is 100% validated and compliant with JSON-RPC 2.0!"
 echo "================================================================================"

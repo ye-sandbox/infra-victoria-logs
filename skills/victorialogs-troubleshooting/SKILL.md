@@ -82,6 +82,7 @@ The repository's native MCP server (`mcp/server.py`) exposes **9 optimized tools
   - `limit`: `20`
   - `format`: `"markdown"` (compact default with icons) or `"json"` (raw ndjson)
   - `full`: `false` (default) or `true` (disables truncation of long messages)
+  - `fields`: `"http_status, duration_ms, request_id"` (optional: projects columns via `| keep` and renders ultra-compact key-value output)
 
 ### 6. `list_streams`
 - **When to use:** To discover which containers, services, and hosts are currently sending logs.
