@@ -14,7 +14,7 @@
 
 ### 📌 Nenhuma tarefa ativa no momento (Aguardando definição do usuário ou backlog)
 
-- **Descrição:** Tarefa 45.0 concluída com sucesso. Aguardando autorização para iniciar a próxima tarefa do backlog (46.0).
+- **Descrição:** Tarefa 46.0 concluída com sucesso. Aguardando autorização para iniciar a próxima tarefa do backlog (47.0).
 - **Sistema(s) Envolvido(s):** N/A
 - **Tipo de Ação:** N/A
 - **Status:** AGUARDANDO TAREFA
@@ -23,7 +23,6 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] **46.0** — Clamping Preventivo de 8 KB no `remap_syslog` (paridade com `remap_docker` e `remap_http`)
 - [ ] **47.0** — Parâmetro `max_buckets` e Aviso de Truncamento em `get_log_hits` no Servidor MCP
 - [ ] **48.0** — Parâmetro `service` em `field_names` para Escopo por Aplicação no Servidor MCP
 - [ ] **49.0** — Hardening de Containers: `read_only: true` + `tmpfs` para VictoriaLogs e Vector
@@ -36,6 +35,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 46.0 | Clamping Preventivo de 8 KB no `remap_syslog` (Paridade com Docker e HTTP) | `70b05ae` | 2026-09-21 |
 | 45.0 | Alinhamento do Fallback de Retenção Padrão (`30d` → `1y`) no `docker-compose.yml` | `b352a3f` | 2026-09-21 |
 | 43.0 | Governança de Orçamento de Tokens nas SKILLs e Playbook de SRE | `45b6bc0` | 2026-09-21 |
 | 42.0 | Economia de Tokens no Servidor MCP (Colapso Consecutivo, Limpeza ANSI e Projeção `fields`) | `cc78e9f` | 2026-09-21 |
