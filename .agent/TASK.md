@@ -12,18 +12,18 @@
 
 ## Tarefa Ativa
 
-### 📌 51.0 — Adição de `no-new-privileges: true` em Todos os Containers
+### 📌 Nenhuma tarefa ativa no momento (Aguardando definição do usuário ou backlog)
 
-- **Descrição:** Adicionar a diretiva de segurança `security_opt: ["no-new-privileges:true"]` a todos os serviços da stack (`victorialogs`, `vector`, `vmalert`) no `docker-compose.yml`, impedindo escalonamento de privilégios via SUID/SGID. Adicionar verificações estáticas e de runtime no script `scripts/audit-security.sh`, atualizar a documentação de hardening em `docs/proxmox-hardening.md`, `SECURITY.md`, `README.md` e `README.pt-br.md`.
-- **Sistema(s) Envolvido(s):** Docker Compose (`docker-compose.yml`), Script de Auditoria (`scripts/audit-security.sh`), Documentação (`SECURITY.md`, `docs/proxmox-hardening.md`, `README.md`, `README.pt-br.md`).
-- **Tipo de Ação:** Segurança / Hardening / Auditoria / Documentação
-- **Status:** EM EXECUÇÃO
+- **Descrição:** Tarefa 51.0 concluída com sucesso. Aguardando autorização para iniciar a próxima tarefa do backlog.
+- **Sistema(s) Envolvido(s):** N/A
+- **Tipo de Ação:** N/A
+- **Status:** AGUARDANDO TAREFA
 
 ---
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] [Aguardando definição de próximas tarefas pós-51.0]
+- [ ] [Aguardando definição de próximas tarefas]
 
 ---
 
@@ -31,6 +31,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 51.0 | Adição de `no-new-privileges: true` em Todos os Containers | `8709a48` | 2026-09-21 |
 | 50.0 | Correção do Healthcheck HTTP Real do vmalert (`wget /health` na porta 8880) | `3a7bd49` | 2026-09-21 |
 | 49.0 | Hardening de Containers: `read_only: true` + `tmpfs` para VictoriaLogs e Vector | `34ea221` | 2026-09-21 |
 | 48.0 | Parâmetro `service` em `field_names` para Escopo por Aplicação no Servidor MCP | `b299dfd` | 2026-09-21 |
