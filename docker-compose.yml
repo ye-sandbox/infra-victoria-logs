@@ -10,7 +10,7 @@ services:
         hard: 65536
     command:
       - "-storageDataPath=/victoria-logs-data"
-      - "-retentionPeriod=${RETENTION_PERIOD:-30d}"
+      - "-retentionPeriod=${RETENTION_PERIOD:-1y}"
       - "-httpListenAddr=:${VICTORIALOGS_HTTP_PORT:-9428}"
       - "-memory.allowedPercent=${VICTORIALOGS_MEMORY_ALLOWED_PERCENT:-60}"
       - "-search.maxQueryDuration=${VL_MAX_QUERY_DURATION:-30s}"

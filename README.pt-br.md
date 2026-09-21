@@ -129,7 +129,7 @@ Edite o `.env` selecionando o perfil de armazenamento do seu hardware:
 STORAGE_PROFILE=hdd
 
 HOST_IDENTIFIER=mini-pc-proxmox
-RETENTION_PERIOD=30d
+RETENTION_PERIOD=1y
 VICTORIALOGS_HTTP_PORT=9428
 ```
 

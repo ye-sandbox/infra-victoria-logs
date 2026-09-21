@@ -8,6 +8,14 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-09-21 — Alinhamento do Fallback de Retenção Padrão (30d → 1y) e Diagnóstico do Healthcheck Distroless
+- **Contexto:** Na Tarefa 24.0, a política de governança de retenção de logs foi formalmente estabelecida para 1 ano (`RETENTION_PERIOD=1y`), refletida no `.env.example` e nos scripts operacionais (`manage-partitions.sh`). No entanto, o `docker-compose.yml` ainda continha o fallback legado `-retentionPeriod=${RETENTION_PERIOD:-30d}`, e a documentação pública (`README.md` e `README.pt-br.md`) ainda sugeria `30d` no exemplo de `.env`. Caso o operador inicializasse o Docker Compose sem carregar o `.env`, o banco de dados truncaria logs após 30 dias em vez de manter o ciclo anual pretendido. Além disso, a proposta de substituir o healthcheck do VictoriaLogs por `wget /health` (antigo item 44.0) foi reanalisada e comprovada inviável: a imagem oficial `victoriametrics/victoria-logs` é estritamente distroless (`gcr.io/distroless/static`), contendo apenas `/victoria-logs-prod` e nenhum shell ou cliente HTTP (`wget`/`curl`), o que causaria erro de runtime OCI e deixaria o container em estado `unhealthy` permanente.
+- **Decisão:**
+  1. *Alinhamento de Fallback:* Atualizar `docker-compose.yml` para `-retentionPeriod=${RETENTION_PERIOD:-1y}`, garantindo conformidade com a política de 1 ano mesmo na ausência de `.env`.
+  2. *Sincronização da Documentação:* Corrigir `README.md` e `README.pt-br.md` para exibir `RETENTION_PERIOD=1y` no setup inicial.
+  3. *Manutenção do Healthcheck Exec no VictoriaLogs:* Manter o healthcheck atômico `["CMD", "/victoria-logs-prod", "-version"]` para a imagem distroless do VictoriaLogs, reservando `wget` apenas para serviços com base Linux/Alpine que possuem o utilitário nativo (como `vmalert`).
+- **Consequências:** Coerência absoluta de retenção em todo o ecossistema (Compose, `.env`, documentação e rotinas de partição), eliminando risco de descarte precoce de histórico e preservando a estabilidade do container do VictoriaLogs.
+
 ### 2026-09-21 — Governança de Orçamento de Tokens nas SKILLs e Playbook de SRE
 - **Contexto:** Embora o servidor MCP e o coletor Vector tenham sido otimizados (colapso de repetições, limpeza ANSI, projeção `fields` e teto preventivo no VRL), agentes de IA em incidentes de produção frequentemente executavam chamadas ingênuas (ex: `query_logs(query="error", limit=50)` sem escopo de aplicação ou `get_context_logs` com janelas excessivas). Esse comportamento consumia desnecessariamente até dezenas de milhares de tokens, levando a truncamentos de contexto do LLM, perda de foco em causa-raiz e custos elevados de inferência.
 - **Decisão:** Formalizar e padronizar a governança de orçamento de tokens em toda a organização `ye-sandbox`:
