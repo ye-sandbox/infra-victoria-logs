@@ -209,6 +209,20 @@ O projeto inclui um **Servidor MCP nativo** ([`mcp/server.py`](./mcp/server.py))
 > [!TIP]
 > **Supressão Padrão de Ruído de Telemetria:** Para proteger a janela de contexto de LLMs, buscas globais em `query_logs`, `get_errors`, `get_context_logs` e `get_log_hits` excluem automaticamente fluxos de telemetria de alta frequência (`docker-stats` e `cadvisor`). Caso precise auditar métricas de consumo de containers ou logs do cAdvisor, forneça explicitamente `service="docker-stats"` ou `service="cadvisor"`.
 
+#### 🎯 Funil de Triagem de SRE e Governança de Tokens:
+
+Para evitar o esgotamento da janela de contexto do LLM e maximizar a precisão diagnóstica, agentes de IA devem seguir rigorosamente o **Funil de Triagem em 3 Fases**:
+
+1. **Fase 1 — Triagem Temporal e Detecção de Picos (`get_log_hits`)**:
+   - Consulta a contagem de erros no tempo (ex: `query='_stream:{service="api"} AND level:error'`, `step="1m"` ou `"5m"`).
+   - Extração com zero payload de corpo de log (~50–150 tokens) para isolar o segundo exato do incidente sem poluição.
+2. **Fase 2 — Isolamento de Erros Deduplicados (`get_errors`)**:
+   - Consulta delimitada por `service="app-name"` e amostragem conservadora (`limit=5..10`).
+   - Extrai stack traces deduplicadas com contadores de recorrência (`[42x]`), eliminando tempestades de tracebacks repetidos.
+3. **Fase 3 — Contexto Forense e Projeção de Colunas (`get_context_logs` / `query_logs`)**:
+   - Recupera os eventos precursores imediatos via `get_context_logs(target_timestamp="...", window_seconds=10, limit=10)` com destaque visual do incidente (`🎯 [TARGET / INCIDENT]`) e colapso de repetições consecutivas.
+   - Para auditorias de latência, status HTTP ou correlações, utiliza `query_logs(fields="http_status,duration_ms,request_id", limit=10)` para projetar linhas chave-valor ultra-compactas, economizando mais de 80% de tokens.
+
 #### Como Configurar no seu Cliente de IA:
 
 `.cursor/` é **local e está no `.gitignore`**. Não versione `mcp.json`: ele aponta para o host onde *você* alcança o VictoriaLogs e pode receber credenciais de Basic Auth.

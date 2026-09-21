@@ -11,25 +11,45 @@ If the user wants to **record an issue for later** (not fix it immediately), use
 
 ---
 
-## 🎯 Incident Investigation Protocol
+## 🎯 Incident Investigation Protocol & The 3-Phase SRE Funnel
 
-When the user reports an issue ("the API crashed", "the worker stopped", "I'm getting 500 errors"):
+When the user reports an issue ("the API crashed", "the worker stopped", "I'm getting 500 errors"), AI agents MUST follow the progressive **3-Phase SRE Triage Funnel** to preserve context tokens:
 
 ```text
-  [Step 0: Target Service Identification]
-  Inspect local docker-compose.yml or call list_streams(time_range="1h")
-            │
-            ▼ (Identified container/application name, e.g. "my-app")
-  [Step 1: Time Triage]
-  get_log_hits(query='_stream:{container_name="my-app"} AND level:error', time_range="1h", step="5m")
-            │
-            ▼ (Pinpointed exact error spike in the application)
-  [Step 2: Error Isolation & Deduplicated Traceback Extraction]
-  get_errors(service="my-app", time_range="30m", limit=10)
-            │
-            ▼ (Extracted intact root-cause stack trace and occurrence count)
-  [Step 3: Source Code Correlation]
-  Read workspace file (e.g. api/routes.py:L42) -> Propose Fix
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │ Step 0: Target Service Identification                                  │
+  │ Inspect docker-compose.yml or run list_streams(time_range="1h")        │
+  └───────────────────────────────────┬────────────────────────────────────┘
+                                      │ (e.g. service="payments-api")
+                                      ▼
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │ Phase 1: Aggregate Time & Volume Triage (get_log_hits)                 │
+  │ • Zero log bodies fetched (0 token waste on raw payloads)              │
+  │ • Pinpoint exact start of spike and error rate: step="1m" or "5m"      │
+  └───────────────────────────────────┬────────────────────────────────────┘
+                                      │ (Discovered incident at 14:18:41Z)
+                                      ▼
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │ Phase 2: Deduplicated Error Isolation (get_errors)                     │
+  │ • Conservative sampling: limit=5..10                                   │
+  │ • Deduplicates repetitive error storms: displays [42x] count           │
+  │ • Preserves intact root-cause stack trace without noise                │
+  └───────────────────────────────────┬────────────────────────────────────┘
+                                      │ (Isolated traceback: KeyError: 'user_id')
+                                      ▼
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │ Phase 3: Forensic Fore/Aft Window or Column Projection                 │
+  │ • get_context_logs(target_timestamp="...", window_seconds=10, limit=10)│
+  │   Inspect precursor requests marked with 🎯 [TARGET / INCIDENT]        │
+  │ • OR query_logs(fields="http_status,duration_ms,request_id", limit=10) │
+  │   Ultra-compact column projection via | keep                           │
+  └───────────────────────────────────┬────────────────────────────────────┘
+                                      │ (Identified malformed payload in precursor log)
+                                      ▼
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │ Phase 4: Source Code Correlation & Remediation                         │
+  │ Read workspace file (e.g. api/routes.py:L42) -> Propose atomic fix     │
+  └────────────────────────────────────────────────────────────────────────┘
 ```
 
 > ⚠️ **SRE Golden Rule:** NEVER execute generic queries without specifying `service="app-name"`. Global queries pull noise from other homelab containers and waste context tokens unnecessarily. If you don't know the exact service name, run `list_streams()` first.
@@ -46,45 +66,46 @@ The repository's native MCP server (`mcp/server.py`) exposes **9 optimized tools
 - **When to use:** At the start of a session to verify connectivity with VictoriaLogs.
 - **Parameters:** `{}`
 
-### 2. `get_log_hits`
-- **When to use:** To answer *"when did the problem start?"* or *"how many failures occurred per minute?"*.
+### 2. `get_log_hits` (Phase 1: Zero-Payload Time Triage)
+- **When to use:** To answer *"when did the problem start?"* or *"how many failures occurred per minute?"* without pulling raw log payloads.
 - **Parameters:**
   - `query`: `_stream:{service="payments"} AND level:error`
   - `time_range`: `"30m"`, `"1h"`, `"6h"`, `"24h"`
   - `step`: `"1m"`, `"5m"`, `"1h"`
 
-### 3. `get_errors` ⭐ (Primary for Debugging)
+### 3. `get_errors` ⭐ (Phase 2: Primary for Debugging)
 - **When to use:** Extracts errors and multiline stack traces formatted in code blocks without `info` log noise.
 - **Smart Deduplication:** By default (`deduplicate=true`), groups repetitive error storms, displaying occurrence counts and time intervals (`[34x] First: 11:20 | Last: 11:25`), while preserving the full root-cause stack trace.
 - **Parameters:**
   - `service`: `"application-name"` (**RECOMMENDED:** always provide your task's target service; only omit for global infrastructure audits)
   - `time_range`: `"30m"`, `"1h"` (default: `"1h"`)
-  - `limit`: `10` or `20`
+  - `limit`: `5` or `10` (**RECOMMENDED for AI:** `5..10` to conserve context tokens; default: `10`)
   - `deduplicate`: `true` (default) or `false` (for raw sequential list)
   - `full`: `false` (default, truncating giant tracebacks after 1,200 chars) or `true` (100% uncut stack trace)
 
-### 4. `get_context_logs` ⭐ (Forensic Fore/Aft Context)
+### 4. `get_context_logs` ⭐ (Phase 3: Forensic Fore/Aft Context)
 - **When to use:** After identifying an error via `get_errors()`, use the exact failure timestamp to retrieve the chronological history of immediately preceding and succeeding logs (including `info`, `debug`, etc.), revealing what the user or system was doing right before the crash.
-- **Visual Highlight:** The central incident event is automatically marked with `🎯 [TARGET / INCIDENT]`.
+- **Smart Features:** Central incident event is marked with `🎯 [TARGET / INCIDENT]`. Consecutive identical events are automatically collapsed (`(repeats Nx until HH:MM:SS)`).
 - **Parameters:**
   - `target_timestamp`: `"2026-09-10T14:18:41Z"` (mandatory, accepts ISO-8601 format)
   - `service`: `"application-name"` (recommended)
-  - `window_seconds`: `15` (default: 15s before and 15s after)
-  - `limit`: `30` (maximum records)
+  - `window_seconds`: `10` or `15` (default: 15s before and 15s after)
+  - `limit`: `10` to `15` (**RECOMMENDED for AI:** `10..15` records; default: `30`)
   - `full`: `false` (default) or `true`
 
-### 5. `query_logs`
-- **When to use:** Flexible queries using LogsQL (e.g. searching for a `request_id`, user, or free-text term).
+### 5. `query_logs` (Phase 3: Flexible LogsQL & Column Projection)
+- **When to use:** Flexible queries using LogsQL (e.g. searching for a `request_id`, user, or free-text term), or auditing tabular metrics.
+- **Smart Features:** Strips noisy ANSI escape sequences, collapses consecutive identical records, and projects compact key-value lines when `fields` is specified.
 - **Parameters:**
   - `query`: `"120363421617257978@g.us"` or `status:500`
   - `service`: `"application-name"` (**RECOMMENDED:** automatically injects stream partitioning `_stream:{container_name="..."}`)
   - `time_range`: `"1h"`
-  - `limit`: `20`
+  - `limit`: `5` or `10` (**RECOMMENDED for AI:** `5..10`; default: `20`)
+  - `fields`: `"http_status, duration_ms, request_id"` (**STRONGLY RECOMMENDED for metrics/IDs:** projects columns via `| keep` and renders ultra-compact key-value output, saving >80% tokens)
   - `format`: `"markdown"` (compact default with icons) or `"json"` (raw ndjson)
   - `full`: `false` (default) or `true` (disables truncation of long messages)
-  - `fields`: `"http_status, duration_ms, request_id"` (optional: projects columns via `| keep` and renders ultra-compact key-value output)
 
-### 6. `list_streams`
+### 6. `list_streams` (Phase 0: Service Discovery)
 - **When to use:** To discover which containers, services, and hosts are currently sending logs.
 - **Parameters:**
   - `time_range`: `"24h"`
@@ -99,12 +120,38 @@ The repository's native MCP server (`mcp/server.py`) exposes **9 optimized tools
 - **Parameters:**
   - `field`: `"service"` or `"level"` (mandatory)
   - `time_range`: `"24h"`
-  - `limit`: `20`
+  - `limit`: `10` or `20`
 
 ### 9. `documentation`
 - **When to use:** To inspect LogsQL syntax (filters, pipes, stats) without leaving the chat.
 - **Parameters:**
   - `query`: `"stats"`, `"filters"`, `"streams"`, `"pipes"` (or empty for the full guide)
+
+---
+
+## 🪙 Token Budget Governance for AI Agents
+
+Observability operations can consume significant LLM context tokens if handled naively. All AI agents operating within `ye-sandbox` MUST follow these governance principles:
+
+### 1. The Token Cost Hierarchy
+| Phase / Tool | Average Token Footprint | Diagnostic Value |
+|---|---|---|
+| `get_log_hits` | **~50 – 150 tokens** | Immediate time-spike isolation with zero body payload |
+| `get_errors(deduplicate=true, limit=5)` | **~300 – 800 tokens** | Distinct root-cause tracebacks with repeat counts |
+| `get_context_logs(limit=10)` | **~400 – 900 tokens** | Bounded chronological timeline around failure |
+| `query_logs(fields="...", limit=10)` | **~200 – 500 tokens** | Ultra-dense key-value projections without message bloat |
+| *Unscoped raw query (`query_logs`, limit=50+)* | *10,000 – 40,000+ tokens* | **PROHIBITED:** Causes context window exhaustion |
+
+### 2. Sampling Limits & Directives
+1. **Default to Conservative Limits:** Always query with `limit=5` or `limit=10`. Only expand limits if initial results indicate distinct unseen error classes.
+2. **Always Project Columns When Auditing Attributes:** When analyzing HTTP statuses, API latencies, or correlation IDs, pass `fields="http_status,duration_ms,request_id"`. This eliminates verbose log messages and repetitive JSON envelopes.
+3. **Keep Deduplication Active:** Never set `deduplicate=false` in `get_errors` unless the exact physical arrival order of every single error occurrence is strictly required.
+4. **Scope by Service Immediately:** Never execute queries without `service="..."` unless performing an explicit cross-cluster infrastructure audit.
+
+### 3. Anti-Patterns to Avoid
+- ❌ **Anti-Pattern 1:** Running `query_logs(query="error", limit=50)` on an issue report. *(Violates Phase 1 & 2; floods context with un-deduplicated noise).*
+- ❌ **Anti-Pattern 2:** Requesting `full=true` on initial triage calls. *(Always inspect compact preview first; use `full=true` only if the traceback was cut mid-frame).*
+- ❌ **Anti-Pattern 3:** Fetching entire log lines when only auditing latency distribution. *(Use `fields="duration_ms"` or `| stats` aggregations).*
 
 ---
 

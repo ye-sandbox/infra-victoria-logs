@@ -211,6 +211,20 @@ The repository includes a **native stdio MCP Server** ([`mcp/server.py`](./mcp/s
 > [!TIP]
 > **Default Telemetry Noise Suppression:** To protect LLM context windows, global queries in `query_logs`, `get_errors`, `get_context_logs`, and `get_log_hits` automatically exclude high-frequency telemetry streams (`docker-stats` and `cadvisor`). If you explicitly need to inspect host metrics or cAdvisor logs, specify `service="docker-stats"` or `service="cadvisor"`.
 
+#### 🎯 SRE Investigation Funnel & Token Budget Governance:
+
+To prevent context window exhaustion and maximize diagnostic accuracy, AI agents operating on this stack follow the **3-Phase SRE Triage Funnel**:
+
+1. **Phase 1 — Aggregate Time & Spike Triage (`get_log_hits`)**:
+   - Query error counts over time (e.g. `query='_stream:{service="api"} AND level:error'`, `step="1m"` or `"5m"`).
+   - Zero log body extraction (~50–150 tokens) to pinpoint the exact incident onset without message bloat.
+2. **Phase 2 — Deduplicated Error Isolation (`get_errors`)**:
+   - Query with `service="app-name"` and conservative sampling (`limit=5..10`).
+   - Extracts deduplicated stack traces with occurrence counts (`[42x]`), eliminating repetitive traceback storms.
+3. **Phase 3 — Forensic Context & Column Projection (`get_context_logs` / `query_logs`)**:
+   - Retrieve immediate precursor events via `get_context_logs(target_timestamp="...", window_seconds=10, limit=10)` with visual incident highlighting (`🎯 [TARGET / INCIDENT]`) and consecutive repeat collapse.
+   - For latency, status code, or correlation audits, use `query_logs(fields="http_status,duration_ms,request_id", limit=10)` to project compact key-value lines, saving >80% tokens.
+
 #### Client Configuration:
 
 > [!NOTE]

@@ -59,6 +59,7 @@ You are the senior DevOps engineer and observability specialist responsible for 
   1. **Always Scope by Service/Container:** NEVER run `query_logs` or `get_errors` without specifying `service="app-name"`, except during explicit global infrastructure audits. Unscoped queries waste context tokens and introduce noise from other containers. If unsure of the exact name, run `list_streams()` first.
   2. **Mandatory Double Quotes on Special Characters in LogsQL:** Any search term containing `@`, `:`, `/`, `-`, `.`, spaces, or parentheses (e.g., WhatsApp JIDs `"120363421617257978@g.us"`, email addresses, endpoints) MUST be enclosed in double quotes; otherwise, VictoriaLogs returns HTTP 400.
   3. **Investigation Playbook (SRE):** Consult and strictly follow [`skills/victorialogs-troubleshooting/SKILL.md`](skills/victorialogs-troubleshooting/SKILL.md) when investigating incidents, crashes, anomalies, or container failures.
+  4. **Token Budget Governance & The 3-Phase SRE Funnel:** Agents MUST adhere to the progressive triage funnel (`get_log_hits` ➔ `get_errors` ➔ `get_context_logs` / `fields`), default to conservative sampling limits (`limit=5..10`), and use `fields` column projection when inspecting specific attributes (`http_status`, `duration_ms`, `request_id`) to avoid context window exhaustion.
 
 ---
 

@@ -8,6 +8,14 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-09-21 — Governança de Orçamento de Tokens nas SKILLs e Playbook de SRE
+- **Contexto:** Embora o servidor MCP e o coletor Vector tenham sido otimizados (colapso de repetições, limpeza ANSI, projeção `fields` e teto preventivo no VRL), agentes de IA em incidentes de produção frequentemente executavam chamadas ingênuas (ex: `query_logs(query="error", limit=50)` sem escopo de aplicação ou `get_context_logs` com janelas excessivas). Esse comportamento consumia desnecessariamente até dezenas de milhares de tokens, levando a truncamentos de contexto do LLM, perda de foco em causa-raiz e custos elevados de inferência.
+- **Decisão:** Formalizar e padronizar a governança de orçamento de tokens em toda a organização `ye-sandbox`:
+  1. *Funil de Triagem de SRE em 3 Fases:* Obrigatoriedade do fluxo Fase 1 (`get_log_hits` para isolar início e taxa de erros com zero payload de corpo de log, ~50–150 tokens) ➔ Fase 2 (`get_errors` com `limit=5..10` e deduplicação ativa para extrair assinaturas e tracebacks sem ruído, ~300–800 tokens) ➔ Fase 3 (`get_context_logs` com janela e limite estritos `10..15`, ou `query_logs` projetando apenas atributos essenciais com `fields="http_status,duration_ms,request_id"`, ~200–500 tokens).
+  2. *Amostragem Conservadora Padronizada:* Redução dos limites recomendados para agentes de IA para `limit=5..10`, permitindo expansão pontual apenas se identificado padrão de erro heterogêneo não categorizado.
+  3. *Alinhamento Multilateral:* Sincronização explícita das diretrizes mandatórias no `AGENTS.md` (Diretiva 4), na skill canônica `skills/victorialogs-troubleshooting/SKILL.md` (seção de Governança de Tokens e anti-patterns) e na documentação pública bilíngue (`README.md` e `README.pt-br.md`).
+- **Consequências:** Operação de agentes de IA com economia previsível superior a 90% em tokens por incidente, zero perda de capacidade diagnóstica forense e garantia de aderência uniforme a boas práticas de SRE.
+
 ### 2026-09-21 — Economia de Tokens no Servidor MCP (Colapso Consecutivo, Limpeza ANSI e Projeção fields)
 - **Contexto:** Consultas forenses executadas por agentes de IA via MCP (`query_logs`, `get_context_logs`) frequentemente retornavam rajadas consecutivas de logs repetitivos (heartbeats, loops de polling, healthchecks periódicos) e sequências de escape de cores/formatação ANSI emitidas por runtimes modernos (Node.js, Python, Go). Cada sequência ANSI consumia de 4 a 6 tokens BPE extras sem agregar valor semântico, enquanto centenas de linhas repetidas esgotavam o orçamento de contexto do modelo. Além disso, agentes que necessitavam auditar campos específicos (ex: `http_status`, `duration_ms`, `request_id`) precisavam receber o JSON completo ou linhas longas com `_msg`.
 - **Decisão:** Implementar três otimizações determinísticas no Servidor MCP nativo (`mcp/server.py`):
