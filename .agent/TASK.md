@@ -14,7 +14,7 @@
 
 ### 📌 Nenhuma tarefa ativa no momento (Aguardando definição do usuário ou backlog)
 
-- **Descrição:** Tarefa 49.0 concluída com sucesso. Aguardando autorização para iniciar a próxima tarefa do backlog (50.0).
+- **Descrição:** Tarefa 50.0 concluída com sucesso. Aguardando autorização para iniciar a próxima tarefa do backlog (51.0).
 - **Sistema(s) Envolvido(s):** N/A
 - **Tipo de Ação:** N/A
 - **Status:** AGUARDANDO TAREFA
@@ -23,7 +23,6 @@
 
 ## Backlog (Próximas, em ordem)
 
-- [ ] **50.0** — Correção do Healthcheck HTTP Real do vmalert (`wget /health` na porta 8880)
 - [ ] **51.0** — Adição de `no-new-privileges: true` em Todos os Containers
 
 ---
@@ -32,6 +31,7 @@
 
 | Tarefa | Título | Commit(s) | Data |
 |---|---|---|---|
+| 50.0 | Correção do Healthcheck HTTP Real do vmalert (`wget /health` na porta 8880) | `3a7bd49` | 2026-09-21 |
 | 49.0 | Hardening de Containers: `read_only: true` + `tmpfs` para VictoriaLogs e Vector | `34ea221` | 2026-09-21 |
 | 48.0 | Parâmetro `service` em `field_names` para Escopo por Aplicação no Servidor MCP | `b299dfd` | 2026-09-21 |
 | 47.0 | Parâmetro `max_buckets` e Aviso de Truncamento em `get_log_hits` no Servidor MCP | `489edf6` | 2026-09-21 |
