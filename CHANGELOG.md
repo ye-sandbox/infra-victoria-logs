@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-26
+
+### Added
+- **Container hardening:** Immutable root filesystem (`read_only`), ephemeral `/tmp` via `tmpfs`, and `no-new-privileges: true` on VictoriaLogs, Vector, and vmalert, with matching checks in `scripts/audit-security.sh`.
+- **MCP token controls:** Optional `fields` projection, consecutive-repeat collapse, ANSI stripping, `max_buckets` with an explicit truncation notice on `get_log_hits`, and application scoping via `service` on `field_names`.
+- **Default telemetry noise filter:** Global MCP queries exclude `docker-stats` and `cadvisor` unless those services are requested explicitly.
+- **Vector ingestion guards:** Drop successful `/metrics` scrapes and clamp non-error messages at 8 KB across Docker, HTTP, and syslog profiles.
+- **Virtualization-aware disk tuning:** `scripts/tune-disk-host.sh` detects QEMU/KVM guests, recommends the `none` scheduler, and skips `hdparm` inside VMs.
+- **SRE token budget:** Three-phase triage funnel (`get_log_hits` → `get_errors` → `get_context_logs`) documented in the agent skills and `AGENTS.md`.
+
+### Fixed
+- **vmalert healthcheck:** Probe `wget /health` on port 8880 instead of only checking that the binary starts.
+- **Retention fallback:** Compose default is `1y` when `RETENTION_PERIOD` is unset, matching the one-year partition policy.
+- **Udev scheduler rules:** Remove the conflicting legacy rule and apply the scheduler immediately on live block devices.
+
+### Changed
+- **English agent surface:** `AGENTS.md`, the MCP server messages, and the canonical skills are in technical English. Tool names and parameter keys are unchanged.
+
 ## [1.1.0] - 2026-09-12
 
 ### Added
