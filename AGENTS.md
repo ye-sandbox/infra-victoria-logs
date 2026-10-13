@@ -120,9 +120,12 @@ Format: `[Epic].[Sequence]` with two-digit epics. Subtasks: `[XX.Y.Z]`. Exactly 
 - **Target RAM Usage:** <= 60 MB
 
 ### 3. Native MCP Server (Model Context Protocol for AI Agents)
-- **Runtime:** Pure Python 3 stdio (`mcp/server.py`), zero external dependencies
+- **Runtime:** Pure Python 3 (`mcp/server.py`), zero external dependencies. Supports standard `stdio` mode and native HTTP/SSE daemon via `--sse PORT`.
 - **Target RAM Usage:** < 22 MB
-- **Tool Catalog (9 Optimized Tools):**
+- **Transport Modes:**
+  - `stdio` (default): JSON-RPC 2.0 over standard input/output for local agents.
+  - `sse` (`--sse PORT`): Server-Sent Events stream (`GET /sse` + `POST /messages?sessionId=...`), direct HTTP JSON-RPC execution (`POST /messages`), and health probe (`GET /health`).
+- **Tool Catalog (9 Optimized Tools, supporting optional `timeout`):**
   - `health_check`: Verifies connectivity and latency with VictoriaLogs.
   - `query_logs`: Executes flexible LogsQL queries with compact field projection (`| keep`).
   - `get_errors`: Extracts errors and stack traces with smart deduplication and proactive SRE hints.
@@ -187,6 +190,14 @@ Format: `[Epic].[Sequence]` with two-digit epics. Subtasks: `[XX.Y.Z]`. Exactly 
 - **Test Log Ingestion via Vector HTTP:**
   ```bash
   curl -s -X POST http://localhost:8686/logs -H "Content-Type: application/json" -d '{"service":"test","level":"info","message":"ping"}'
+  ```
+- **Validate MCP Server (stdio and SSE modes):**
+  ```bash
+  bash scripts/test-mcp.sh
+  ```
+- **Run Python Unit Tests (MCP & Alert Bridge):**
+  ```bash
+  python3 -m unittest discover -s tests -p "test_*.py"
   ```
 
 ---

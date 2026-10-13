@@ -60,11 +60,12 @@ When the user reports an issue ("the API crashed", "the worker stopped", "I'm ge
 
 ## 🛠️ Complete MCP Tool Catalog
 
-The repository's native MCP server (`mcp/server.py`) exposes **9 optimized tools**, designed to deliver to the AI exactly what it needs to resolve bugs without wasting tokens on irrelevant metadata:
+The repository's native MCP server (`mcp/server.py`) exposes **9 optimized tools**, designed to deliver to the AI exactly what it needs to resolve bugs without wasting tokens on irrelevant metadata. It runs in standard `stdio` mode (default) or as a native HTTP/SSE daemon (`python3 mcp/server.py --sse PORT`). All VictoriaLogs query tools accept an optional `timeout` parameter (default: `15` seconds) for historical or heavy scans.
 
 ### 1. `health_check`
 - **When to use:** At the start of a session to verify connectivity with VictoriaLogs.
-- **Parameters:** `{}`
+- **Parameters:**
+  - `timeout`: `15` (optional HTTP timeout in seconds, default: `15`)
 
 ### 2. `get_log_hits` (Phase 1: Zero-Payload Time Triage)
 - **When to use:** To answer *"when did the problem start?"* or *"how many failures occurred per minute?"* without pulling raw log payloads.
@@ -73,6 +74,7 @@ The repository's native MCP server (`mcp/server.py`) exposes **9 optimized tools
   - `time_range`: `"30m"`, `"1h"`, `"6h"`, `"24h"`
   - `step`: `"1m"`, `"5m"`, `"1h"`
   - `max_buckets`: `15` (default: `15`, displays most recent buckets; increase if a wider timespan is needed)
+  - `timeout`: `15` (optional HTTP timeout in seconds, default: `15`)
 
 ### 3. `get_errors` ⭐ (Phase 2: Primary for Debugging)
 - **When to use:** Extracts errors and multiline stack traces formatted in code blocks without `info` log noise.
@@ -83,6 +85,7 @@ The repository's native MCP server (`mcp/server.py`) exposes **9 optimized tools
   - `limit`: `5` or `10` (**RECOMMENDED for AI:** `5..10` to conserve context tokens; default: `10`)
   - `deduplicate`: `true` (default) or `false` (for raw sequential list)
   - `full`: `false` (default, truncating giant tracebacks after 1,200 chars) or `true` (100% uncut stack trace)
+  - `timeout`: `15` (optional HTTP timeout in seconds, default: `15`)
 
 ### 4. `get_context_logs` ⭐ (Phase 3: Forensic Fore/Aft Context)
 - **When to use:** After identifying an error via `get_errors()`, use the exact failure timestamp to retrieve the chronological history of immediately preceding and succeeding logs (including `info`, `debug`, etc.), revealing what the user or system was doing right before the crash.
@@ -93,6 +96,7 @@ The repository's native MCP server (`mcp/server.py`) exposes **9 optimized tools
   - `window_seconds`: `10` or `15` (default: 15s before and 15s after)
   - `limit`: `10` to `15` (**RECOMMENDED for AI:** `10..15` records; default: `30`)
   - `full`: `false` (default) or `true`
+  - `timeout`: `15` (optional HTTP timeout in seconds, default: `15`)
 
 ### 5. `query_logs` (Phase 3: Flexible LogsQL & Column Projection)
 - **When to use:** Flexible queries using LogsQL (e.g. searching for a `request_id`, user, or free-text term), or auditing tabular metrics.
@@ -105,17 +109,20 @@ The repository's native MCP server (`mcp/server.py`) exposes **9 optimized tools
   - `fields`: `"http_status, duration_ms, request_id"` (**STRONGLY RECOMMENDED for metrics/IDs:** projects columns via `| keep` and renders ultra-compact key-value output, saving >80% tokens)
   - `format`: `"markdown"` (compact default with icons) or `"json"` (raw ndjson)
   - `full`: `false` (default) or `true` (disables truncation of long messages)
+  - `timeout`: `15` (optional HTTP timeout in seconds, default: `15`)
 
 ### 6. `list_streams` (Phase 0: Service Discovery)
 - **When to use:** To discover which containers, services, and hosts are currently sending logs.
 - **Parameters:**
   - `time_range`: `"24h"`
+  - `timeout`: `15` (optional HTTP timeout in seconds, default: `15`)
 
 ### 7. `field_names`
 - **When to use:** To inspect indexed field names in VictoriaLogs (e.g. `user_id`, `path`, `status`). Use `service` to isolate fields belonging to a specific container/application and eliminate cross-container noise.
 - **Parameters:**
   - `service`: `"app-name"` (optional, recommended when diagnosing a specific service)
   - `time_range`: `"24h"`
+  - `timeout`: `15` (optional HTTP timeout in seconds, default: `15`)
 
 ### 8. `field_values`
 - **When to use:** To list the most frequent existing values of a specific field (e.g. see which `level` or `service` values exist).
@@ -123,6 +130,7 @@ The repository's native MCP server (`mcp/server.py`) exposes **9 optimized tools
   - `field`: `"service"` or `"level"` (mandatory)
   - `time_range`: `"24h"`
   - `limit`: `10` or `20`
+  - `timeout`: `15` (optional HTTP timeout in seconds, default: `15`)
 
 ### 9. `documentation`
 - **When to use:** To inspect LogsQL syntax (filters, pipes, stats) without leaving the chat.

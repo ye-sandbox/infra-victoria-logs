@@ -18,10 +18,17 @@ from mcp.server import (
     enrich_logsql_error,
     extract_time_part,
     strip_ansi,
+    parse_timeout,
+    process_jsonrpc_request,
+    MCPSSEHandler,
+    TOOLS,
+    tool_health_check,
     tool_field_names,
+    tool_field_values,
     tool_get_context_logs,
     tool_get_errors,
     tool_get_log_hits,
+    tool_list_streams,
     tool_query_logs,
 )
 
@@ -349,6 +356,208 @@ class TestMcpErrorEnricher(unittest.TestCase):
         result = tool_field_names({"service": 'bad"service', "time_range": "24h"})
         self.assertIn("❌ Error listing field names:", result)
         self.assertIn("💡 **LogsQL Hint (Unclosed Quotes):**", result)
+
+    def test_parse_timeout(self):
+        self.assertEqual(parse_timeout({}, default=15), 15)
+        self.assertEqual(parse_timeout({"timeout": 45}), 45)
+        self.assertEqual(parse_timeout({"timeout": "30"}), 30)
+        self.assertEqual(parse_timeout({"timeout": -10}), 1)
+        self.assertEqual(parse_timeout({"timeout": 0}), 1)
+        self.assertEqual(parse_timeout({"timeout": "invalid"}), 15)
+        self.assertEqual(parse_timeout({"timeout": None}, default=20), 20)
+
+    @patch("mcp.server.make_request")
+    def test_tool_timeout_forwarding(self, mock_request):
+        mock_request.return_value = '{"_time":"2026-10-13T00:00:00Z","level":"info","_msg":"ok"}'
+
+        # 1. query_logs with custom timeout
+        tool_query_logs({"query": "*", "timeout": 60})
+        _args, kwargs = mock_request.call_args
+        self.assertEqual(kwargs.get("timeout"), 60)
+
+        # 2. get_errors with custom timeout
+        tool_get_errors({"service": "app", "timeout": 45})
+        _args, kwargs = mock_request.call_args
+        self.assertEqual(kwargs.get("timeout"), 45)
+
+        # 3. get_context_logs with custom timeout
+        tool_get_context_logs({"target_timestamp": "2026-10-13T00:00:00Z", "timeout": 30})
+        _args, kwargs = mock_request.call_args
+        self.assertEqual(kwargs.get("timeout"), 30)
+
+        # 4. get_log_hits with custom timeout
+        mock_request.return_value = '{"hits":[]}'
+        tool_get_log_hits({"query": "*", "timeout": 25})
+        _args, kwargs = mock_request.call_args
+        self.assertEqual(kwargs.get("timeout"), 25)
+
+        # 5. field_names with custom timeout
+        mock_request.return_value = '{"values":[]}'
+        tool_field_names({"service": "app", "timeout": 50})
+        _args, kwargs = mock_request.call_args
+        self.assertEqual(kwargs.get("timeout"), 50)
+
+        # 6. field_values with custom timeout
+        tool_field_values({"field": "level", "timeout": 35})
+        _args, kwargs = mock_request.call_args
+        self.assertEqual(kwargs.get("timeout"), 35)
+
+        # 7. health_check with custom timeout
+        mock_request.return_value = "OK"
+        tool_health_check({"timeout": 10})
+        _args, kwargs = mock_request.call_args
+        self.assertEqual(kwargs.get("timeout"), 10)
+
+    def test_tools_schema_timeout_presence(self):
+        query_tools = [
+            "health_check",
+            "query_logs",
+            "get_errors",
+            "get_context_logs",
+            "get_log_hits",
+            "list_streams",
+            "field_names",
+            "field_values",
+        ]
+        tools_dict = {t["name"]: t for t in TOOLS}
+        for name in query_tools:
+            self.assertIn(name, tools_dict)
+            properties = tools_dict[name]["inputSchema"].get("properties", {})
+            self.assertIn("timeout", properties, f"Tool '{name}' must include 'timeout' in inputSchema")
+            self.assertEqual(properties["timeout"]["type"], "integer")
+            self.assertEqual(properties["timeout"]["default"], 15)
+
+    def test_process_jsonrpc_request(self):
+        # 1. initialize
+        init_req = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
+        init_res = process_jsonrpc_request(init_req)
+        self.assertIsNotNone(init_res)
+        self.assertEqual(init_res["id"], 1)
+        self.assertEqual(init_res["result"]["serverInfo"]["name"], "victorialogs-mcp")
+
+        # 2. notifications/initialized
+        notif_req = {"jsonrpc": "2.0", "method": "notifications/initialized"}
+        self.assertIsNone(process_jsonrpc_request(notif_req))
+
+        # 3. ping
+        ping_req = {"jsonrpc": "2.0", "id": 2, "method": "ping"}
+        ping_res = process_jsonrpc_request(ping_req)
+        self.assertEqual(ping_res, {"jsonrpc": "2.0", "id": 2, "result": {}})
+
+        # 4. tools/list
+        list_req = {"jsonrpc": "2.0", "id": 3, "method": "tools/list"}
+        list_res = process_jsonrpc_request(list_req)
+        self.assertIn("tools", list_res["result"])
+        self.assertEqual(len(list_res["result"]["tools"]), 9)
+
+        # 5. tools/call valid
+        doc_req = {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "documentation", "arguments": {"query": "filters"}}}
+        doc_res = process_jsonrpc_request(doc_req)
+        self.assertFalse(doc_res["result"]["isError"])
+        self.assertIn("Basic Filters in LogsQL", doc_res["result"]["content"][0]["text"])
+
+        # 6. tools/call unknown
+        unk_req = {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "unknown_tool", "arguments": {}}}
+        unk_res = process_jsonrpc_request(unk_req)
+        self.assertEqual(unk_res["error"]["code"], -32601)
+
+        # 7. unsupported method
+        bad_req = {"jsonrpc": "2.0", "id": 6, "method": "unsupported/method"}
+        bad_res = process_jsonrpc_request(bad_req)
+        self.assertEqual(bad_res["error"]["code"], -32601)
+
+    def test_sse_http_server_endpoints(self):
+        import urllib.request
+        from http.server import ThreadingHTTPServer
+        import threading
+
+        # Start ephemeral test server
+        server = ThreadingHTTPServer(("127.0.0.1", 0), MCPSSEHandler)
+        server.daemon_threads = True
+        port = server.server_address[1]
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+
+        base_url = f"http://127.0.0.1:{port}"
+
+        try:
+            # 1. GET /health
+            req = urllib.request.Request(f"{base_url}/health")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                self.assertEqual(resp.status, 200)
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(data["status"], "ok")
+                self.assertEqual(data["mode"], "sse")
+                self.assertEqual(data["tools"], 9)
+
+            # 2. OPTIONS /messages (CORS Preflight)
+            req = urllib.request.Request(f"{base_url}/messages", method="OPTIONS")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                self.assertEqual(resp.status, 204)
+                self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "*")
+
+            # 3. Direct POST /messages (Fallback direct JSON-RPC execution)
+            post_body = json.dumps({"jsonrpc": "2.0", "id": 10, "method": "ping"}).encode("utf-8")
+            req = urllib.request.Request(
+                f"{base_url}/messages",
+                data=post_body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                self.assertEqual(resp.status, 200)
+                res_data = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(res_data, {"jsonrpc": "2.0", "id": 10, "result": {}})
+
+            # 4. SSE Stream Handshake and Message Delivery
+            sse_req = urllib.request.Request(f"{base_url}/sse")
+            sse_resp = urllib.request.urlopen(sse_req, timeout=5)
+            self.assertEqual(sse_resp.status, 200)
+            self.assertIn("text/event-stream", sse_resp.headers.get("Content-Type", ""))
+
+            # Read initial endpoint event: "event: endpoint\ndata: /messages?sessionId=...\n\n"
+            line1 = sse_resp.readline().decode("utf-8")  # event: endpoint\n
+            line2 = sse_resp.readline().decode("utf-8")  # data: /messages?sessionId=...\n
+            line3 = sse_resp.readline().decode("utf-8")  # \n
+            self.assertIn("event: endpoint", line1)
+            self.assertIn("data: /messages?sessionId=", line2)
+
+            endpoint_path = line2.replace("data:", "").strip()
+            session_id = endpoint_path.split("sessionId=")[1]
+
+            # Send JSON-RPC request to POST /messages?sessionId=...
+            rpc_body = json.dumps({
+                "jsonrpc": "2.0",
+                "id": 99,
+                "method": "tools/call",
+                "params": {"name": "documentation", "arguments": {"query": "stats"}},
+            }).encode("utf-8")
+
+            req = urllib.request.Request(
+                f"{base_url}/messages?sessionId={session_id}",
+                data=rpc_body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as post_res:
+                self.assertEqual(post_res.status, 202)
+
+            # Read event delivered over SSE connection
+            event_line = sse_resp.readline().decode("utf-8")  # event: message\n
+            data_line = sse_resp.readline().decode("utf-8")   # data: {json}\n
+            _blank = sse_resp.readline().decode("utf-8")      # \n
+
+            self.assertIn("event: message", event_line)
+            delivered = json.loads(data_line.replace("data:", "").strip())
+            self.assertEqual(delivered["id"], 99)
+            self.assertFalse(delivered["result"]["isError"])
+            self.assertIn("stats", delivered["result"]["content"][0]["text"])
+
+            sse_resp.close()
+
+        finally:
+            server.shutdown()
+            server.server_close()
 
 
 if __name__ == "__main__":

@@ -121,6 +121,43 @@ else
   exit 1
 fi
 
+# 8. Test native SSE / HTTP server transport (--sse mode)
+echo "8️⃣  Testing native SSE/HTTP mode (--sse)..."
+SSE_PORT=9439
+python3 "${SERVER_SCRIPT}" --sse "${SSE_PORT}" &
+SSE_PID=$!
+trap 'kill "${SSE_PID}" 2>/dev/null || true' EXIT
+
+sleep 1
+
+# Check /health endpoint
+HEALTH_RESP=$(curl -s "http://127.0.0.1:${SSE_PORT}/health")
+if echo "${HEALTH_RESP}" | grep -q '"mode": "sse"'; then
+  echo "   ✅ GET /health responded successfully in SSE mode:"
+  echo "      ${HEALTH_RESP}"
+else
+  echo "❌ SSE server healthcheck failed. Response: ${HEALTH_RESP}"
+  kill "${SSE_PID}" 2>/dev/null || true
+  exit 1
+fi
+
+# Check direct POST /messages endpoint
+PING_RESP=$(curl -s -X POST "http://127.0.0.1:${SSE_PORT}/messages" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":8,"method":"ping"}')
+
+if echo "${PING_RESP}" | grep -q '"id": 8'; then
+  echo "   ✅ POST /messages responded successfully via HTTP:"
+  echo "      ${PING_RESP}"
+else
+  echo "❌ SSE server POST /messages failed. Response: ${PING_RESP}"
+  kill "${SSE_PID}" 2>/dev/null || true
+  exit 1
+fi
+
+kill "${SSE_PID}" 2>/dev/null || true
+trap - EXIT
+
 echo "================================================================================"
-echo "🎉 [SUCCESS] MCP server is 100% validated and compliant with JSON-RPC 2.0!"
+echo "🎉 [SUCCESS] MCP server is 100% validated across stdio and SSE modes!"
 echo "================================================================================"

@@ -18,6 +18,7 @@
 | `9598` | TCP | `vector` | `9598` | `127.0.0.1` (Local) | Vector Prometheus internal metrics exporter |
 | `8880` | TCP | `vmalert` | `8880` | `127.0.0.1` (Local) | vmalert Web UI & HTTP healthcheck endpoint (profile: `alerting`) |
 | `9093` | TCP | `alert-bridge` | `9093` | `127.0.0.1` (Local) | Alertmanager v2/v1 HTTP webhook API & healthcheck (profile: `alerting`) |
+| `8000` | TCP | `mcp-server` (optional) | N/A (Host) | `0.0.0.0` (LAN) | Native Model Context Protocol (MCP) SSE & HTTP API (`--sse 8000`) |
 
 *(Exposure types: `127.0.0.1` [local host only], `0.0.0.0` [public / LAN], `Internal Network` [no host port, Docker DNS only])*
 

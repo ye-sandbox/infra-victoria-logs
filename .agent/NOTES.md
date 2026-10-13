@@ -9,6 +9,19 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-10-13 — Evolução do Servidor MCP: Timeout por Chamada e Transporte SSE/HTTP Nativo (Tarefa 56.0)
+- **Contexto:** Agentes de IA locais (Antigravity, Claude Code, Cursor) utilizavam o servidor MCP nativo exclusivamente via terminal stdio. No entanto, agentes remotos, dashboards web ou ferramentas em containers não conseguiam consultar o MCP sem um shell local ou sem orquestrar wrappers externos. Além disso, queries históricas extensas em VictoriaLogs (ex: `time_range="30d"` ou agregações densas) podiam sofrer timeout prematuro com o teto padrão rígido de 15 segundos da função `make_request`.
+- **Decisão:**
+  1. *Timeout Configurável por Chamada:* Adicionar parâmetro opcional `timeout` (inteiro, padrão 15s) no schema (`inputSchema.properties`) de todas as ferramentas de consulta ao VictoriaLogs (`health_check`, `query_logs`, `get_errors`, `get_context_logs`, `get_log_hits`, `list_streams`, `field_names`, `field_values`). Função defensiva `parse_timeout` converte valores de forma resiliente e repassa a `make_request(..., timeout=timeout)`.
+  2. *Transporte SSE / HTTP Nativo em Python Puro (`--sse PORT`):* Implementar suporte opcional a Server-Sent Events (SSE) e HTTP em `mcp/server.py` com **zero dependências externas**, utilizando exclusivamente `http.server.ThreadingHTTPServer`, `threading`, `queue` e `uuid` da stdlib:
+     - `GET /sse`: Abre stream SSE multi-sessão, gera `sessionId` único e despacha o handshake oficial MCP `event: endpoint\ndata: /messages?sessionId=<sessionId>\n\n`. Mantém o stream aberto despachando respostas via fila thread-safe e comentários `: keepalive\n\n` a cada 15 segundos.
+     - `POST /messages?sessionId=...`: Recebe requisições JSON-RPC 2.0 associadas à sessão SSE, despacha a resposta pela fila do stream SSE e responde `202 Accepted`.
+     - `POST /messages` (direto sem sessão): Fallback imediato para chamadas HTTP diretas (ex: `curl`, webhooks), retornando o JSON-RPC de resposta diretamente no corpo HTTP com status 200 OK.
+     - `GET /health` e `OPTIONS *`: Sonda de saúde com metadados do servidor e headers CORS completos para integração com ferramentas de navegador.
+  3. *Preservação Estrita do Modo Stdio:* Na ausência da flag `--sse`, o servidor executa no modo stdio tradicional linha a linha com zero overhead e 100% de retrocompatibilidade.
+  4. *Cobertura de Testes Automatizados:* Criação de testes unitários em `tests/test_mcp_error_enricher.py` cobrindo parsing de timeout, repasse a ferramentas, schemas JSON-RPC, despachante `process_jsonrpc_request`, e subida de servidor em porta efêmera com testes reais de endpoints HTTP e streaming SSE. Atualização de `scripts/test-mcp.sh` com validação integrada de ambos os modos.
+- **Consequências:** Capacidade de operação híbrida (local via stdio ou remota via SSE/HTTP) com zero impacto em footprint (< 22 MB RAM), suporte a consultas históricas de longa duração e conformidade plena com o ecossistema MCP.
+
 ### 2026-10-13 — Resiliência de Backup Off-Site no backup.sh (Regra 3-2-1) (Tarefa 55.0)
 - **Contexto:** Os snapshots atômicos do VictoriaLogs eram armazenados exclusivamente no disco do host/VM (`${BACKUP_DIR:-./backups}`). Em cenários de desastre de hardware (falha total do HD/SSD do Mini PC, perda do storage Proxmox ou corrupção do nó hipervisor), tanto os dados em produção no volume Docker quanto os arquivos de backup locais seriam perdidos simultaneamente, violando o princípio fundamental da Regra 3-2-1 de continuidade e recuperação de desastres.
 - **Decisão:**

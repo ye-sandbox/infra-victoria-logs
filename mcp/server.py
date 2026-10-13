@@ -21,9 +21,14 @@ import os
 import re
 import json
 import base64
+import argparse
+import queue
+import threading
+import uuid
 import urllib.request
 import urllib.error
 import urllib.parse
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -88,6 +93,18 @@ def extract_time_part(ts_str: str) -> str:
     if " " in cleaned:
         return cleaned.split(" ")[1]
     return cleaned
+
+
+def parse_timeout(args: Dict[str, Any], default: int = 15) -> int:
+    """Parses optional timeout parameter defensively, falling back to default."""
+    val = args.get("timeout")
+    if val is None:
+        return default
+    try:
+        parsed = int(val)
+        return max(1, parsed)
+    except (ValueError, TypeError):
+        return default
 
 
 def make_request(path: str, params: Optional[Dict[str, Any]] = None, timeout: int = 15) -> str:
@@ -221,8 +238,9 @@ LOGSQL_DOCS["funcoes_stats"] = LOGSQL_DOCS["stats_functions"]
 
 def tool_health_check(_args: Dict[str, Any]) -> str:
     """Checks VictoriaLogs health and connectivity."""
+    timeout = parse_timeout(_args, 15)
     try:
-        resp = make_request("/health")
+        resp = make_request("/health", timeout=timeout)
         return f"✅ VictoriaLogs is healthy and responding at {VL_BASE_URL}.\nStatus: {resp.strip()}"
     except Exception as e:
         return f"❌ VictoriaLogs unreachable at {VL_BASE_URL}.\nError: {str(e)}"
@@ -236,6 +254,7 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
     limit = min(int(args.get("limit", 20)), 100)
     output_format = args.get("format", "markdown").lower()
     full_output = bool(args.get("full", False))
+    timeout = parse_timeout(args, 15)
 
     raw_fields = args.get("fields")
     if isinstance(raw_fields, list):
@@ -268,7 +287,7 @@ def tool_query_logs(args: Dict[str, Any]) -> str:
         query = f"{query} | keep _time, level, service, container_name, _msg, stream, host"
 
     try:
-        resp = make_request("/select/logsql/query", {"query": query, "limit": limit})
+        resp = make_request("/select/logsql/query", {"query": query, "limit": limit}, timeout=timeout)
     except Exception as e:
         return f"❌ Error querying LogsQL: {enrich_logsql_error(str(e), raw_query)}"
 
@@ -415,6 +434,7 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
     limit = min(int(args.get("limit", 20)), 50)
     deduplicate = bool(args.get("deduplicate", True))
     full_output = bool(args.get("full", False))
+    timeout = parse_timeout(args, 15)
 
     query_parts = ["level:error"]
     if service:
@@ -430,7 +450,7 @@ def tool_get_errors(args: Dict[str, Any]) -> str:
     try:
         # Pull a larger sample when deduplication is enabled to group error storms
         fetch_limit = min(limit * 3, 100) if deduplicate else limit
-        resp = make_request("/select/logsql/query", {"query": query, "limit": fetch_limit})
+        resp = make_request("/select/logsql/query", {"query": query, "limit": fetch_limit}, timeout=timeout)
     except Exception as e:
         return f"❌ Error fetching errors: {enrich_logsql_error(str(e), query)}"
 
@@ -542,6 +562,7 @@ def tool_get_context_logs(args: Dict[str, Any]) -> str:
     window_seconds = max(1, min(int(args.get("window_seconds", 15)), 120))
     limit = max(1, min(int(args.get("limit", 30)), 100))
     full_output = bool(args.get("full", False))
+    timeout = parse_timeout(args, 15)
 
     if not target_timestamp:
         return "Error: parameter 'target_timestamp' is required (e.g. '2026-09-10T14:18:41Z')."
@@ -571,7 +592,7 @@ def tool_get_context_logs(args: Dict[str, Any]) -> str:
     query = f"{query} | sort by (_time) asc"
 
     try:
-        resp = make_request("/select/logsql/query", {"query": query, "limit": limit})
+        resp = make_request("/select/logsql/query", {"query": query, "limit": limit}, timeout=timeout)
     except Exception as e:
         return f"❌ Error querying context in LogsQL: {enrich_logsql_error(str(e), query)}"
 
@@ -669,6 +690,7 @@ def tool_get_log_hits(args: Dict[str, Any]) -> str:
     raw_query = clean_query(args.get("query", "*"))
     time_range = clean_query(args.get("time_range", "1h"))
     step = clean_query(args.get("step", "5m"))
+    timeout = parse_timeout(args, 15)
 
     try:
         max_buckets = int(args.get("max_buckets", 15))
@@ -685,7 +707,7 @@ def tool_get_log_hits(args: Dict[str, Any]) -> str:
         query = f"_time:{time_range} AND ({query})"
 
     try:
-        resp = make_request("/select/logsql/hits", {"query": query, "step": step})
+        resp = make_request("/select/logsql/hits", {"query": query, "step": step}, timeout=timeout)
         data = json.loads(resp)
     except Exception as e:
         return f"❌ Error fetching hits: {enrich_logsql_error(str(e), raw_query)}"
@@ -721,10 +743,11 @@ def tool_get_log_hits(args: Dict[str, Any]) -> str:
 def tool_list_streams(args: Dict[str, Any]) -> str:
     """Lists active containers, services, and hosts shipping logs."""
     time_range = args.get("time_range", "24h").strip()
+    timeout = parse_timeout(args, 15)
 
     # 1. Attempt native instant endpoint /select/logsql/streams
     try:
-        resp = make_request("/select/logsql/streams", {"start": time_range})
+        resp = make_request("/select/logsql/streams", {"start": time_range}, timeout=timeout)
         lines = [l.strip() for l in resp.splitlines() if l.strip()]
         if lines:
             streams_set = set()
@@ -754,7 +777,7 @@ def tool_list_streams(args: Dict[str, Any]) -> str:
     # 2. Fallback via aggregated query with proper LogsQL syntax
     query = f"_time:{time_range} | stats by (container_name, service, host) count() as rows | sort by (rows) desc | limit 30"
     try:
-        resp = make_request("/select/logsql/query", {"query": query})
+        resp = make_request("/select/logsql/query", {"query": query}, timeout=timeout)
         lines = [l.strip() for l in resp.splitlines() if l.strip()]
         if not lines:
             return f"ℹ️ No active streams found in {time_range} window."
@@ -783,6 +806,7 @@ def tool_field_names(args: Dict[str, Any]) -> str:
     """Returns indexed field names in VictoriaLogs to guide AI queries."""
     service = clean_query(args.get("service", ""))
     time_range = clean_query(args.get("time_range", "24h")) or "24h"
+    timeout = parse_timeout(args, 15)
 
     if service:
         query = f'_time:{time_range} AND (_stream:{{container_name="{service}"}} OR _stream:{{service="{service}"}})'
@@ -790,7 +814,7 @@ def tool_field_names(args: Dict[str, Any]) -> str:
         query = f"_time:{time_range}"
 
     try:
-        resp = make_request("/select/logsql/field_names", {"query": query})
+        resp = make_request("/select/logsql/field_names", {"query": query}, timeout=timeout)
         data = json.loads(resp)
         items = data.get("values", [])
         if not items:
@@ -817,12 +841,13 @@ def tool_field_values(args: Dict[str, Any]) -> str:
     field = args.get("field", "").strip()
     time_range = args.get("time_range", "24h").strip()
     limit = min(int(args.get("limit", 20)), 50)
+    timeout = parse_timeout(args, 15)
 
     if not field:
         return "Error: parameter 'field' is required (e.g. 'level', 'service', 'container_name')."
 
     try:
-        resp = make_request("/select/logsql/field_values", {"field": field, "query": f"_time:{time_range}", "limit": limit})
+        resp = make_request("/select/logsql/field_values", {"field": field, "query": f"_time:{time_range}", "limit": limit}, timeout=timeout)
         data = json.loads(resp)
         items = data.get("values", [])
         if not items:
@@ -879,7 +904,13 @@ TOOLS = [
         "description": "Verifies whether the VictoriaLogs instance is healthy, connected, and responding.",
         "inputSchema": {
             "type": "object",
-            "properties": {},
+            "properties": {
+                "timeout": {
+                    "type": "integer",
+                    "description": "Optional HTTP request timeout in seconds (default: 15).",
+                    "default": 15,
+                },
+            },
         },
         "handler": tool_health_check,
     },
@@ -922,6 +953,11 @@ TOOLS = [
                     "type": "string",
                     "description": "Optional comma-separated list of field names to project (e.g. 'http_status, duration_ms, request_id'). Projects columns via '| keep' and renders ultra-compact key-value output.",
                 },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Optional HTTP request timeout in seconds for long-running historical queries (default: 15).",
+                    "default": 15,
+                },
             },
             "required": ["query"],
         },
@@ -957,6 +993,11 @@ TOOLS = [
                     "description": "If true, displays the complete stack trace without truncation.",
                     "default": False,
                 },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Optional HTTP request timeout in seconds for long-running historical queries (default: 15).",
+                    "default": 15,
+                },
             },
         },
         "handler": tool_get_errors,
@@ -990,6 +1031,11 @@ TOOLS = [
                     "description": "If true, does not truncate long messages.",
                     "default": False,
                 },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Optional HTTP request timeout in seconds (default: 15).",
+                    "default": 15,
+                },
             },
             "required": ["target_timestamp"],
         },
@@ -1021,6 +1067,11 @@ TOOLS = [
                     "description": "Maximum number of most recent time buckets to display in the histogram. Default: 15. Set higher if wider timeline is needed.",
                     "default": 15,
                 },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Optional HTTP request timeout in seconds (default: 15).",
+                    "default": 15,
+                },
             },
         },
         "handler": tool_get_log_hits,
@@ -1035,6 +1086,11 @@ TOOLS = [
                     "type": "string",
                     "description": "Time window to search active streams. Default: '24h'.",
                     "default": "24h",
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Optional HTTP request timeout in seconds (default: 15).",
+                    "default": 15,
                 },
             },
         },
@@ -1054,6 +1110,11 @@ TOOLS = [
                     "type": "string",
                     "description": "Time window to discover fields. Default: '24h'.",
                     "default": "24h",
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Optional HTTP request timeout in seconds (default: 15).",
+                    "default": 15,
                 },
             },
         },
@@ -1078,6 +1139,11 @@ TOOLS = [
                     "type": "integer",
                     "description": "Maximum values to return (default 20).",
                     "default": 20,
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Optional HTTP request timeout in seconds (default: 15).",
+                    "default": 15,
                 },
             },
             "required": ["field"],
@@ -1110,15 +1176,17 @@ def send_response(response: Dict[str, Any]) -> None:
     sys.stdout.flush()
 
 
-def handle_request(req: Dict[str, Any]) -> None:
-    """Processes JSON-RPC 2.0 requests from MCP clients."""
+def process_jsonrpc_request(req: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Processes JSON-RPC 2.0 requests from MCP clients and returns response dictionary.
+    Returns None for notifications that do not expect a response.
+    """
     req_id = req.get("id")
     method = req.get("method", "")
     params = req.get("params", {})
 
     # 1. Initial Handshake
     if method == "initialize":
-        send_response({
+        return {
             "jsonrpc": "2.0",
             "id": req_id,
             "result": {
@@ -1132,17 +1200,15 @@ def handle_request(req: Dict[str, Any]) -> None:
                     "description": "Native Optimized MCP Server for VictoriaLogs (Homelab Stack)"
                 }
             }
-        })
-        return
+        }
 
     # Post-initialization notification
     if method == "notifications/initialized":
-        return
+        return None
 
     # Liveness ping
     if method == "ping":
-        send_response({"jsonrpc": "2.0", "id": req_id, "result": {}})
-        return
+        return {"jsonrpc": "2.0", "id": req_id, "result": {}}
 
     # 2. Tool Catalog
     if method == "tools/list":
@@ -1153,14 +1219,13 @@ def handle_request(req: Dict[str, Any]) -> None:
                 "description": t["description"],
                 "inputSchema": t["inputSchema"],
             })
-        send_response({
+        return {
             "jsonrpc": "2.0",
             "id": req_id,
             "result": {
                 "tools": tools_list
             }
-        })
-        return
+        }
 
     # 3. Tool Execution
     if method == "tools/call":
@@ -1168,22 +1233,21 @@ def handle_request(req: Dict[str, Any]) -> None:
         arguments = params.get("arguments", {})
 
         if tool_name not in TOOLS_BY_NAME:
-            send_response({
+            return {
                 "jsonrpc": "2.0",
                 "id": req_id,
                 "error": {
                     "code": -32601,
                     "message": f"Tool '{tool_name}' not found.",
                 }
-            })
-            return
+            }
 
         tool = TOOLS_BY_NAME[tool_name]
         try:
             result_text = tool["handler"](arguments)
             if isinstance(result_text, str):
                 result_text = strip_ansi(result_text)
-            send_response({
+            return {
                 "jsonrpc": "2.0",
                 "id": req_id,
                 "result": {
@@ -1195,9 +1259,9 @@ def handle_request(req: Dict[str, Any]) -> None:
                     ],
                     "isError": False,
                 }
-            })
+            }
         except Exception as e:
-            send_response({
+            return {
                 "jsonrpc": "2.0",
                 "id": req_id,
                 "result": {
@@ -1209,23 +1273,247 @@ def handle_request(req: Dict[str, Any]) -> None:
                     ],
                     "isError": True,
                 }
-            })
-        return
+            }
 
     # Unsupported method
     if req_id is not None:
-        send_response({
+        return {
             "jsonrpc": "2.0",
             "id": req_id,
             "error": {
                 "code": -32601,
                 "message": f"Method '{method}' not supported.",
             }
-        })
+        }
+    return None
+
+
+def handle_request(req: Dict[str, Any]) -> None:
+    """Processes JSON-RPC 2.0 requests from MCP clients over stdio."""
+    resp = process_jsonrpc_request(req)
+    if resp is not None:
+        send_response(resp)
+
+
+# ==============================================================================
+# NATIVE SSE / HTTP TRANSPORT (Zero External Dependencies)
+# ==============================================================================
+
+SESSION_LOCK = threading.Lock()
+SESSIONS: Dict[str, queue.Queue] = {}
+
+
+class MCPSSEHandler(BaseHTTPRequestHandler):
+    """Native HTTP / Server-Sent Events (SSE) request handler for MCP."""
+
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, format: str, *args: Any) -> None:
+        # Suppress normal 2xx logs, only log errors to stderr
+        if args and len(args) >= 2:
+            code = str(args[1])
+            if code.startswith(("4", "5")):
+                sys.stderr.write(f"[{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}] MCP-SSE {args[0]} {code}\n")
+                sys.stderr.flush()
+
+    def send_cors_headers(self) -> None:
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept")
+
+    def do_OPTIONS(self) -> None:
+        self.send_response(204)
+        self.send_cors_headers()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_GET(self) -> None:
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path.rstrip("/") or "/"
+
+        if path in ("/health", "/"):
+            body = json.dumps({
+                "status": "ok",
+                "mode": "sse",
+                "server": "victorialogs-mcp",
+                "version": "1.1.0",
+                "tools": len(TOOLS),
+            }, indent=2).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_cors_headers()
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if path == "/sse":
+            session_id = uuid.uuid4().hex
+            session_queue: queue.Queue = queue.Queue()
+            with SESSION_LOCK:
+                SESSIONS[session_id] = session_queue
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_cors_headers()
+            self.end_headers()
+
+            # 1. Send initial MCP endpoint event
+            endpoint_uri = f"/messages?sessionId={session_id}"
+            try:
+                init_event = f"event: endpoint\ndata: {endpoint_uri}\n\n"
+                self.wfile.write(init_event.encode("utf-8"))
+                self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                with SESSION_LOCK:
+                    SESSIONS.pop(session_id, None)
+                return
+
+            # 2. Event stream loop
+            try:
+                while True:
+                    try:
+                        msg = session_queue.get(timeout=15)
+                        if msg is None:  # Shutdown sentinel
+                            break
+                        payload = json.dumps(msg, ensure_ascii=False)
+                        event_data = f"event: message\ndata: {payload}\n\n"
+                        self.wfile.write(event_data.encode("utf-8"))
+                        self.wfile.flush()
+                    except queue.Empty:
+                        # Keepalive heartbeat comment
+                        self.wfile.write(b": keepalive\n\n")
+                        self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            finally:
+                with SESSION_LOCK:
+                    SESSIONS.pop(session_id, None)
+            return
+
+        # 404 Not Found
+        self.send_response(404)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_cors_headers()
+        body = json.dumps({"error": f"Path '{path}' not found."}).encode("utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self) -> None:
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path.rstrip("/") or "/"
+
+        if path in ("/messages", "/rpc", "/"):
+            content_length = int(self.headers.get("Content-Length", 0))
+            if content_length <= 0:
+                self.send_response(400)
+                self.send_cors_headers()
+                self.end_headers()
+                return
+
+            raw_body = self.rfile.read(content_length).decode("utf-8", errors="replace")
+            try:
+                req = json.loads(raw_body)
+            except json.JSONDecodeError:
+                err_resp = {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32700, "message": "JSON decode error."},
+                }
+                body = json.dumps(err_resp).encode("utf-8")
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_cors_headers()
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+
+            resp = process_jsonrpc_request(req)
+
+            # Check if this POST targets an active SSE session
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            session_id = query_params.get("sessionId", [None])[0]
+
+            if session_id and session_id in SESSIONS:
+                if resp is not None:
+                    with SESSION_LOCK:
+                        q = SESSIONS.get(session_id)
+                        if q is not None:
+                            q.put(resp)
+                self.send_response(202)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_cors_headers()
+                body = b'{"status":"accepted"}'
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+
+            # Direct HTTP execution (fallback without active SSE session)
+            if resp is None:
+                self.send_response(204)
+                self.send_cors_headers()
+                self.end_headers()
+                return
+
+            body = json.dumps(resp, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_cors_headers()
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        self.send_response(404)
+        self.send_cors_headers()
+        self.end_headers()
+
+
+def run_sse_server(host: str, port: int) -> None:
+    """Starts the native multi-threaded MCP SSE HTTP server."""
+    server = ThreadingHTTPServer((host, port), MCPSSEHandler)
+    server.daemon_threads = True
+    sys.stderr.write(f"🚀 VictoriaLogs MCP Server running in SSE mode on http://{host}:{port}\n")
+    sys.stderr.write(f"   - SSE Stream:  http://{host}:{port}/sse\n")
+    sys.stderr.write(f"   - Direct POST: http://{host}:{port}/messages\n")
+    sys.stderr.write(f"   - Health:      http://{host}:{port}/health\n")
+    sys.stderr.flush()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        sys.stderr.write("\nShutting down VictoriaLogs MCP SSE server...\n")
+        sys.stderr.flush()
+    finally:
+        server.server_close()
 
 
 def main() -> None:
-    """Main stdio JSON-RPC loop."""
+    """Main entrypoint supporting stdio (default) and SSE transport modes."""
+    parser = argparse.ArgumentParser(description="VictoriaLogs MCP Server")
+    parser.add_argument(
+        "--sse",
+        type=int,
+        metavar="PORT",
+        help="Run MCP server in native SSE/HTTP mode on specified port (e.g. --sse 8000)",
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default=os.environ.get("MCP_SSE_HOST", "0.0.0.0"),
+        help="Host address to bind for SSE server (default: 0.0.0.0)",
+    )
+    args = parser.parse_args()
+
+    if args.sse:
+        run_sse_server(args.host, args.sse)
+        return
+
+    # Default stdio JSON-RPC loop
     for line in sys.stdin:
         line = line.strip()
         if not line:

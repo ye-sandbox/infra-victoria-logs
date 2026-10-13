@@ -281,9 +281,33 @@ Configure your global `~/.gemini/config/mcp_config.json`:
 }
 ```
 
-Use `http://127.0.0.1:9428` only if VictoriaLogs runs on the same machine as the client. If running inside a remote VM, specify the reachable VM IP address.
+##### 3. Remote AI Agents & Web Tools (Native SSE / HTTP Transport):
+Start the MCP server as a standalone daemon on your homelab host without third-party dependencies:
 
-**Verify MCP Server Locally:**
+```bash
+python3 mcp/server.py --sse 8000 --host 0.0.0.0
+```
+
+- **SSE Stream Endpoint:** `GET http://<HOST_IP>:8000/sse`
+- **Messages Endpoint:** `POST http://<HOST_IP>:8000/messages?sessionId=<sessionId>`
+- **Direct HTTP Execution:** `POST http://<HOST_IP>:8000/messages` (direct JSON-RPC via `curl` returning `application/json`)
+- **Health Check:** `GET http://<HOST_IP>:8000/health`
+
+For remote MCP clients supporting SSE (e.g. LibreChat, web dashboards, remote agents):
+```json
+{
+  "mcpServers": {
+    "victorialogs": {
+      "type": "sse",
+      "url": "http://<HOST_IP>:8000/sse"
+    }
+  }
+}
+```
+
+Use `http://127.0.0.1:9428` only if VictoriaLogs runs on the same machine as the client. If running inside a remote VM, specify the reachable VM IP address. All VictoriaLogs query tools also support an optional `timeout` parameter (e.g. `timeout=60`) for heavy or long-running queries.
+
+**Verify MCP Server Locally (stdio and SSE modes):**
 ```bash
 ./scripts/test-mcp.sh
 ```

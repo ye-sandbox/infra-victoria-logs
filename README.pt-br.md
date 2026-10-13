@@ -278,9 +278,33 @@ Configure o arquivo global `~/.gemini/config/mcp_config.json`:
 }
 ```
 
-Use `http://127.0.0.1:9428` só se o VictoriaLogs estiver no mesmo host do cliente. Se a stack roda numa VM e o cliente na sua workstation, `localhost` falha — copie `VICTORIALOGS_URL` do seu `.env` local. Recarregue a janela do cliente e confira o status das ferramentas MCP.
+##### 3. Agentes de IA Remotos e Ferramentas Web (Transporte Nativo SSE / HTTP):
+Inicie o servidor MCP como um daemon standalone no host do homelab sem dependências externas:
 
-**Testar o servidor MCP manualmente:**
+```bash
+python3 mcp/server.py --sse 8000 --host 0.0.0.0
+```
+
+- **Endpoint de Stream SSE:** `GET http://<IP_DO_MINI_PC>:8000/sse`
+- **Endpoint de Mensagens:** `POST http://<IP_DO_MINI_PC>:8000/messages?sessionId=<sessionId>`
+- **Execução Direta via HTTP:** `POST http://<IP_DO_MINI_PC>:8000/messages` (chamada direta JSON-RPC via `curl` retornando `application/json`)
+- **Sonda de Saúde:** `GET http://<IP_DO_MINI_PC>:8000/health`
+
+Para clientes MCP remotos compatíveis com transporte SSE (ex: LibreChat, dashboards web, agentes remotos):
+```json
+{
+  "mcpServers": {
+    "victorialogs": {
+      "type": "sse",
+      "url": "http://<IP_DO_MINI_PC>:8000/sse"
+    }
+  }
+}
+```
+
+Use `http://127.0.0.1:9428` só se o VictoriaLogs estiver no mesmo host do cliente. Se a stack roda numa VM e o cliente na sua workstation, `localhost` falha — copie `VICTORIALOGS_URL` do seu `.env` local. Todas as ferramentas de consulta ao VictoriaLogs também suportam o parâmetro opcional `timeout` (ex: `timeout=60`) para buscas históricas extensas.
+
+**Testar o servidor MCP manualmente (modos stdio e SSE):**
 ```bash
 ./scripts/test-mcp.sh
 ```
