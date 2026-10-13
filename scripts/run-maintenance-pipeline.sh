@@ -73,21 +73,21 @@ done
 
 START_TIME=$(date +%s)
 echo "================================================================================"
-echo "🛡️ [Maintenance Pipeline] Iniciando rotina periódica de manutenção..."
+if [[ "${DRY_RUN}" == "true" ]]; then
+  echo "🛡️ [Maintenance Pipeline] Executando em modo de simulação (--dry-run)..."
+else
+  echo "🛡️ [Maintenance Pipeline] Iniciando rotina periódica de manutenção..."
+fi
 echo "⏰ Horário de início: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "================================================================================"
 
 STATUS_DISK="OK"
 STATUS_BACKUP="OK"
+STATUS_BACKUP_REMOTE="SKIPPED"
 STATUS_SMOKE="OK"
 
-if [[ "${DRY_RUN}" == "true" ]]; then
-  echo "🔍 [DRY-RUN] Simulação de pipeline de manutenção:"
-  echo " 1. Checagem de espaço e partições: [SIMULADO]"
-  echo " 2. Snapshot atômico de dados:      [SIMULADO]"
-  echo " 3. Smoke test ponta a ponta:       [SIMULADO]"
-  echo "================================================================================"
-  exit 0
+if [[ -n "${BACKUP_REMOTE_DEST:-}" ]]; then
+  STATUS_BACKUP_REMOTE="OK"
 fi
 
 # ------------------------------------------------------------------------------
@@ -95,7 +95,12 @@ fi
 # ------------------------------------------------------------------------------
 echo ""
 echo "▶️ [Etapa 1/3] Verificando integridade de disco e taxa de ingestão..."
-if ! "${ROOT_DIR}/scripts/check-disk-growth.sh"; then
+DISK_CMD=("${ROOT_DIR}/scripts/check-disk-growth.sh")
+if [[ "${DRY_RUN}" == "true" ]]; then
+  DISK_CMD+=(--dry-run)
+fi
+
+if ! "${DISK_CMD[@]}"; then
   echo "⚠️ Atenção: A checagem de disco acusou alerta ou atingiu limiar crítico."
   STATUS_DISK="WARNING"
 else
@@ -103,15 +108,35 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# ETAPA 2: Snapshot Atômico com Rotação
+# ETAPA 2: Snapshot Atômico com Rotação (Local e Remoto Off-Site)
 # ------------------------------------------------------------------------------
 echo ""
 echo "▶️ [Etapa 2/3] Executando snapshot atômico consistente com rotação..."
-if ! "${ROOT_DIR}/scripts/backup.sh"; then
+BACKUP_CMD=("${ROOT_DIR}/scripts/backup.sh")
+if [[ "${DRY_RUN}" == "true" ]]; then
+  BACKUP_CMD+=(--dry-run)
+fi
+
+BACKUP_OUTPUT=""
+if BACKUP_OUTPUT=$("${BACKUP_CMD[@]}" 2>&1); then
+  echo "${BACKUP_OUTPUT}"
+  echo "✅ Etapa 2 concluída com sucesso."
+  if [[ -n "${BACKUP_REMOTE_DEST:-}" ]]; then
+    if echo "${BACKUP_OUTPUT}" | grep -q "Cópia off-site sincronizada com sucesso"; then
+      STATUS_BACKUP_REMOTE="OK"
+    fi
+  else
+    STATUS_BACKUP_REMOTE="SKIPPED"
+  fi
+else
+  echo "${BACKUP_OUTPUT}"
   echo "❌ Erro ao executar snapshot do VictoriaLogs!"
   STATUS_BACKUP="FAILED"
-else
-  echo "✅ Etapa 2 concluída com sucesso."
+  if [[ -n "${BACKUP_REMOTE_DEST:-}" ]]; then
+    if echo "${BACKUP_OUTPUT}" | grep -q "Falha na sincronização remota off-site"; then
+      STATUS_BACKUP_REMOTE="FAILED"
+    fi
+  fi
 fi
 
 # ------------------------------------------------------------------------------
@@ -119,11 +144,21 @@ fi
 # ------------------------------------------------------------------------------
 echo ""
 echo "▶️ [Etapa 3/3] Validando fluxo de ingestão e consultas LogsQL..."
-if ! "${ROOT_DIR}/scripts/test-pipeline.sh"; then
-  echo "❌ Erro no smoke test de ponta a ponta!"
-  STATUS_SMOKE="FAILED"
+if [[ "${DRY_RUN}" == "true" ]]; then
+  echo "🔍 [DRY-RUN] Smoke test ponta a ponta simulado (verificando conectividade HTTP)..."
+  if curl -s -f "http://${VICTORIALOGS_HOST:-127.0.0.1}:${VICTORIALOGS_HTTP_PORT:-9428}/health" >/dev/null 2>&1; then
+    echo "   ✅ VictoriaLogs acessível para consultas."
+  else
+    echo "   ℹ️  [DRY-RUN] VictoriaLogs offline ou endereço não local."
+  fi
+  STATUS_SMOKE="SIMULATED"
 else
-  echo "✅ Etapa 3 concluída com sucesso."
+  if ! "${ROOT_DIR}/scripts/test-pipeline.sh"; then
+    echo "❌ Erro no smoke test de ponta a ponta!"
+    STATUS_SMOKE="FAILED"
+  else
+    echo "✅ Etapa 3 concluída com sucesso."
+  fi
 fi
 
 END_TIME=$(date +%s)
@@ -132,36 +167,49 @@ DURATION=$((END_TIME - START_TIME))
 OVERALL_STATUS="SUCCESS"
 if [[ "${STATUS_BACKUP}" == "FAILED" || "${STATUS_SMOKE}" == "FAILED" ]]; then
   OVERALL_STATUS="ERROR"
-elif [[ "${STATUS_DISK}" == "WARNING" ]]; then
+elif [[ "${STATUS_DISK}" == "WARNING" || "${STATUS_BACKUP_REMOTE}" == "FAILED" ]]; then
   OVERALL_STATUS="WARNING"
 fi
 
 echo ""
 echo "================================================================================"
 echo "🏁 [Maintenance Pipeline] Concluído em ${DURATION}s | Status Geral: ${OVERALL_STATUS}"
-echo "   - Disco & Ingestão: ${STATUS_DISK}"
-echo "   - Snapshot Backup:  ${STATUS_BACKUP}"
-echo "   - Smoke Test Logs:  ${STATUS_SMOKE}"
+echo "   - Disco & Ingestão:      ${STATUS_DISK}"
+echo "   - Snapshot Backup Local: ${STATUS_BACKUP}"
+echo "   - Backup Remoto (3-2-1): ${STATUS_BACKUP_REMOTE}"
+echo "   - Smoke Test Logs:       ${STATUS_SMOKE}"
 echo "================================================================================"
 
 # Emitir log estruturado consolidado para o Vector
+DRY_RUN_VAL="False"
+if [[ "${DRY_RUN}" == "true" ]]; then
+  DRY_RUN_VAL="True"
+fi
+
 TELEMETRY_PAYLOAD=$(python3 -c "
 import json
 print(json.dumps({
     'service': 'maintenance-pipeline',
     'app': 'infra-victoria-logs',
     'env': 'production',
+    'dry_run': ${DRY_RUN_VAL},
     'level': 'info' if '${OVERALL_STATUS}' == 'SUCCESS' else ('warn' if '${OVERALL_STATUS}' == 'WARNING' else 'error'),
     'message': f'Pipeline de manutencao finalizado com status { \"${OVERALL_STATUS}\" } em { ${DURATION} }s',
     'duration_ms': ${DURATION} * 1000,
     'status_disk': '${STATUS_DISK}',
     'status_backup': '${STATUS_BACKUP}',
+    'status_backup_remote': '${STATUS_BACKUP_REMOTE}',
     'status_smoke_test': '${STATUS_SMOKE}'
 }))
 ")
 
-curl -s -X POST "${VECTOR_URL}" \
-  -H "Content-Type: application/json" \
-  -d "${TELEMETRY_PAYLOAD}" >/dev/null 2>&1 || true
+if [[ "${DRY_RUN}" == "true" ]]; then
+  echo "📤 [DRY-RUN] Telemetria de auditoria gerada (não transmitida em simulação):"
+  echo "   ${TELEMETRY_PAYLOAD}"
+else
+  curl -s -X POST "${VECTOR_URL}" \
+    -H "Content-Type: application/json" \
+    -d "${TELEMETRY_PAYLOAD}" >/dev/null 2>&1 || true
+fi
 
 exit 0

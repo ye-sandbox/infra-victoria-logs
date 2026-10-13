@@ -29,7 +29,7 @@
 
 | Service | Type | Host Path / Volume | Container Path | UID:GID | Mandatory Backup? |
 | :--- | :---: | :--- | :--- | :---: | :---: |
-| `victorialogs` | Named Volume | `victorialogs_data` | `/victoria-logs-data` | `1000:1000` | Yes (daily via `scripts/backup.sh`) |
+| `victorialogs` | Named Volume | `victorialogs_data` | `/victoria-logs-data` | `1000:1000` | Yes (daily via `scripts/backup.sh`; optional off-site 3-2-1 sync) |
 | `vector` | Named Volume | `vector_data` | `/var/lib/vector` | `1000:1000` | No (ephemeral disk buffer fallback) |
 | `vector` | Bind Mount | `./vector/vector.${STORAGE_PROFILE:-hdd}.yaml` | `/etc/vector/vector.yaml:ro` | `root:root` | No (git-versioned) |
 | `vector` | Bind Mount | `./vector` | `/etc/vector:ro` | `root:root` | No (git-versioned) |

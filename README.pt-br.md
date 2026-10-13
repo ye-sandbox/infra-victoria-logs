@@ -77,7 +77,7 @@ flowchart LR
 │   └── server.py            # Servidor MCP stdio nativo para integração direta com Agentes de IA
 ├── scripts/
 │   ├── audit-security.sh    # Auditoria de segurança do host, permissões restritas e isolamento Compose
-│   ├── backup.sh            # Backup atômico via API de snapshots com rotação de cópias
+│   ├── backup.sh            # Backup atômico via API de snapshots com replicação off-site 3-2-1
 │   ├── health-dashboard.sh  # Dashboard CLI colorido de telemetria ao vivo via APIs nativas
 │   ├── logsql-queries.sh    # Consultas analíticas pré-definidas (Top erros, latência, HTTP status)
 │   ├── manage-partitions.sh # Gestão, auditoria, projeção e purga emergencial de partições
@@ -559,10 +559,17 @@ O coletor Vector possui agregação multilinha nativa na fonte `docker_logs` (`m
   ```bash
   ./scripts/test-pipeline.sh
   ```
-- **Backup atômico consistente (sem parar o banco):**
+- **Backup atômico consistente e replicação off-site 3-2-1 (`backup.sh`):**
   ```bash
-  # Utiliza a API nativa de snapshot do VictoriaLogs e rotaciona as cópias
+  # Utiliza a API nativa de snapshot do VictoriaLogs e rotaciona as cópias locais
   ./scripts/backup.sh
+
+  # Simulação sem gravação em disco (--dry-run)
+  ./scripts/backup.sh --dry-run
+
+  # Sincronização off-site opcional via rclone, rsync (SSH/NFS) ou S3 (Regra 3-2-1)
+  ./scripts/backup.sh --remote-dest "s3://meu-bucket/vlogs" --remote-tool s3
+  ./scripts/backup.sh --remote-dest "user@nas.lan:/mnt/backups/vlogs" --remote-tool rsync
   ```
 - **Coletor de recursos dos containers (CPU/RAM para o VictoriaLogs):**
   ```bash

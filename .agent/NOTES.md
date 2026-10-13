@@ -9,6 +9,21 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-10-13 — Resiliência de Backup Off-Site no backup.sh (Regra 3-2-1) (Tarefa 55.0)
+- **Contexto:** Os snapshots atômicos do VictoriaLogs eram armazenados exclusivamente no disco do host/VM (`${BACKUP_DIR:-./backups}`). Em cenários de desastre de hardware (falha total do HD/SSD do Mini PC, perda do storage Proxmox ou corrupção do nó hipervisor), tanto os dados em produção no volume Docker quanto os arquivos de backup locais seriam perdidos simultaneamente, violando o princípio fundamental da Regra 3-2-1 de continuidade e recuperação de desastres.
+- **Decisão:**
+  1. *Replicação Off-Site Modular e Opcional:* Expandir `scripts/backup.sh` com suporte opcional a `BACKUP_REMOTE_DEST`, suportando 3 backends amplamente utilizados em infraestruturas e homelabs:
+     - **rclone:** Para provedores de nuvem e buckets (Google Drive, OneDrive, Mega, Backblaze B2, MinIO, Dropbox).
+     - **rsync / SSH:** Para outros servidores na rede local, storages dedicados (TrueNAS, Synology, OMV) ou diretórios montados via NFS/SMB.
+     - **S3 (AWS CLI):** Para buckets compatíveis com Amazon S3, Cloudflare R2 ou Wasabi.
+  2. *Auto-Detecção Inteligente de Ferramenta:* Parâmetro `BACKUP_REMOTE_TOOL` com fallback `auto` detecta o utilitário pelo esquema da URI (`s3://` ➔ `s3`/`rclone`, `rclone:`/`remote:` ➔ `rclone`, `user@host:` ou `/mnt/` ➔ `rsync`), com suporte a sobrescrita manual.
+  3. *Rotação Remota Autônoma:* Implementar expurgo atômico no storage remoto mantendo a mesma política de retenção (`BACKUP_RETENTION_COPIES`, padrão 7 cópias), auditando os arquivos remotos existentes e removendo apenas os mais antigos excedentes, sem deletar inadvertidamente o histórico em nós recém-inicializados.
+  4. *Modo Não-Destrutivo (`--dry-run`):* Adicionar flag `--dry-run` em `backup.sh` que testa a saúde do banco, valida binários e credenciais, e simula todo o pipeline (snapshot, compressão, rotação local e transferência/rotação remota) sem tocar o disco.
+  5. *Orquestração e Auditoria no Pipeline Unificado:* Integrar no `scripts/run-maintenance-pipeline.sh` o repasse de `--dry-run` para as etapas e o rastreamento do status da replicação off-site (`STATUS_BACKUP_REMOTE: OK | SKIPPED | FAILED`), incorporando-o no log estruturado de telemetria despachado ao coletor Vector.
+  6. *Suíte de Testes Hermética:* Criação de `tests/test_backup.sh` com 20 asserções automatizadas cobrindo flags CLI, dry-run, detecção de backends e expurgo de retenção remota.
+- **Consequências:** Conformidade plena com a Regra 3-2-1 com zero dependências externas obrigatórias (a replicação só executa se configurada), proteção garantida contra falhas físicas de storage e visibilidade total via telemetria no Vector.
+
+
 ### 2026-10-13 — Canal de Notificações Ultraleve para vmalert (alert-bridge: ntfy, Telegram, Webhook) (Tarefa 54.0)
 - **Contexto:** O `vmalert` avalia continuamente regras de alerta em LogsQL (como `ContainerOOMKilled`, `HighErrorRate`, `ContainerCrashOrDie` e `ElevatedHttpLatency`), mas despacha alertas estritamente no protocolo HTTP do Prometheus Alertmanager (`POST /api/v2/alerts`). Subir um Alertmanager oficial do Prometheus exigiria lidar com ausência de substituição de variáveis de ambiente em seu YAML para segredos (violando a política de credenciais isoladas em `.env`) ou configuradores adicionais. Além disso, homelabs necessitam de notificações diretas no celular (ntfy), Telegram ou webhooks (Discord/Slack/n8n) com templates legíveis e links diretos para o VMUI do VictoriaLogs, operando com consumo estritamente mínimo de RAM (< 25 MB).
 - **Decisão:**

@@ -77,7 +77,7 @@ flowchart LR
 │   └── server.py            # Native stdio Model Context Protocol (MCP) server for AI Agents
 ├── scripts/
 │   ├── audit-security.sh    # Host security auditor, permission enforcement, and Compose hardening
-│   ├── backup.sh            # Atomic zero-downtime snapshot backup with retention rotation
+│   ├── backup.sh            # Atomic zero-downtime snapshot backup with 3-2-1 off-site replication
 │   ├── health-dashboard.sh  # Terminal CLI live telemetry dashboard powered by native APIs
 │   ├── logsql-queries.sh    # Pre-canned analytical queries (top errors, latency, HTTP status codes)
 │   ├── manage-partitions.sh # Partition auditor, daily ingestion projector, and emergency purge utility
@@ -521,10 +521,17 @@ Vector provides built-in multiline aggregation on its `docker_logs` source using
   # Install unified daily maintenance in cron (03:00 UTC)
   ./scripts/run-maintenance-pipeline.sh --install-cron
   ```
-- **Consistent Zero-Downtime Backup (`backup.sh`):**
+- **Consistent Zero-Downtime Backup & 3-2-1 Off-Site Replication (`backup.sh`):**
   ```bash
-  # Creates atomic snapshots via VictoriaLogs API and rotates archive copies
+  # Creates atomic snapshots via VictoriaLogs API and rotates local archive copies
   ./scripts/backup.sh
+
+  # Dry-run simulation (validates health, retention rotation, and remote targets)
+  ./scripts/backup.sh --dry-run
+
+  # Optional off-site sync via rclone, rsync (SSH/NFS), or S3 (3-2-1 rule)
+  ./scripts/backup.sh --remote-dest "s3://my-backup-bucket/vlogs" --remote-tool s3
+  ./scripts/backup.sh --remote-dest "user@remote-nas.lan:/volume1/backups" --remote-tool rsync
   ```
 - **Container Metric Collector (`ship-docker-stats.sh`):**
   ```bash
