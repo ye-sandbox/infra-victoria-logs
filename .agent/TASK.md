@@ -7,24 +7,21 @@
 
 ## Active Task
 
-### 📌 Task [52.0]: Align Infrastructure Governance and Topology with template-agent:infra
+### 📌 Task [53.0]: Native VRL Regression Tests (vector test)
 
-- **Description:** Complete alignment of repository governance, service topology catalog, and documentation taxonomy with the latest `ye-sandbox/template-agent:infra` specification.
-- **Systems Involved:** Governance (`.agent/`, `AGENTS.md`), Topology (`.agent/SERVICES.md`), Documentation (`docs/`, `README.md`, `README.pt-br.md`).
+- **Description:** Implement native unit testing suite for Vector using `vector test`, covering JSON parsing for official templates (Loguru, Pino, Slog), correlation fields promotion (`trace_id`, `request_id`, `http_status`, `duration_ms`), probe dropping/retention (`/metrics`, `/health`, `scrape`), 8 KB clamping behavior with `.truncated = true` vs stack trace preservation, and Syslog normalization (RFC5424 / RFC3164) with severity detection.
+- **Systems Involved:** Vector transforms (`vector/*.yaml`), Test suite (`tests/vector/`), Automation (`scripts/test-vector.sh`), Documentation (`README.md`, `README.pt-br.md`, `.agent/NOTES.md`).
 - **Action Type:**
   - [x] Read-only / Documentation
-  - [x] Source code / Structure changes
-- **Status:** RUNNING
+  - [x] Source code / Tests
+- **Status:** READY FOR PLANNING
 
 ### Acceptance Criteria
-- [x] `.agent/SERVICES.md` created as canonical source of truth for ports, volumes, and networks.
-- [x] Historical tasks (00.1 to 51.0) archived into `.agent/ARCHIVE.md`.
-- [x] `AGENTS.md` updated with Rule Precedence Hierarchy, Modular Context Triggers, Fail-Stop structured YAML block, and Contrast Pairs.
-- [x] `docs/` taxonomy established (`docs/README.md`, `docs/architecture/000-template.md`, `docs/incidents/README.md`, `docs/incidents/000-template.md`).
-- [x] YAML Frontmatter added to `docs/proxmox-hardening.md`.
-- [x] `.agent/NOTES.md` synchronized with `SERVICES.md` and incidents hub.
-- [x] `README.md` and `README.pt-br.md` updated with revised structure.
-- [x] `docker compose config` syntax verification passes.
+- [ ] Test cases authored for Loguru, Pino, and Slog canonical JSON formats.
+- [ ] Test assertions verify promotion of `trace_id`, `request_id`, and `http_status`.
+- [ ] Clamping tests assert 8 KB truncations with `.truncated = true`.
+- [ ] Syslog tests assert RFC5424 and RFC3164 parsing.
+- [ ] CI/test script runs `vector test` and exits with code 0.
 
 ---
 
@@ -32,13 +29,14 @@
 
 | Task | Title | Commit(s) | Date |
 |---|---|---|---|
+| `52.0` | Align Infrastructure Governance and Topology with template-agent:infra | `68462e2` | 2026-10-12 |
 | `[v1.0.0]` | Consolidated historical tasks 00.1 through 51.0 | See `ARCHIVE.md` | 2026-09-21 |
 
 ---
 
 ## Backlog (Upcoming, in priority order)
 
-- [ ] **[53.0]** Native VRL Regression Tests (`vector test`) for canonical logging templates (Loguru, Pino, Slog), correlation fields, and severity detection.
+- [ ] [Awaiting next task definitions]
 
 ---
 
