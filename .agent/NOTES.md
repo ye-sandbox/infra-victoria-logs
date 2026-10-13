@@ -9,6 +9,22 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-10-13 — Canal de Notificações Ultraleve para vmalert (alert-bridge: ntfy, Telegram, Webhook) (Tarefa 54.0)
+- **Contexto:** O `vmalert` avalia continuamente regras de alerta em LogsQL (como `ContainerOOMKilled`, `HighErrorRate`, `ContainerCrashOrDie` e `ElevatedHttpLatency`), mas despacha alertas estritamente no protocolo HTTP do Prometheus Alertmanager (`POST /api/v2/alerts`). Subir um Alertmanager oficial do Prometheus exigiria lidar com ausência de substituição de variáveis de ambiente em seu YAML para segredos (violando a política de credenciais isoladas em `.env`) ou configuradores adicionais. Além disso, homelabs necessitam de notificações diretas no celular (ntfy), Telegram ou webhooks (Discord/Slack/n8n) com templates legíveis e links diretos para o VMUI do VictoriaLogs, operando com consumo estritamente mínimo de RAM (< 25 MB).
+- **Decisão:**
+  1. *Micro-bridge em Python Puro (`alert-bridge/server.py`):* Desenvolver bridge compatível com Alertmanager v2/v1 em Python 3 standard library sem qualquer dependência externa (mesma filosofia de `mcp/server.py`).
+  2. *Imagem Base Otimizada em Python 3.14 Alpine:* Parametrizada via `image: python:${ALERT_BRIDGE_PYTHON_VERSION:-3.14-alpine}`, com consumo de memória de ~16 MB em repouso e limites rigorosos no Compose (`limits.memory: 25M`, `reservations.memory: 10M`, CPU `0.20`).
+  3. *Hardening de Container Enterprise:* Configurado com `read_only: true`, `tmpfs: [/tmp]`, `security_opt: ["no-new-privileges:true"]` e healthcheck HTTP via BusyBox wget (`/health`).
+  4. *Roteamento Multi-Canal com Fallback:* Suporte integrado a:
+     - **ntfy:** headers de prioridade mapeados por severidade (`5` para critical, `4` para warning), emoji tags, autenticação Bearer/Basic e cabeçalho `Click` com link para o VMUI.
+     - **Telegram:** formatação HTML limpa com escaping automático de entidades XML, títulos em negrito, tags de código para serviços/containers e link clicável de consulta no VMUI.
+     - **Webhook Genérico:** JSON formatado compatível com Discord, Slack, n8n e Home Assistant.
+     - **Fallback Local:** se nenhum canal estiver configurado, registra no log do container com formatação clara e armazena em buffer de auditoria (`GET /alerts`).
+  5. *Deduplicação e Anti-Flap:* Rastreamento em memória com janela configurável (`ALERT_REPEAT_INTERVAL=30m`) para evitar sobrecarga de alertas no celular em incidentes prolongados.
+  6. *Integração no Compose Profile `alerting`:* O `alert-bridge` e o `vmalert` compartilham o perfil opcional `alerting`, preservando o teto de 150 MB de RAM quando o perfil não está em execução. O `vmalert` depende de `alert-bridge` com `condition: service_healthy`.
+  7. *Testes Automatizados e Smoke Test Operacional:* Criação de suíte de testes unitários hermética (`tests/test_alert_bridge.py`) com 100% de cobertura de templates, deduplicação e rotas HTTP, e script operacional de smoke test (`scripts/test-alerting.sh`) com suporte a modo direto e injeção sintética.
+- **Consequências:** Transformação imediata de alertas de logs em notificações acionáveis no smartphone ou canal de chat, sem overhead de memória e mantendo 100% de isolamento de segredos no `.env`.
+
 ### 2026-10-12 — Testes de Regressão Nativos para VRL via `vector test` (Tarefa 53.0)
 - **Contexto:** O pipeline de ingestão do Vector é o núcleo do ecossistema de observabilidade, responsável pelo parsing de NDJSON (Python Loguru, Node Pino, Go slog), normalização de Syslog RFC5424/RFC3164, promoção de correlation IDs (`trace_id`, `request_id`, `http_status`, `duration_ms`), descarte seletivo de probes HTTP (`GET /health 200`, `GET /metrics 200`, `scrape`) e salvaguarda preventiva de clamping em 8 KB. Sem uma suíte hermética de testes unitários executável pelo engine do Vector, qualquer refatoração em regras VRL ou introdução de novos perfis poderia degradar silenciosamente a extração de atributos, quebrar a indexação de logs ou reintroduzir vazamento de pings no disco.
 - **Decisão:**

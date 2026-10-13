@@ -84,6 +84,7 @@ flowchart LR
 │   ├── check-disk-growth.sh # Checagem periódica (cron) e alerta de crescimento em disco
 │   ├── run-maintenance-pipeline.sh # Orquestrador diário unificado (checagem + backup + smoke test)
 │   ├── test-pipeline.sh     # Smoke test ponta a ponta de ingestão e LogsQL em 1 comando
+│   ├── test-alerting.sh     # Smoke test de disparo de notificações para o vmalert e alert-bridge
 │   ├── test-vector.sh       # Executor de testes de regressão nativos do VRL (vector test) em todos os perfis
 │   ├── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
 │   ├── ship-docker-stats.sh # Coleta e envio de CPU/memória de containers locais para o Vector
@@ -93,6 +94,8 @@ flowchart LR
 │   ├── install-host-collectors.sh # Registra e gerencia os coletores como serviços systemd no host
 │   ├── tune-docker-host.sh  # Otimização do Docker daemon (modo non-blocking para HD)
 │   └── tune-disk-host.sh    # Assistente de diagnóstico e tuning de disco (ciente de VMs/bare-metal, noatime, schedulers)
+├── alert-bridge/
+│   └── server.py            # Micro-bridge ultraleve sem dependências para ntfy, Telegram e Webhook
 ├── skills/
 │   ├── github-bug-issue/              # Skill para abrir issue GitHub com ponteiro VictoriaLogs (fila, não TASK.md)
 │   ├── victorialogs-integration/      # Skill ensinando IA a plugar aplicações (Python, Node, Go, Docker)
@@ -105,6 +108,7 @@ flowchart LR
 │   │   ├── test_remap_docker.yaml # Normalização Docker, templates (Loguru/Pino/Slog), clamping 8KB
 │   │   ├── test_remap_http.yaml   # Ingestão HTTP POST, promoção de correlação, descarte de probes
 │   │   └── test_remap_syslog.yaml # Normalização Syslog RFC5424/RFC3164 e heurísticas de severidade
+│   ├── test_alert_bridge.py # Testes unitários do bridge de alertas (payloads, templates e canais)
 │   └── test_mcp_error_enricher.py # Testes unitários de sanitização e dicas contextuais do MCP
 ├── .env.example             # Template documentado de variáveis de ambiente e segurança
 ├── .gitignore               # Ignora .env, .cursor/, volumes, backups e segredos
@@ -663,11 +667,9 @@ O projeto inclui um dashboard profissional pronto para importação:
 
 ---
 
-## 🚨 Alertas Automáticos com `vmalert` (Opcional)
+## 🚨 Alertas Automáticos com `vmalert` & `alert-bridge` (Opcional)
 
-Para homelabs que necessitam de alertas pró-ativos sem estourar os limites de memória da stack, o projeto disponibiliza integração nativa com o **`vmalert`** via Docker Compose Profile.
-
-O `vmalert` avalia expressões LogsQL (`type: vlogs`) diretamente no VictoriaLogs consumindo **< 25 MB de RAM**, notificando webhooks, Alertmanager ou n8n/Telegram.
+Para homelabs que necessitam de alertas pró-ativos sem estourar os limites de memória da stack, o projeto disponibiliza integração nativa com o **`vmalert`** (< 25 MB RAM) pareado com o nosso micro-bridge em Python puro (**`alert-bridge`**, < 25 MB RAM, Python 3.14-alpine) via Docker Compose Profile.
 
 ### Como Ativar:
 ```bash
@@ -680,6 +682,22 @@ docker compose --profile alerting up -d
 2. **`ContainerOOMKilled`:** Dispara imediatamente quando o coletor `docker-events` detecta terminação por OOM (Exit 137).
 3. **`ContainerCrashOrDie`:** Dispara quando um container encerra com status de saída diferente de 0.
 4. **`ElevatedHttpLatency`:** Dispara quando requisições com `duration_ms:>3000` ocorrem repetidamente.
+
+### 📲 Canais de Notificação Suportados (`alert-bridge`):
+O `alert-bridge` expõe uma API compatível com Alertmanager na porta `9093` e despacha alertas com deep links diretos para o VMUI do VictoriaLogs:
+- **ntfy (`NTFY_URL`):** Notificações push em celulares e desktops via app oficial do ntfy com prioridades (urgente/alta/baixa), tags de emoji e ações clicáveis.
+- **Telegram (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`):** Cards em HTML com títulos em negrito, identificadores de serviço/container e botão para abrir a busca no VictoriaLogs.
+- **Webhook Genérico (`WEBHOOK_URL`):** Payloads formatados compatíveis com Discord, Slack, automações no n8n e Home Assistant.
+- **Proteção Anti-Flap / Anti-Spam:** Deduplicação configurável via `ALERT_REPEAT_INTERVAL=30m` para evitar sobrecarga de mensagens em incidentes prolongados.
+
+### 🧪 Testes Unitários e Validação de Alertas:
+```bash
+# 1. Executar os testes unitários do bridge (sem dependências externas)
+python3 -m unittest tests/test_alert_bridge.py -v
+
+# 2. Executar smoke test simulando disparos críticos e warnings
+./scripts/test-alerting.sh --direct
+```
 
 ---
 

@@ -84,6 +84,7 @@ flowchart LR
 │   ├── check-disk-growth.sh # Automated cron auditor and alert generator for disk consumption
 │   ├── run-maintenance-pipeline.sh # Unified daily orchestrator (disk check + backup + smoke test)
 │   ├── test-pipeline.sh     # End-to-end smoke test for ingestion and LogsQL queries in < 5s
+│   ├── test-alerting.sh     # Smoke test script for vmalert and alert-bridge notification delivery
 │   ├── test-vector.sh       # Native VRL unit test runner (Docker/local) across all Vector profiles
 │   ├── test-mcp.sh          # Automated test suite for JSON-RPC 2.0 MCP server tools
 │   ├── ship-docker-stats.sh # Container CPU/RAM resource metric collector shipped to Vector
@@ -93,6 +94,8 @@ flowchart LR
 │   ├── install-host-collectors.sh # Registers continuous collectors as systemd host services
 │   ├── tune-docker-host.sh  # Docker daemon optimizer (non-blocking logging mode for spinning disks)
 │   └── tune-disk-host.sh    # Linux disk tuning assistant (virtualization-aware, noatime, schedulers)
+├── alert-bridge/
+│   └── server.py            # Ultralight zero-dependency notification bridge (ntfy, Telegram, Webhook)
 ├── skills/
 │   ├── github-bug-issue/              # Parks bugs into GitHub issues with VictoriaLogs pointers
 │   ├── victorialogs-integration/      # Canonical application logging contract (Python, Node, Go, Docker)
@@ -105,6 +108,7 @@ flowchart LR
 │   │   ├── test_remap_docker.yaml # Docker normalization, templates (Loguru/Pino/Slog), clamping
 │   │   ├── test_remap_http.yaml   # HTTP POST ingestion, correlation promotion, probe dropping
 │   │   └── test_remap_syslog.yaml # RFC5424/RFC3164 Syslog normalization & severity heuristics
+│   ├── test_alert_bridge.py # Unit tests for Alertmanager payload parsing, templating, and dispatch
 │   └── test_mcp_error_enricher.py # Unit tests for MCP query sanitization and syntax tips
 ├── .env.example             # Documented template for environment variables and security keys
 ├── .gitignore               # Ignores .env, .cursor/, data volumes, backups, and secrets
@@ -581,9 +585,9 @@ scrape_configs:
 
 ---
 
-## 🚨 Automated Alerting with `vmalert` (Optional)
+## 🚨 Automated Alerting with `vmalert` & `alert-bridge` (Optional)
 
-The optional `alerting` profile provides real-time alerting on LogsQL expressions using `vmalert` (< 25 MB RAM):
+The optional `alerting` profile provides real-time alerting on LogsQL expressions using `vmalert` (< 25 MB RAM) paired with our zero-dependency Python micro-bridge (`alert-bridge`, < 25 MB RAM, Python 3.14-alpine):
 
 ```bash
 # Start the stack with the alerting profile
@@ -595,6 +599,22 @@ docker compose --profile alerting up -d
 2. **`ContainerOOMKilled`:** Triggers immediately upon detecting an Exit 137 event.
 3. **`ContainerCrashOrDie`:** Triggers when a container terminates with a non-zero status.
 4. **`ElevatedHttpLatency`:** Triggers when requests with `duration_ms:>3000` recur.
+
+### 📲 Notification Channels (`alert-bridge`)
+The bridge receives Alertmanager v2/v1 payloads on port `9093` and routes formatted alerts with deep links to VictoriaLogs VMUI:
+- **ntfy (`NTFY_URL`):** Push notifications to mobile and desktop apps with priority tags and click actions.
+- **Telegram (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`):** Rich HTML cards with bold status, service details, and VMUI links.
+- **Generic Webhook (`WEBHOOK_URL`):** JSON/text payloads compatible with Discord, Slack, n8n, and Home Assistant.
+- **Anti-Spam / Anti-Flap:** Configurable deduplication via `ALERT_REPEAT_INTERVAL=30m`.
+
+### 🧪 Alerting Validation & Smoke Tests
+```bash
+# 1. Run hermetic unit tests for template parsing, deduplication, and dispatchers
+python3 -m unittest tests/test_alert_bridge.py -v
+
+# 2. Simulate critical and warning alerts end-to-end
+./scripts/test-alerting.sh --direct
+```
 
 ---
 

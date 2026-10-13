@@ -17,6 +17,7 @@
 | `5140` | UDP | `vector` | `5140` | `0.0.0.0` (LAN) | Vector Syslog UDP ingestion endpoint (RFC5424 / RFC3164) |
 | `9598` | TCP | `vector` | `9598` | `127.0.0.1` (Local) | Vector Prometheus internal metrics exporter |
 | `8880` | TCP | `vmalert` | `8880` | `127.0.0.1` (Local) | vmalert Web UI & HTTP healthcheck endpoint (profile: `alerting`) |
+| `9093` | TCP | `alert-bridge` | `9093` | `127.0.0.1` (Local) | Alertmanager v2/v1 HTTP webhook API & healthcheck (profile: `alerting`) |
 
 *(Exposure types: `127.0.0.1` [local host only], `0.0.0.0` [public / LAN], `Internal Network` [no host port, Docker DNS only])*
 
@@ -34,6 +35,7 @@
 | `vector` | Bind Mount | `./vector` | `/etc/vector:ro` | `root:root` | No (git-versioned) |
 | `vector` | Bind Mount | `/var/run/docker.sock` | `/var/run/docker.sock:ro` | `root:docker` | No (host system socket) |
 | `vmalert` | Bind Mount | `./vmalert/rules.yaml` | `/etc/vmalert/rules.yaml:ro` | `root:root` | No (git-versioned) |
+| `alert-bridge` | Bind Mount | `./alert-bridge` | `/app:ro` | `root:root` | No (git-versioned) |
 
 *(Volume types: `Named Volume` [Docker-managed volume], `Bind Mount` [Host mapped directory])*
 
@@ -45,7 +47,7 @@
 
 | Network Name | Driver | Scope | Purpose and Connected Services |
 | :--- | :---: | :---: | :--- |
-| `logging-network` | bridge | Internal | Isolated telemetry network connecting `victorialogs`, `vector`, and `vmalert` |
+| `logging-network` | bridge | Internal | Isolated telemetry network connecting `victorialogs`, `vector`, `vmalert`, and `alert-bridge` |
 
 ---
 
@@ -81,5 +83,16 @@
 - **Security Hardening:** `read_only: true`, `tmpfs: [/tmp]`, `no-new-privileges: true`
 - **Healthcheck:**
   - **Command:** `["CMD-SHELL", "wget --spider -q http://127.0.0.1:8880/health || exit 1"]`
+  - **Interval:** `30s` | **Timeout:** `5s` | **Retries:** `3` | **Start Period:** `10s`
+- **Resource Limits:** CPU: `0.20` | Memory: `25M` (Reservation: `10M`)
+
+### 📌 `alert-bridge`
+- **Image:** `python:${ALERT_BRIDGE_PYTHON_VERSION:-3.14-alpine}`
+- **Description:** Lightweight notification bridge receiving Alertmanager alerts from vmalert and dispatching to ntfy, Telegram, and generic Webhooks.
+- **Profiles:** `alerting` (optional, spun up on-demand)
+- **Networks:** `logging-network`
+- **Security Hardening:** `read_only: true`, `tmpfs: [/tmp]`, `no-new-privileges: true`
+- **Healthcheck:**
+  - **Command:** `["CMD-SHELL", "wget --spider -q http://127.0.0.1:9093/health || exit 1"]`
   - **Interval:** `30s` | **Timeout:** `5s` | **Retries:** `3` | **Start Period:** `10s`
 - **Resource Limits:** CPU: `0.20` | Memory: `25M` (Reservation: `10M`)

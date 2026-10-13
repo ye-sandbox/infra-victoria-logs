@@ -354,7 +354,8 @@ svcs = data.get("services", {})
 has_vl = "healthcheck" in svcs.get("victorialogs", {})
 has_vec = "healthcheck" in svcs.get("vector", {})
 has_vmalert = ("vmalert" not in svcs) or ("healthcheck" in svcs.get("vmalert", {}))
-print("true" if (has_vl and has_vec and has_vmalert) else "false")
+has_bridge = ("alert-bridge" not in svcs) or ("healthcheck" in svcs.get("alert-bridge", {}))
+print("true" if (has_vl and has_vec and has_vmalert and has_bridge) else "false")
 ' 2>/dev/null || echo "false")
   else
     if grep -q "victorialogs:" "${COMPOSE_FILE}" && grep -q "vector:" "${COMPOSE_FILE}"; then
@@ -363,7 +364,7 @@ print("true" if (has_vl and has_vec and has_vmalert) else "false")
   fi
 
   if [[ "${HC_OK}" == "true" ]]; then
-    record_result "COMPOSE-HEALTHCHECKS" "DockerCompose" "PASS" "Healthchecks configurados para os serviços (victorialogs, vector e vmalert)" ""
+    record_result "COMPOSE-HEALTHCHECKS" "DockerCompose" "PASS" "Healthchecks configurados para os serviços (victorialogs, vector, vmalert e alert-bridge)" ""
   else
     record_result "COMPOSE-HEALTHCHECKS" "DockerCompose" "WARN" "Healthcheck ausente em serviços do compose" "Defina blocos de healthcheck no docker-compose.yml"
   fi
@@ -470,7 +471,9 @@ vl_np = has_no_new_privs(svcs.get("victorialogs", {}))
 vec_np = has_no_new_privs(svcs.get("vector", {}))
 vma = svcs.get("vmalert")
 vma_np = True if vma is None else has_no_new_privs(vma)
-print("true" if (vl_np and vec_np and vma_np) else "false")
+bridge = svcs.get("alert-bridge")
+bridge_np = True if bridge is None else has_no_new_privs(bridge)
+print("true" if (vl_np and vec_np and vma_np and bridge_np) else "false")
 ' 2>/dev/null || echo "false")
   else
     if grep -q "victorialogs:" "${COMPOSE_FILE}" && grep -q "vector:" "${COMPOSE_FILE}"; then
