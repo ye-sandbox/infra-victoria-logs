@@ -1,0 +1,258 @@
+# ==============================================================================
+# Vector Unit Tests — Transform: remap_docker
+# ==============================================================================
+# Tests Docker container log normalization, official JSON templates (Loguru,
+# Pino, Slog), plaintext fallbacks, correlation field promotion, selective
+# HTTP probe dropping, and 8 KB preventive message clamping.
+# ==============================================================================
+
+tests:
+  # ----------------------------------------------------------------------------
+  # 1. Official JSON Templates & Plaintext Fallback
+  # ----------------------------------------------------------------------------
+  - name: docker_json_template_loguru
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '{"timestamp":"2026-09-03T15:00:00.123Z","level":"info","service":"auth-api","app":"auth-api","env":"production","message":"User authenticated successfully","trace_id":"tr-loguru-101","request_id":"req-loguru-202","http_status":200,"duration_ms":45.2,"user_id":42}'
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "info")
+              assert_eq!(.service, "auth-api")
+              assert_eq!(.app, "auth-api")
+              assert_eq!(.env, "production")
+              assert_eq!(.message, "User authenticated successfully")
+              assert_eq!(.trace_id, "tr-loguru-101")
+              assert_eq!(.request_id, "req-loguru-202")
+              assert_eq!(.http_status, 200)
+              assert_eq!(.duration_ms, 45.2)
+              assert_eq!(.structured.user_id, 42)
+
+  - name: docker_json_template_pino
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '{"time":1726000000000,"timestamp":"2026-09-03T15:00:00.000Z","level":"warn","service":"billing-worker","app":"billing-worker","env":"production","message":"Payment gateway slow response","traceId":"tr-pino-303","requestId":"req-pino-404","statusCode":402,"latency_ms":1250.5}'
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "warn")
+              assert_eq!(.service, "billing-worker")
+              assert_eq!(.app, "billing-worker")
+              assert_eq!(.env, "production")
+              assert_eq!(.message, "Payment gateway slow response")
+              assert_eq!(.trace_id, "tr-pino-303")
+              assert_eq!(.request_id, "req-pino-404")
+              assert_eq!(.http_status, 402)
+              assert_eq!(to_int!(.duration_ms), 1250)
+
+  - name: docker_json_template_pino_msg_field
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '{"level":"info","service":"checkout-api","app":"checkout-api","env":"production","msg":"Cart item added"}'
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "info")
+              assert_eq!(.service, "checkout-api")
+              assert_eq!(.message, "Cart item added")
+
+  - name: docker_json_template_go_slog
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '{"time":"2026-09-03T15:00:00Z","level":"info","service":"inventory-svc","app":"inventory-svc","env":"production","message":"Stock reserved","trace":"tr-slog-505","correlation_id":"corr-slog-606","status":201,"elapsed_ms":18.4}'
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "info")
+              assert_eq!(.service, "inventory-svc")
+              assert_eq!(.app, "inventory-svc")
+              assert_eq!(.env, "production")
+              assert_eq!(.message, "Stock reserved")
+              assert_eq!(.trace_id, "tr-slog-505")
+              assert_eq!(.request_id, "corr-slog-606")
+              assert_eq!(.http_status, 201)
+              assert_eq!(.duration_ms, 18.4)
+
+  - name: docker_plaintext_level_heuristics
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          container_name: "custom-worker"
+          message: "FATAL: cannot bind socket to port 8080"
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          container_name: "custom-worker"
+          message: "Warning: configuration file has deprecated keys"
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          container_name: "custom-worker"
+          message: "DEBUG: cache lookup missed key 404"
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          container_name: "custom-worker"
+          message: "Service ready to accept incoming connections"
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.service, "custom-worker")
+              assert_eq!(.level, "error")
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "warn")
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "debug")
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "info")
+
+  # ----------------------------------------------------------------------------
+  # 2. Canonical Correlation Fields Promotion
+  # ----------------------------------------------------------------------------
+  - name: docker_correlation_fields_alias_variants
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '{"message":"request processed","traceId":"tr-alt-1","reqId":"req-alt-1","statusCode":"200","duration":88.5}'
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.trace_id, "tr-alt-1")
+              assert_eq!(.request_id, "req-alt-1")
+              assert_eq!(.http_status, 200)
+              assert_eq!(.duration_ms, 88.5)
+
+  # ----------------------------------------------------------------------------
+  # 3. HTTP Probe Dropping vs Error/Failure Retention
+  # ----------------------------------------------------------------------------
+  - name: docker_drop_routine_healthcheck_probe
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '127.0.0.1 - - [12/Oct/2026:22:00:00 +0000] "GET /health HTTP/1.1" 200 15'
+    no_outputs_from:
+      - remap_docker
+
+  - name: docker_drop_routine_metrics_scrape_probe
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '10.0.0.5 - - [12/Oct/2026:22:00:00 +0000] "GET /metrics HTTP/1.1" 200 4096'
+    no_outputs_from:
+      - remap_docker
+
+  - name: docker_drop_kube_probe
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: 'kube-probe/1.28 connection established'
+    no_outputs_from:
+      - remap_docker
+
+  - name: docker_drop_prometheus_scrape_log
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: 'Scrape job prometheus completed in 12ms'
+    no_outputs_from:
+      - remap_docker
+
+  - name: docker_retain_failing_healthcheck_http_500
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '127.0.0.1 - - [12/Oct/2026:22:00:00 +0000] "GET /health HTTP/1.1" 500 84'
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert!(contains(string!(.message), "GET /health"))
+              assert!(contains(string!(.message), "500"))
+
+  - name: docker_retain_healthcheck_error_failure
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: 'Healthcheck error: failed to ping database replica'
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "error")
+              assert!(contains(string!(.message), "Healthcheck error"))
+
+  # ----------------------------------------------------------------------------
+  # 4. 8 KB Clamping Safeguard: Info Truncation vs Error Preservation
+  # ----------------------------------------------------------------------------
+  - name: docker_clamp_oversized_info_log
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: |
+            {"level":"info","service":"data-exporter","message":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "info")
+              assert_eq!(.truncated, true)
+              assert!(length(string!(.message)) > 8192)
+              assert!(contains(string!(.message), "[truncated by collector: 8500 bytes total]"))
+
+  - name: docker_preserve_oversized_error_with_stack_trace
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: |
+            {"level":"error","service":"payment-api","message":"Traceback (most recent call last):\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n  File app.py line 42 in worker: unexpected EOF\n"}
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "error")
+              assert!(!exists(.truncated))
+              assert!(length(string!(.message)) > 8500)
+              assert!(!contains(string!(.message), "[truncated by collector"))

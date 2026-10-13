@@ -9,6 +9,16 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-10-12 — Testes de Regressão Nativos para VRL via `vector test` (Tarefa 53.0)
+- **Contexto:** O pipeline de ingestão do Vector é o núcleo do ecossistema de observabilidade, responsável pelo parsing de NDJSON (Python Loguru, Node Pino, Go slog), normalização de Syslog RFC5424/RFC3164, promoção de correlation IDs (`trace_id`, `request_id`, `http_status`, `duration_ms`), descarte seletivo de probes HTTP (`GET /health 200`, `GET /metrics 200`, `scrape`) e salvaguarda preventiva de clamping em 8 KB. Sem uma suíte hermética de testes unitários executável pelo engine do Vector, qualquer refatoração em regras VRL ou introdução de novos perfis poderia degradar silenciosamente a extração de atributos, quebrar a indexação de logs ou reintroduzir vazamento de pings no disco.
+- **Decisão:**
+  1. *Adoção de `vector test` Nativo:* Criar a suíte modular em `tests/vector/` (`test_remap_docker.yaml`, `test_remap_http.yaml`, `test_remap_syslog.yaml`), contendo 34 casos de teste unitários com asserções declarativas em VRL (`assert_eq!` e `assert!(...)`).
+  2. *Asserção Determinística de Descarte com `no_outputs_from`:* Para eventos descartados via `abort` (probes de saúde e scrapes de rotina sem erro), utilizar `no_outputs_from: ["<transform>"]` para validar que o evento é eliminado antes de alcançar o sink, distinguindo-se de retenção em caso de falhas (`500` ou palavras-chave `error`/`failed`/`warn`).
+  3. *Validação Bidirecional de Clamping (8 KB):* Cobrir tanto o truncamento preventivo com anotação diagnóstica `[truncated by collector: N bytes total]` e flag `.truncated = true` para logs com `.level != "error"`, quanto a preservação 100% integral de mensagens extensas (> 8,5 KB) para erros com stack traces e dumps de kernel.
+  4. *Executor Automatizado Multi-Perfil (`scripts/test-vector.sh`):* Criar o script operacional executável via Docker (`timberio/vector:0.45.0-alpine`) ou binário local, validando automaticamente todos os perfis de armazenamento da stack (`vector.yaml`, `vector.hdd.yaml`, `vector.ssd.yaml`).
+  5. *Paridade Canônica em `vector.geoip.yaml`:* Sincronizar os aliases de campos de correlação (`trace`, `correlation_id`, `reqId`, `status`, `latency_ms`, `elapsed_ms`) para manter uniformidade absoluta em todos os arquivos de configuração do Vector.
+- **Consequências:** Garantia matemática e regressiva de estabilidade do pipeline de ingestão, permitindo modificações com feedback em segundos e zero risco de regressão silenciosa em produção.
+
 ### 2026-10-12 — Alinhamento de Governança, Topologia (.agent/SERVICES.md) e Padrões com template-agent:infra (Tarefa 52.0)
 - **Contexto:** O repositório acumulou 51 tarefas no `.agent/TASK.md` (~9.6 KB) e divergiu da especificação mais recente do template canônico `ye-sandbox/template-agent:infra` (atualizado em outubro/2026), que introduziu o catálogo de topologia `.agent/SERVICES.md`, a taxonomia estrita de `docs/` com frontmatter obrigatório, a hierarquia de precedência de regras (Rule Precedence Hierarchy) e o protocolo Fail-Stop com bloco estruturado em YAML.
 - **Decisão:**

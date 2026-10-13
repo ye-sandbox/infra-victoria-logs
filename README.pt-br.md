@@ -84,6 +84,7 @@ flowchart LR
 │   ├── check-disk-growth.sh # Checagem periódica (cron) e alerta de crescimento em disco
 │   ├── run-maintenance-pipeline.sh # Orquestrador diário unificado (checagem + backup + smoke test)
 │   ├── test-pipeline.sh     # Smoke test ponta a ponta de ingestão e LogsQL em 1 comando
+│   ├── test-vector.sh       # Executor de testes de regressão nativos do VRL (vector test) em todos os perfis
 │   ├── test-mcp.sh          # Teste automatizado do protocolo MCP JSON-RPC 2.0
 │   ├── ship-docker-stats.sh # Coleta e envio de CPU/memória de containers locais para o Vector
 │   ├── ship-docker-events.sh# Captura contínua de eventos do Docker Engine (OOM, die, crash)
@@ -100,7 +101,11 @@ flowchart LR
 ├── vmalert/
 │   └── rules.yaml           # Regras de alerta LogsQL (erros, OOM kills, latência)
 ├── tests/
-│   └── test_mcp_error_enricher.py     # Testes unitários de sanitização e dicas contextuais do MCP
+│   ├── vector/              # Suíte de testes de regressão unitários nativos para o Vector (VRL)
+│   │   ├── test_remap_docker.yaml # Normalização Docker, templates (Loguru/Pino/Slog), clamping 8KB
+│   │   ├── test_remap_http.yaml   # Ingestão HTTP POST, promoção de correlação, descarte de probes
+│   │   └── test_remap_syslog.yaml # Normalização Syslog RFC5424/RFC3164 e heurísticas de severidade
+│   └── test_mcp_error_enricher.py # Testes unitários de sanitização e dicas contextuais do MCP
 ├── .env.example             # Template documentado de variáveis de ambiente e segurança
 ├── .gitignore               # Ignora .env, .cursor/, volumes, backups e segredos
 ├── CHANGELOG.md             # Histórico de versões e notas de lançamento (Keep a Changelog)
@@ -275,6 +280,12 @@ Use `http://127.0.0.1:9428` só se o VictoriaLogs estiver no mesmo host do clien
 ```bash
 ./scripts/test-mcp.sh
 ```
+
+**Executar Testes de Regressão Nativos do Vector (VRL):**
+```bash
+./scripts/test-vector.sh
+```
+*Valida todos os 34 testes de regressão VRL (parse JSON, promoção de campos, descarte de probes e salvaguardas de 8 KB) em todos os perfis do Vector via Docker ou binário local.*
 
 ---
 

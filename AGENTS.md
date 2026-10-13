@@ -176,6 +176,10 @@ Format: `[Epic].[Sequence]` with two-digit epics. Subtasks: `[XX.Y.Z]`. Exactly 
   ```bash
   docker run --rm --name vector-config-validator -v $(pwd)/vector/vector.yaml:/etc/vector/vector.yaml:ro timberio/vector:0.45.0-alpine validate --config-yaml /etc/vector/vector.yaml
   ```
+- **Run Vector Native VRL Unit Tests:**
+  ```bash
+  bash scripts/test-vector.sh
+  ```
 - **Verify VictoriaLogs Health:**
   ```bash
   curl -s -f http://localhost:9428/health

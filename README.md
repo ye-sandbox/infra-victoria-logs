@@ -84,6 +84,7 @@ flowchart LR
 │   ├── check-disk-growth.sh # Automated cron auditor and alert generator for disk consumption
 │   ├── run-maintenance-pipeline.sh # Unified daily orchestrator (disk check + backup + smoke test)
 │   ├── test-pipeline.sh     # End-to-end smoke test for ingestion and LogsQL queries in < 5s
+│   ├── test-vector.sh       # Native VRL unit test runner (Docker/local) across all Vector profiles
 │   ├── test-mcp.sh          # Automated test suite for JSON-RPC 2.0 MCP server tools
 │   ├── ship-docker-stats.sh # Container CPU/RAM resource metric collector shipped to Vector
 │   ├── ship-docker-events.sh# Real-time daemon event listener (crashes, restarts, OOMKilled)
@@ -100,7 +101,11 @@ flowchart LR
 ├── vmalert/
 │   └── rules.yaml           # LogsQL alert rules (error spikes, OOM kills, elevated latency)
 ├── tests/
-│   └── test_mcp_error_enricher.py     # Unit tests for MCP query sanitization and syntax tips
+│   ├── vector/              # Native Vector VRL regression test suite
+│   │   ├── test_remap_docker.yaml # Docker normalization, templates (Loguru/Pino/Slog), clamping
+│   │   ├── test_remap_http.yaml   # HTTP POST ingestion, correlation promotion, probe dropping
+│   │   └── test_remap_syslog.yaml # RFC5424/RFC3164 Syslog normalization & severity heuristics
+│   └── test_mcp_error_enricher.py # Unit tests for MCP query sanitization and syntax tips
 ├── .env.example             # Documented template for environment variables and security keys
 ├── .gitignore               # Ignores .env, .cursor/, data volumes, backups, and secrets
 ├── CHANGELOG.md             # Version history and release notes (Keep a Changelog standard)
@@ -278,6 +283,12 @@ Use `http://127.0.0.1:9428` only if VictoriaLogs runs on the same machine as the
 ```bash
 ./scripts/test-mcp.sh
 ```
+
+**Run Vector Native VRL Unit Tests:**
+```bash
+./scripts/test-vector.sh
+```
+*Validates all 34 VRL regression tests (JSON parsing, correlation field promotion, selective probe drops, and 8 KB clamping) across all Vector profiles via Docker or local binary.*
 
 ---
 

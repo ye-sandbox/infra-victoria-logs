@@ -1,0 +1,192 @@
+# ==============================================================================
+# Vector Unit Tests — Transform: remap_http
+# ==============================================================================
+# Tests HTTP ingestion via POST :8686/logs, correlation field promotion,
+# selective probe discarding, and 8 KB preventive message clamping.
+# ==============================================================================
+
+tests:
+  # ----------------------------------------------------------------------------
+  # 1. HTTP Ingestion & Field Normalization
+  # ----------------------------------------------------------------------------
+  - name: http_ingestion_canonical_event
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          app: "webhook-service"
+          level: "INFO"
+          message: "Incoming webhook received"
+          trace_id: "tr-http-001"
+          request_id: "req-http-001"
+          http_status: 200
+          duration_ms: 15.5
+    outputs:
+      - extract_from: remap_http
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.stream, "http")
+              assert_eq!(.level, "info")
+              assert_eq!(.service, "webhook-service")
+              assert_eq!(.app, "webhook-service")
+              assert_eq!(.message, "Incoming webhook received")
+              assert_eq!(.trace_id, "tr-http-001")
+              assert_eq!(.request_id, "req-http-001")
+              assert_eq!(.http_status, 200)
+              assert_eq!(.duration_ms, 15.5)
+
+  - name: http_ingestion_service_and_env
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "batch-worker"
+          env: "staging"
+          level: "info"
+          message: "Batch job executed successfully"
+    outputs:
+      - extract_from: remap_http
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.service, "batch-worker")
+              assert_eq!(.app, "batch-worker")
+              assert_eq!(.env, "staging")
+              assert_eq!(.level, "info")
+              assert_eq!(.message, "Batch job executed successfully")
+
+  # ----------------------------------------------------------------------------
+  # 2. Canonical Correlation Fields Promotion
+  # ----------------------------------------------------------------------------
+  - name: http_correlation_fields_alias_variants
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "api-gateway"
+          message: "Route handled"
+          traceId: "tr-alt-http-99"
+          requestId: "req-alt-http-99"
+          statusCode: "204"
+          duration: 4.2
+    outputs:
+      - extract_from: remap_http
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.trace_id, "tr-alt-http-99")
+              assert_eq!(.request_id, "req-alt-http-99")
+              assert_eq!(.http_status, 204)
+              assert_eq!(.duration_ms, 4.2)
+
+  # ----------------------------------------------------------------------------
+  # 3. HTTP Probe Dropping vs Error/Failure Retention
+  # ----------------------------------------------------------------------------
+  - name: http_drop_routine_healthcheck_probe
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "health-monitor"
+          level: "info"
+          message: "GET /health HTTP/1.1 200 OK"
+    no_outputs_from:
+      - remap_http
+
+  - name: http_drop_routine_metrics_probe
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "prometheus-agent"
+          level: "info"
+          message: "GET /metrics 200"
+    no_outputs_from:
+      - remap_http
+
+  - name: http_retain_failing_healthcheck_probe_500
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "health-monitor"
+          level: "info"
+          message: "GET /health HTTP/1.1 500 Internal Error"
+    outputs:
+      - extract_from: remap_http
+        conditions:
+          - type: vrl
+            source: |
+              assert!(contains(string!(.message), "500"))
+
+  - name: http_retain_probe_when_level_warn
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "health-monitor"
+          level: "warn"
+          message: "GET /health slow response warning"
+    outputs:
+      - extract_from: remap_http
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "warn")
+              assert!(contains(string!(.message), "slow response warning"))
+
+  - name: http_retain_probe_when_level_error
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "health-monitor"
+          level: "error"
+          message: "GET /health connection refused: socket timeout"
+    outputs:
+      - extract_from: remap_http
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "error")
+              assert!(contains(string!(.message), "connection refused"))
+
+  # ----------------------------------------------------------------------------
+  # 4. 8 KB Clamping Safeguard
+  # ----------------------------------------------------------------------------
+  - name: http_clamp_oversized_info_log
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "payload-receiver"
+          level: "info"
+          message: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    outputs:
+      - extract_from: remap_http
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "info")
+              assert_eq!(.truncated, true)
+              assert!(length(string!(.message)) > 8192)
+              assert!(contains(string!(.message), "[truncated by collector: 8500 bytes total]"))
+
+  - name: http_preserve_oversized_error_log
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "payload-receiver"
+          level: "error"
+          message: "HTTP Error Traceback (most recent call last):\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n  File server.py line 123 in handler: connection timeout\n"
+    outputs:
+      - extract_from: remap_http
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "error")
+              assert!(!exists(.truncated))
+              assert!(length(string!(.message)) > 8500)
+              assert!(!contains(string!(.message), "[truncated by collector"))

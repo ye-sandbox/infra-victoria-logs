@@ -1,0 +1,199 @@
+# ==============================================================================
+# Vector Unit Tests — Transform: remap_syslog
+# ==============================================================================
+# Tests Syslog ingestion via UDP :5140 (RFC5424 and RFC3164 formats),
+# service/app normalization, severity detection heuristics (keyword elevation),
+# and 8 KB preventive message clamping.
+# ==============================================================================
+
+tests:
+  # ----------------------------------------------------------------------------
+  # 1. RFC5424 and RFC3164 Normalization
+  # ----------------------------------------------------------------------------
+  - name: syslog_rfc5424_normalization
+    inputs:
+      - insert_at: remap_syslog
+        type: log
+        log_fields:
+          appname: "sshd"
+          facility: "auth"
+          host: "pve-node-01"
+          message: "Accepted publickey for root from 192.168.1.50 port 54321 ssh2"
+          msgid: "ID47"
+          procid: "1234"
+          severity: "notice"
+          timestamp: "2026-09-03T15:00:00Z"
+    outputs:
+      - extract_from: remap_syslog
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.service, "sshd")
+              assert_eq!(.app, "sshd")
+              assert_eq!(.container_name, "syslog")
+              assert_eq!(.stream, "syslog")
+              assert_eq!(.env, "production")
+              assert_eq!(.level, "notice")
+              assert_eq!(.host, "pve-node-01")
+              assert_eq!(.message, "Accepted publickey for root from 192.168.1.50 port 54321 ssh2")
+
+  - name: syslog_rfc3164_normalization
+    inputs:
+      - insert_at: remap_syslog
+        type: log
+        log_fields:
+          appname: "cron"
+          facility: "cron"
+          host: "pve-node-02"
+          message: "(root) CMD (/usr/local/bin/backup.sh)"
+          procid: "5678"
+          severity: "info"
+          timestamp: "2026-09-03T15:00:00Z"
+    outputs:
+      - extract_from: remap_syslog
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.service, "cron")
+              assert_eq!(.app, "cron")
+              assert_eq!(.container_name, "syslog")
+              assert_eq!(.stream, "syslog")
+              assert_eq!(.env, "production")
+              assert_eq!(.level, "info")
+              assert_eq!(.host, "pve-node-02")
+
+  - name: syslog_missing_appname_fallback
+    inputs:
+      - insert_at: remap_syslog
+        type: log
+        log_fields:
+          host: "switch-core-01"
+          message: "Interface GigabitEthernet0/1 changed state to up"
+          severity: "info"
+    outputs:
+      - extract_from: remap_syslog
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.service, "syslog")
+              assert_eq!(.app, "syslog")
+              assert_eq!(.container_name, "syslog")
+              assert_eq!(.stream, "syslog")
+              assert_eq!(.level, "info")
+
+  # ----------------------------------------------------------------------------
+  # 2. Severity Detection & Keyword Elevation Heuristics
+  # ----------------------------------------------------------------------------
+  - name: syslog_severity_elevation_segfault
+    inputs:
+      - insert_at: remap_syslog
+        type: log
+        log_fields:
+          appname: "kernel"
+          severity: "info"
+          message: "kernel: segfault at 0000000000000000 ip 00007fsp error 4 in libc.so"
+    outputs:
+      - extract_from: remap_syslog
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "error")
+
+  - name: syslog_severity_elevation_failed
+    inputs:
+      - insert_at: remap_syslog
+        type: log
+        log_fields:
+          appname: "systemd"
+          severity: "info"
+          message: "systemd[1]: Failed to start OpenVPN service."
+    outputs:
+      - extract_from: remap_syslog
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "error")
+
+  - name: syslog_severity_elevation_fatal
+    inputs:
+      - insert_at: remap_syslog
+        type: log
+        log_fields:
+          appname: "postgres"
+          severity: "notice"
+          message: "FATAL: password authentication failed for user replicator"
+    outputs:
+      - extract_from: remap_syslog
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "error")
+
+  - name: syslog_severity_elevation_panic
+    inputs:
+      - insert_at: remap_syslog
+        type: log
+        log_fields:
+          appname: "kernel"
+          severity: "info"
+          message: "Kernel panic - not syncing: Fatal exception in interrupt"
+    outputs:
+      - extract_from: remap_syslog
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "error")
+
+  - name: syslog_severity_elevation_warning
+    inputs:
+      - insert_at: remap_syslog
+        type: log
+        log_fields:
+          appname: "smartd"
+          severity: "info"
+          message: "Device /dev/sda temperature 52C reached [warning]"
+    outputs:
+      - extract_from: remap_syslog
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "warn")
+
+  # ----------------------------------------------------------------------------
+  # 3. 8 KB Clamping Safeguard
+  # ----------------------------------------------------------------------------
+  - name: syslog_clamp_oversized_info_log
+    inputs:
+      - insert_at: remap_syslog
+        type: log
+        log_fields:
+          appname: "pve-dump"
+          severity: "info"
+          message: "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+    outputs:
+      - extract_from: remap_syslog
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "info")
+              assert_eq!(.truncated, true)
+              assert!(length(string!(.message)) > 8192)
+              assert!(contains(string!(.message), "[truncated by collector: 8500 bytes total]"))
+
+  - name: syslog_preserve_oversized_error_log
+    inputs:
+      - insert_at: remap_syslog
+        type: log
+        log_fields:
+          appname: "kernel"
+          severity: "info"
+          message: "kernel: segfault at 0000000000000000 ip 00007fsp error 4; stack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\nstack memory dump: 0xdeadbeef 0x00001234\n"
+    outputs:
+      - extract_from: remap_syslog
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "error")
+              assert!(!exists(.truncated))
+              assert!(length(string!(.message)) > 8500)
+              assert!(!contains(string!(.message), "[truncated by collector"))
