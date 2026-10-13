@@ -1,3 +1,13 @@
+---
+title: "Guia de Hardening e Boas Práticas Operacionais no Proxmox VE"
+author_type: "agent-assisted"
+author: "Antigravity"
+reviewed_by: "yegear"
+date: 2026-09-11
+status: "approved"
+type: "host-runbook"
+---
+
 # Guia de Hardening e Boas Práticas Operacionais no Proxmox VE
 ## VictoriaLogs + Vector Homelab Observability Stack
 

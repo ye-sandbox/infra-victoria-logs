@@ -69,7 +69,10 @@ flowchart LR
 ├── dashboards/
 │   └── grafana-victorialogs.json      # Modelo oficial pré-construído para Grafana (throughput, erros, status)
 ├── docs/
-│   └── proxmox-hardening.md # Guia consolidado de hardening, sysctl e contenção de I/O no Proxmox VE
+│   ├── architecture/        # Templates e topologias de arquitetura
+│   ├── incidents/           # Hub de postmortems, relatórios RCA e rastreador de ações preventivas
+│   ├── proxmox-hardening.md # Guia consolidado de hardening, sysctl e contenção de I/O no Proxmox VE
+│   └── README.md            # Taxonomia e padrão de frontmatter para documentação técnica
 ├── mcp/
 │   └── server.py            # Servidor MCP stdio nativo para integração direta com Agentes de IA
 ├── scripts/
@@ -105,7 +108,11 @@ flowchart LR
 ├── CONTRIBUTING.md          # Diretrizes de contribuição para a comunidade (salvaguarda de 150 MB RAM)
 ├── SECURITY.md              # Política de reporte responsável de vulnerabilidades
 ├── AGENTS.md                # Diretrizes de engenharia, governança e regras dos agentes
-├── .agent/                  # Documentação de contexto do agente (TASK.md, NOTES.md)
+├── .agent/                  # Documentação de contexto do agente (TASK.md, NOTES.md, ARCHIVE.md, SERVICES.md)
+│   ├── SERVICES.md          # Catálogo canônico de portas, volumes, redes e saúde dos containers
+│   ├── TASK.md              # Tarefa ativa e backlog ordenado da infraestrutura
+│   ├── NOTES.md             # Decisões arquiteturais, contratos de log e armadilhas técnicas
+│   └── ARCHIVE.md           # Histórico compactado de marcos e tarefas arquivadas
 ├── README.pt-br.md          # Documentação técnica completa em Português
 └── README.md                # Documentação técnica principal em Inglês (Padrão Open-Source)
 ```

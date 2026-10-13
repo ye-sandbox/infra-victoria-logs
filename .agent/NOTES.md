@@ -1,12 +1,24 @@
-# NOTES.md — Decisões, Contexto e Contratos do Projeto
+# NOTES.md — Active Infrastructure Contracts, Decisions, and Gotchas
 
-> Guarda o PORQUÊ, não o QUE nem o COMO. Descrições de "o que foi feito" ficam no
-> `git log` / commits. Passos de "o que fazer" ficam no `.agent/TASK.md`. Este arquivo é
-> para decisões, trade-offs, contratos e armadilhas que **não são óbvias a partir do diff**.
+> Stores active service port bindings, volume strategies, and operational decisions.
+> Canonical service taxonomy and port registry live in [`.agent/SERVICES.md`](SERVICES.md).
+> Documentation taxonomy and incident postmortems live in [`docs/`](../docs/).
+> Completed task log history lives in [`.agent/ARCHIVE.md`](ARCHIVE.md).
 
 ---
 
 ## Decisões Arquiteturais e Contexto Técnico
+
+### 2026-10-12 — Alinhamento de Governança, Topologia (.agent/SERVICES.md) e Padrões com template-agent:infra (Tarefa 52.0)
+- **Contexto:** O repositório acumulou 51 tarefas no `.agent/TASK.md` (~9.6 KB) e divergiu da especificação mais recente do template canônico `ye-sandbox/template-agent:infra` (atualizado em outubro/2026), que introduziu o catálogo de topologia `.agent/SERVICES.md`, a taxonomia estrita de `docs/` com frontmatter obrigatório, a hierarquia de precedência de regras (Rule Precedence Hierarchy) e o protocolo Fail-Stop com bloco estruturado em YAML.
+- **Decisão:**
+  1. *Catálogo de Topologia (`.agent/SERVICES.md`):* Criar o arquivo canônico como fonte da verdade para as portas (`9428`, `8686`, `5140/udp`, `9598`, `8880`), matriz de volumes (`victorialogs_data`, `vector_data`, mounts `:ro`), rede `logging-network` e limites de recursos.
+  2. *Rotação de Histórico (`.agent/ARCHIVE.md`):* Rotacionar em lote as 51 tarefas anteriores para o `ARCHIVE.md` sob o marco histórico `[v1.0.0] - 2026-09-21`, enxugando o `TASK.md` ativo para menos de 1.8 KB e economizando ~2.000 tokens por turno de IA.
+  3. *Atualização de `AGENTS.md`:* Incorporar Precedence Hierarchy, Modular Context Triggers, Fail-Stop com bloco YAML de diagnóstico, Contrast Pairs (DO/DON'T) e Technical English universal, preservando 100% das regras específicas do projeto (150 MB RAM total, 9 ferramentas MCP nativas, VRL multiline).
+  4. *Taxonomia em `docs/`:* Criar `docs/README.md`, `docs/architecture/000-template.md`, `docs/incidents/README.md`, `docs/incidents/000-template.md`, e adicionar frontmatter em `docs/proxmox-hardening.md`.
+  5. *Preservação de `skills/`:* Manter as skills na raiz `skills/` devido ao seu papel como produtor canônico distribuído via `scripts/install-agent-skills.sh`.
+- **Consequências:** Repositório 100% aderente ao padrão da organização `ye-sandbox`, com drástica redução de consumo de contexto para agentes de IA e governança reforçada contra falhas em loop.
+
 
 ### 2026-09-21 — Bloqueio de Escalonamento de Privilégios (`no-new-privileges: true`) em Todos os Containers
 - **Contexto:** Embora os containers da stack já operassem com `read_only: true` (rootfs imutável) e `tmpfs: [/tmp]` (escrita volátil segregada), ainda era possível que processos internos explorassem binários com bit SUID ou SGID (`su`, `sudo`, `ping`, `mount`, ou qualquer binário comprometido via exploração de pacote) para elevar privilégios de um usuário sem privilégios para root dentro do namespace do container. Essa técnica é frequentemente explorada como segundo estágio de ataques *container escape* em ambientes Linux.

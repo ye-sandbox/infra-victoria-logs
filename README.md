@@ -69,7 +69,10 @@ flowchart LR
 ├── dashboards/
 │   └── grafana-victorialogs.json      # Official pre-built Grafana dashboard (throughput, errors, status)
 ├── docs/
-│   └── proxmox-hardening.md # Hardening, sysctl tuning, and I/O containment guide for Proxmox VE
+│   ├── architecture/        # Macro designs and system topology templates
+│   ├── incidents/           # Incident postmortems, RCA reports, and action tracker
+│   ├── proxmox-hardening.md # Hardening, sysctl tuning, and I/O containment guide for Proxmox VE
+│   └── README.md            # Documentation taxonomy and YAML frontmatter standard
 ├── mcp/
 │   └── server.py            # Native stdio Model Context Protocol (MCP) server for AI Agents
 ├── scripts/
@@ -105,7 +108,11 @@ flowchart LR
 ├── CONTRIBUTING.md          # Contributor guide and default 150 MB RAM safeguard baseline
 ├── SECURITY.md              # Responsible vulnerability disclosure policy
 ├── AGENTS.md                # AI agent operating rules, engineering standards, and DoD criteria
-├── .agent/                  # Persistent agent tracking files (TASK.md, NOTES.md)
+├── .agent/                  # Persistent agent tracking files (TASK.md, NOTES.md, ARCHIVE.md, SERVICES.md)
+│   ├── SERVICES.md          # Canonical topology, port registry, and persistence matrix
+│   ├── TASK.md              # Active infrastructure tasks and prioritized backlog
+│   ├── NOTES.md             # Active decisions, contracts, and operational gotchas
+│   └── ARCHIVE.md           # Historical log of completed milestone batches
 ├── README.pt-br.md          # Complete technical documentation in Portuguese
 └── README.md                # Primary technical documentation in English
 ```

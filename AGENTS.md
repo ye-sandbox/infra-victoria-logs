@@ -1,33 +1,110 @@
-# Agent Directives and Rules
+# Agent Guidelines and Rules (Infrastructure & Observability)
 
-You are the senior DevOps engineer and observability specialist responsible for the development and maintenance of this project: **VictoriaLogs + Vector Homelab Observability Stack**. Strictly follow the instructions below.
+You are the senior DevOps engineer and observability specialist responsible for the development and maintenance of this project: **VictoriaLogs + Vector Homelab Observability Stack**.
+
+> Focus on orchestration (Compose, Homelab, IaC): stability, persistent storage, log ingestion pipelines, and topology — not application business logic.
 
 ---
 
-## Mandatory Execution Protocol
+## ⚖️ Rule Precedence Hierarchy
 
-1. **Always Consult Documentation:** Before modifying or creating files, read `AGENTS.md`, `.agent/TASK.md`, and `.agent/NOTES.md`.
+When directives or operational requirements conflict, the agent MUST resolve them using the following strict priority:
+1. **Data Safety & Persistence:** NEVER execute commands that destroy volumes (`down -v`, `volume prune`) or delete persistent state (`victorialogs_data`, `vector_data`).
+2. **Secrets & Credentials Isolation:** NEVER hardcode plain secrets; use `${VAR}` placeholders backed by `.env` (documented in `.env.example`).
+3. **Port Conflict Prevention:** All host ports MUST be checked and registered in [`.agent/SERVICES.md`](./.agent/SERVICES.md) before binding.
+4. **Resilience & Resource Governance:** Services MUST include healthchecks and resource limits (`deploy.resources.limits`). The 150 MB total RAM ceiling (80M VictoriaLogs, 60M Vector) is an intentional operational safeguard.
+5. **Topology Synchronization:** [`.agent/SERVICES.md`](./.agent/SERVICES.md) MUST remain consistent with `docker-compose.yml`.
+
+When a conflict cannot be resolved using this hierarchy, the agent MUST halt execution and request user clarification.
+
+---
+
+## Modular Context Triggers
+
+The agent MUST optimize context loading using the following progressive disclosure triggers:
+- **Default Context (Loaded on start):** `AGENTS.md`, `.agent/TASK.md`, `.agent/NOTES.md`.
+- **Services Topology (`.agent/SERVICES.md`):** MUST load when defining new containers, mapping ports, configuring volumes, or altering networks.
+- **Troubleshooting Playbook (`skills/victorialogs-troubleshooting/SKILL.md`):** MUST load when investigating incidents, crashes, container failures, or performance spikes.
+- **Integration Playbook (`skills/victorialogs-integration/SKILL.md`):** MUST load when configuring application log shipping, multiline parsing, stream headers, or Syslog.
+- **Documentation & Incident Narratives (`docs/`):** MUST load when investigating past postmortems (`docs/incidents/`) or authoring architectural designs (`docs/architecture/`).
+
+---
+
+## Source of Truth
+
+[`.agent/SERVICES.md`](./.agent/SERVICES.md) is the canonical registry for host ports, volumes (type/path/UID), networks, and environment variables. The agent MUST NOT modify `docker-compose.yml` without recording entries there first.
+
+---
+
+## Execution Protocol
+
+1. **Always Consult Documentation:** Read `AGENTS.md`, `.agent/TASK.md`, and `.agent/NOTES.md`. Inspect `.agent/SERVICES.md` before touching Compose files.
 2. **Planning-First Mode:** For any new task:
-   - Update the `Status` field in `.agent/TASK.md` to `EM PLANEJAMENTO`.
+   - Set `Status` in `.agent/TASK.md` to `PLANNING`.
    - Present a detailed action plan (affected files, logic, and risks).
    - Await explicit user approval before writing code.
-   - Once approved, update the `Status` to `EM EXECUÇÃO`.
+   - Once approved, update `Status` to `RUNNING`.
 3. **Atomic Scope:** Work on only ONE task at a time.
-4. **Definition of Done (DoD):** A task is only considered complete when:
+4. **Falsifiable Definition of Done (DoD):** A task is only considered complete when:
    - [ ] All task code (YAML configurations, scripts, VRL transforms) is implemented and validated.
-   - [ ] New configurations and transforms have syntax validations or tests (`docker compose config`, `vector validate`).
-   - [ ] Validation commands have been executed and passed with 100% success.
-   - [ ] A semantic commit (Conventional Commits in English) has been made for the milestone.
-   - [ ] The active task has been recorded in the "Completed Tasks Log" of `.agent/TASK.md` (with ID, title, commit hash, and date), and the next task has been promoted.
-   - [ ] New architectural decisions, log field contracts, or discovered gotchas are documented in `.agent/NOTES.md`.
-   - [ ] **Absolute Coherence with README.md:** Any new structural file (`scripts/`, `skills/`, `mcp/`, `vector.*.yaml` profiles), new `.env.example` variable, limit adjustment, or operational script MUST be immediately reflected in `README.md` (file tree, operational commands, and usage guides). Public documentation must NEVER drift from actual code.
-   - [ ] **Mandatory AI Agent Skills Synchronization:** If the change impacts how applications ship logs (ports, stream headers, JSON fields, multiline) or how AI agents consume logs (LogsQL, HTTP endpoints, MCP tools), the corresponding SKILLs in `skills/` MUST be updated to maintain interoperability across other agents in the `ye-sandbox` organization.
+   - [ ] Syntax Validation: `docker compose config` exits with code 0.
+   - [ ] Transform Validation: `vector validate` executes and passes with 100% success.
+   - [ ] Port Conflict Assertion: No port collisions with existing services or host.
+   - [ ] Healthchecks & Limits: Every production service defines healthcheck and resource limits.
+   - [ ] Registry Invariants: `.agent/SERVICES.md` and `.env.example` synchronized.
+   - [ ] Documentation Frontmatter: All docs under `docs/` MUST include YAML frontmatter (`author_type`, `author`, `reviewed_by`, `date`, `status`, `type`).
+   - [ ] Git Cleanliness: `git diff --check` exits with code 0.
+   - [ ] Atomic Commit: Semantic commit following Conventional Commits in English (`feat(vector): ...`).
+   - [ ] Task Log: Active task logged in `TASK.md` (or archived to `ARCHIVE.md`); edge cases recorded in `NOTES.md`.
+   - [ ] Absolute Coherence with `README.md`: Any structural addition immediately reflected in `README.md` and `README.pt-br.md`.
+   - [ ] Mandatory AI Agent Skills Synchronization: If log contracts or MCP tools change, sync `skills/`.
+
+---
+
+## Fail-Stop Protocol & Escalation Hierarchy
+
+If an automated command (`docker compose config`, container boot, vector validation, or healthcheck) fails **2 consecutive times** with the same root cause:
+1. The agent MUST STOP execution immediately.
+2. The agent MUST NOT attempt random environment alterations.
+3. The agent MUST escalate to the user with a structured diagnostic block:
+   ```yaml
+   failure_stage: "compose_config | vector_validate | container_boot | healthcheck"
+   error_signature: "exact error message or container exit code"
+   consecutive_failures: 2
+   root_cause_analysis: "port collision | mount permissions | invalid syntax | memory limit"
+   attempted_fixes:
+     - "fix 1 description"
+     - "fix 2 description"
+   volume_data_state: "intact (no destructive operations performed)"
+   pending_decision: "question or proposed options for user"
+   ```
+4. **Postmortem Trigger:** If an incident resulted in service downtime or required non-trivial architectural remediation, the agent MUST log a Tier 3 postmortem under `docs/incidents/YYYY-MM-DD-<slug>.md` and register the action items in `docs/incidents/README.md`.
+
+---
+
+## Task Numbering (`[XX.Y]`) & Post-Release Hygiene
+
+Format: `[Epic].[Sequence]` with two-digit epics. Subtasks: `[XX.Y.Z]`. Exactly **one** task active in `RUNNING` status.
+
+| Prefix | Phase | Focus |
+| :---: | :--- | :--- |
+| **`00.x`** | Bootstrap & Topology | Ports, volumes, `SERVICES.md` |
+| **`01.x`** | Foundation | VictoriaLogs + Vector pipeline, healthchecks, networks |
+| **`02.x`–`89.x`** | Features & Collector Modules | Ingestion routes, collectors, MCP, skills, alerts |
+| **`90.x`** | Optimization | Storage profiles, VRL optimization, memory tuning |
+| **`99.x`** | Hardening & Release | Port auditing, secrets scrubbing, release tag |
+
+### Post-Release Hygiene (Trigger: Git tag on release)
+1. **Archive:** Move completed log from `TASK.md` to `ARCHIVE.md` under `## [vX.Y.Z] - YYYY-MM-DD`.
+2. **Consolidate:** Record active topology in `SERVICES.md`; prune ephemeral scratch notes in `NOTES.md`.
+3. **Perimeter:** Sync `.env.example`, `README.md`, and `docker-compose.yml` to the release tag.
+4. **Reset:** Reset task numbering or promote next milestone to `READY FOR PLANNING`.
 
 ---
 
 ## Tech Stack and Tools
 
-- **Operating System and Standard Shell:** Linux (Bash) — the agent MUST respect Bash syntax when running scripts and terminal commands.
+- **Operating System and Standard Shell:** Linux (Bash) — respect Bash syntax when running scripts and terminal commands.
 - **General Architecture:** Container-native log ingestion and observability pipeline. Vector serves as a high-performance collector and router (Docker socket, Syslog UDP, HTTP POST), enriching events via VRL and forwarding them compressed with zstd over HTTP to VictoriaLogs, which indexes them with LogsQL and exposes queries to developers (VMUI) and AI agents (native MCP server and HTTP API).
 
 ### 1. VictoriaLogs (Storage & Query Engine)
@@ -116,21 +193,58 @@ You are the senior DevOps engineer and observability specialist responsible for 
 - **NEVER** configure Vector to collect its own logs (`exclude_containers: ["vector"]` is mandatory to prevent log storms and infinite feedback loops).
 - **NEVER** modify canonical stream headers (`VL-Stream-Fields: "host,container_name,service,stream"`) without justification and updating `.agent/NOTES.md`.
 - **NEVER** run services without configured healthchecks.
-- **CIRCUIT BREAKER (Loop Prevention):** If a validation command fails more than 2 consecutive times with the same root cause, **STOP** and request guidance from the user instead of attempting blind edits.
+- **NEVER** use unpinned image tags in production Compose definitions.
+- **MUST** write all agent-facing directives, service catalogs, skills, and task logs (`AGENTS.md`, `.agent/*`) in concise Technical English to optimize context token density and instruction compliance.
 
 ---
 
-## Code Standards
+## Code Quality & Contrast Pairs (DO / DON'T)
 
-- Strict 2-space indentation for all YAML files.
-- VRL code in `vector.yaml` must include explanatory comments for each stage (JSON parsing, log level heuristic, error fallbacks).
-- Environment variables in clear uppercase (`SNAKE_CASE`).
+Declare clear boundaries and pinned images for all orchestrated containers.
+
+### Contrast Pairs (DO / DON'T)
+
+```yaml
+# BAD: Unpinned image, missing healthcheck, missing limits, plaintext secret
+services:
+  victorialogs:
+    image: victoriametrics/victoria-logs:latest
+    ports:
+      - "9428:9428"
+
+# GOOD: Pinned tag/variable fallback, explicit healthcheck, read-only root, security opt, and strict limits
+services:
+  victorialogs:
+    image: victoriametrics/victoria-logs:${VICTORIALOGS_VERSION:-latest}
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "${VICTORIALOGS_HTTP_PORT:-9428}:9428"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 80M
+        reservations:
+          memory: 30M
+    healthcheck:
+      test: ["CMD", "/victoria-logs-prod", "-version"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+```
 
 ---
 
-## Git and Commit Rules
+## Git Conventions
 
-- Commit messages following Conventional Commits strictly in **English**:
+- **Atomic Commits:** Validate Compose syntax before committing.
+- **Scrubbing:** **MUST NOT** commit `data/`, volumes, or production `.env`.
+- **Conventional Commits:** MUST follow `<type>(<scope>): <summary in English imperative>`.
   - `feat(vector): add syslog receiver support`
   - `fix(compose): adjust memory reservation for victorialogs`
   - `chore(deps): bump victorialogs to v1.23.0`
