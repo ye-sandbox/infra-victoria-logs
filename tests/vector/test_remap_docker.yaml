@@ -165,6 +165,117 @@ tests:
     no_outputs_from:
       - remap_docker
 
+  - name: docker_drop_routine_healthcheck_probe_healthz
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '127.0.0.1 - - [12/Oct/2026:22:00:00 +0000] "GET /healthz HTTP/1.1" 200 15'
+    no_outputs_from:
+      - remap_docker
+
+  - name: docker_drop_routine_probe_live_204
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '127.0.0.1 - - [12/Oct/2026:22:00:00 +0000] "GET /live HTTP/1.1" 204 0'
+    no_outputs_from:
+      - remap_docker
+
+  - name: docker_drop_routine_probe_ready
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '127.0.0.1 - - [12/Oct/2026:22:00:00 +0000] "GET /ready HTTP/1.1" 200 10'
+    no_outputs_from:
+      - remap_docker
+
+  - name: docker_drop_routine_probe_ping
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '127.0.0.1 - - [12/Oct/2026:22:00:00 +0000] "GET /ping HTTP/1.1" 200 4'
+    no_outputs_from:
+      - remap_docker
+
+  - name: docker_drop_structured_json_probe_healthz_200
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '{"level":"info","method":"GET","path":"/healthz","http_status":200}'
+    no_outputs_from:
+      - remap_docker
+
+  - name: docker_drop_structured_json_probe_live_204
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '{"level":"info","route":"/live","statusCode":204}'
+    no_outputs_from:
+      - remap_docker
+
+  - name: docker_retain_business_route_live_stream
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '127.0.0.1 - - [12/Oct/2026:22:00:00 +0000] "GET /live-stream HTTP/1.1" 200 1024'
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert!(contains(string!(.message), "GET /live-stream"))
+              assert_eq!(.level, "info")
+
+  - name: docker_retain_failing_healthz_http_500
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '127.0.0.1 - - [12/Oct/2026:22:00:00 +0000] "GET /healthz HTTP/1.1" 500 84'
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert!(contains(string!(.message), "GET /healthz"))
+              assert!(contains(string!(.message), "500"))
+
+  - name: docker_retain_failing_structured_healthz_500
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '{"level":"error","path":"/healthz","http_status":500,"message":"DB connection timeout"}'
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "error")
+              assert_eq!(.http_status, 500)
+              assert!(contains(string!(.message), "DB connection timeout"))
+
+  - name: docker_retain_warn_structured_health_probe
+    inputs:
+      - insert_at: remap_docker
+        type: log
+        log_fields:
+          message: '{"level":"warn","path":"/health","http_status":200,"message":"Slow probe warning"}'
+    outputs:
+      - extract_from: remap_docker
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "warn")
+              assert!(contains(string!(.message), "Slow probe warning"))
+
   - name: docker_drop_routine_metrics_scrape_probe
     inputs:
       - insert_at: remap_docker

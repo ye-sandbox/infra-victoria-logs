@@ -313,7 +313,7 @@ Use `http://127.0.0.1:9428` só se o VictoriaLogs estiver no mesmo host do clien
 ```bash
 ./scripts/test-vector.sh
 ```
-*Valida todos os 34 testes de regressão VRL (parse JSON, promoção de campos, descarte de probes e salvaguardas de 8 KB) em todos os perfis do Vector via Docker ou binário local.*
+*Valida todos os 51 testes de regressão VRL (parse JSON, promoção de campos, descarte canônico de probes healthz/live/ready/ping em status 200/204 e salvaguardas de 8 KB) em todos os perfis do Vector via Docker ou binário local.*
 
 ---
 

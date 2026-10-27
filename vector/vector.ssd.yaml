@@ -56,8 +56,8 @@ transforms:
 
       msg = string(.message) ?? ""
 
-      # OTIMIZAÇÃO: Descarta pings vazios de healthcheck e scrapes de rotina para poupar armazenamento e ruído
-      if match(msg, r'(?i)\b(healthcheck|kube-probe|GET /health|GET /ping|GET /ready|GET /metrics|scrape)\b') && !match(msg, r'(?i)\b(error\w*|fail\w*|warn\w*|401|403|500|502|503|504)\b') {
+      # OTIMIZAÇÃO: Descarta pings vazios de healthcheck e scrapes de rotina em texto puro para poupar armazenamento e ruído
+      if match(msg, r'(?i)(\b(healthcheck|kube-probe|scrape)\b|\bGET /(health|healthz|live|ready|ping|metrics)(?:[ /?]|$))') && !match(msg, r'(?i)\b(error\w*|fail\w*|warn\w*|401|403|500|502|503|504)\b') {
         abort
       }
       
@@ -118,6 +118,21 @@ transforms:
         }
 
         .structured = parsed
+
+        # OTIMIZAÇÃO: Descarta requisições de probe de healthcheck / metrics estruturadas em JSON (status 200/204)
+        req_path = string(parsed.path) ?? string(parsed.url) ?? string(parsed.route) ?? string(parsed.uri) ?? ""
+        is_probe_path = match(req_path, r'(?i)^/(health|healthz|live|ready|ping|metrics)(/|\?|$)')
+        req_msg = string(parsed.message) ?? string(parsed.msg) ?? ""
+        is_probe_msg = match(req_msg, r'(?i)(\b(healthcheck|kube-probe|scrape)\b|\bGET /(health|healthz|live|ready|ping|metrics)(?:[ /?]|$))')
+
+        if (is_probe_path || is_probe_msg) {
+          is_success_status = .http_status == 200 || .http_status == 204 || .http_status == null
+          is_safe_level = .level != "error" && .level != "warn"
+          has_err_kw = match(msg, r'(?i)\b(error\w*|fail\w*|warn\w*|401|403|500|502|503|504)\b')
+          if is_success_status && is_safe_level && !has_err_kw {
+            abort
+          }
+        }
       } else {
         if match(msg, r'(?i)\b(fatal|panic|error|exception)\b') {
           .level = "error"
@@ -226,8 +241,17 @@ transforms:
 
       # OTIMIZAÇÃO: Descarta pings vazios de healthcheck e scrapes de rotina para poupar armazenamento e ruído
       http_msg = string(.message)
-      if match(http_msg, r'(?i)\b(healthcheck|kube-probe|GET /health|GET /ping|GET /ready|GET /metrics|scrape)\b') && !match(http_msg, r'(?i)\b(error\w*|fail\w*|warn\w*|401|403|500|502|503|504)\b') && (.level != "error" && .level != "warn") {
-        abort
+      http_path = string(.path) ?? string(.url) ?? string(.route) ?? string(.uri) ?? ""
+      is_probe_msg = match(http_msg, r'(?i)(\b(healthcheck|kube-probe|scrape)\b|\bGET /(health|healthz|live|ready|ping|metrics)(?:[ /?]|$))')
+      is_probe_path = match(http_path, r'(?i)^/(health|healthz|live|ready|ping|metrics)(/|\?|$)')
+
+      if (is_probe_msg || is_probe_path) {
+        is_success_status = .http_status == 200 || .http_status == 204 || .http_status == null
+        is_safe_level = .level != "error" && .level != "warn"
+        has_err_kw = match(http_msg, r'(?i)\b(error\w*|fail\w*|warn\w*|401|403|500|502|503|504)\b')
+        if is_success_status && is_safe_level && !has_err_kw {
+          abort
+        }
       }
 
       # Salvaguarda: Teto preventivo de tamanho de mensagem (clamping em 8 KB para logs não-críticos)

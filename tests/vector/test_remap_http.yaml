@@ -94,6 +94,52 @@ tests:
     no_outputs_from:
       - remap_http
 
+  - name: http_drop_routine_probe_healthz
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "health-monitor"
+          level: "info"
+          message: "GET /healthz HTTP/1.1 200 OK"
+    no_outputs_from:
+      - remap_http
+
+  - name: http_drop_routine_probe_live_204
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "health-monitor"
+          level: "info"
+          message: "GET /live HTTP/1.1 204"
+    no_outputs_from:
+      - remap_http
+
+  - name: http_drop_structured_probe_healthz_path
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "api-gateway"
+          level: "info"
+          path: "/healthz"
+          http_status: 200
+    no_outputs_from:
+      - remap_http
+
+  - name: http_drop_structured_probe_live_statusCode_204
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "worker"
+          level: "info"
+          url: "/live"
+          statusCode: 204
+    no_outputs_from:
+      - remap_http
+
   - name: http_drop_routine_metrics_probe
     inputs:
       - insert_at: remap_http
@@ -119,6 +165,58 @@ tests:
           - type: vrl
             source: |
               assert!(contains(string!(.message), "500"))
+
+  - name: http_retain_failing_healthz_probe_500
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "health-monitor"
+          level: "info"
+          message: "GET /healthz HTTP/1.1 500 Internal Error"
+    outputs:
+      - extract_from: remap_http
+        conditions:
+          - type: vrl
+            source: |
+              assert!(contains(string!(.message), "500"))
+
+  - name: http_retain_failing_structured_probe_503
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "api-gateway"
+          level: "error"
+          path: "/healthz"
+          http_status: 503
+          message: "Service unavailable"
+    outputs:
+      - extract_from: remap_http
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "error")
+              assert_eq!(.http_status, 503)
+              assert!(contains(string!(.message), "Service unavailable"))
+
+  - name: http_retain_business_route_live_stream
+    inputs:
+      - insert_at: remap_http
+        type: log
+        log_fields:
+          service: "media-service"
+          level: "info"
+          path: "/live-stream"
+          http_status: 200
+    outputs:
+      - extract_from: remap_http
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "info")
+              assert_eq!(.http_status, 200)
+              assert_eq!(.service, "media-service")
 
   - name: http_retain_probe_when_level_warn
     inputs:

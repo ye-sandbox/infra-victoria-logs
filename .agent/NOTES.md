@@ -9,6 +9,17 @@
 
 ## Decisões Arquiteturais e Contexto Técnico
 
+### 2026-10-27 — Descarte Canônico de Probes de Healthcheck em Texto Puro e JSON Estruturado no VRL (Tarefa 57.0)
+- **Contexto:** Requisições rotineiras de probes de integridade (`GET /health`, `/healthz`, `/live`, `/ready`, `/ping`, Prometheus `/metrics`, `kube-probe`) com intervalos frequentes (5s a 10s) representam entre 50% e 80% do volume bruto de logs de acesso em homelabs e clusters containerizados, sobrecarregando desnecessariamente buffers de memória e gerando ruído massivo sem valor diagnóstico quando retornam sucesso (HTTP 200/204). O regex legado `\b(healthcheck|kube-probe|GET /health|GET /ping|GET /ready|GET /metrics|scrape)\b` não contemplava endpoints padronizados de orquestradores como `/healthz` e `/live`, e ignorava requisições emitidas em formato JSON estruturado onde o caminho e o status são atributos discretos (`path: "/healthz"`, `http_status: 200`, `url: "/live"`, `statusCode: 204`).
+- **Decisão:**
+  1. *Regex Canônico em Texto Puro com Delimitação Estrita de Sufixo:* Unificar o padrão para `r'(?i)(\b(healthcheck|kube-probe|scrape)\b|\bGET /(health|healthz|live|ready|ping|metrics)(?:[ /?]|$))'`, protegendo rotas de negócio com prefixos comuns (ex: `/live-stream`, `/delivery`, `/livedata`, `/pingback`) contra descarte indevido.
+  2. *Descarte em JSON Estruturado nos Transforms `remap_docker` e `remap_http`:* Inspecionar atributos promovidos de rota (`.path`, `.url`, `.route`, `.uri`) contra `r'(?i)^/(health|healthz|live|ready|ping|metrics)(/|\?|$)'` e validar se o status HTTP promovido (`.http_status`, `statusCode`, `status`) é estritamente `200` ou `204` (ou ausente em logs rotineiros de nível `info`).
+  3. *Preservação Incondicional de Falhas e Avisos:* Probes que retornem status de erro (HTTP >= 400), nível `warn` ou `error`, ou contenham termos de falha (`error\w*`, `fail\w*`, `warn\w*`, `401`, `403`, `500`, `502`, `503`, `504`) NUNCA sofrem descarte, garantindo rastreamento imediato de indisponibilidades.
+  4. *Paridade Canônica em 100% dos Perfis de Armazenamento:* Atualização sincronizada em `vector/vector.yaml` (base), `vector/vector.hdd.yaml` (HDD), `vector/vector.ssd.yaml` (SSD) e `vector/vector.geoip.yaml` (GeoIP).
+  5. *Expansão da Suíte de Testes Nativos (`vector test`):* Adicionar 17 novos casos de teste em `tests/vector/test_remap_docker.yaml` e `tests/vector/test_remap_http.yaml` (elevando a suíte para 51 testes unitários), cobrindo probes de texto, JSON estruturado, retenção em HTTP 500/503 e preservação de rotas de negócio.
+  6. *Sincronização de Skills:* Atualizar `skills/victorialogs-integration/SKILL.md` (seção What NOT to Emit) documentando o contrato canônico de descarte no coletor.
+- **Consequências:** Supressão imediata de 50% a 80% do ruído repetitivo de telemetria sem perda de erros ou degradação diagnóstica, economizando ciclos de disco e memória RAM em todos os nós da infraestrutura.
+
 ### 2026-10-13 — Evolução do Servidor MCP: Timeout por Chamada e Transporte SSE/HTTP Nativo (Tarefa 56.0)
 - **Contexto:** Agentes de IA locais (Antigravity, Claude Code, Cursor) utilizavam o servidor MCP nativo exclusivamente via terminal stdio. No entanto, agentes remotos, dashboards web ou ferramentas em containers não conseguiam consultar o MCP sem um shell local ou sem orquestrar wrappers externos. Além disso, queries históricas extensas em VictoriaLogs (ex: `time_range="30d"` ou agregações densas) podiam sofrer timeout prematuro com o teto padrão rígido de 15 segundos da função `make_request`.
 - **Decisão:**

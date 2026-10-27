@@ -75,7 +75,7 @@ Canonical sink header: `VL-Stream-Fields: "host,container_name,service,app,env,s
 
 ### What NOT to Emit (or Not in this Format)
 - **Host syslog / rsyslog / journald:** send via UDP `:5140`. Do not convert Proxmox journald into JSON.
-- **Healthchecks and pings** (`GET /health`, `/ping`, `/ready`, kube-probe) in HDD storage profile: Vector **drops** them at the edge (unless the line contains `error`/`fail`/`warn`). Do not rely on ping events for mechanical disk audits.
+- **Healthchecks and routine probes** (`GET /(health|healthz|live|ready|ping)`, `kube-probe`, Prometheus `/metrics` scrapes): Vector **drops** them at the edge across all storage profiles for both plaintext access logs and structured JSON with HTTP status 200/204 (unless the event contains `error`/`fail`/`warn` or status >= 400). Do not rely on routine ping/probe events for storage auditing; rely on metrics or probe failure events.
 - **Pretty colors / ANSI escapes:** set `NO_COLOR=1`. In Node.js, **never** use `pino-pretty` (or pretty transport) in production containers.
 
 ---

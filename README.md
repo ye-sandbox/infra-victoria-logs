@@ -316,7 +316,7 @@ Use `http://127.0.0.1:9428` only if VictoriaLogs runs on the same machine as the
 ```bash
 ./scripts/test-vector.sh
 ```
-*Validates all 34 VRL regression tests (JSON parsing, correlation field promotion, selective probe drops, and 8 KB clamping) across all Vector profiles via Docker or local binary.*
+*Validates all 51 VRL regression tests (JSON parsing, correlation field promotion, canonical probe drops for healthz/live/ready/ping on 200/204, and 8 KB clamping) across all Vector profiles via Docker or local binary.*
 
 ---
 
