@@ -139,7 +139,7 @@ A stack aplica parâmetros rigorosos de contenção para garantir que os contain
 
 ### 4.1 Isolamento do Docker Socket
 - O coletor Vector necessita de visibilidade dos containers locais para captura de logs e eventos.
-- A montagem no `docker-compose.yml` é estritamente **somente leitura**:
+- A montagem no `compose.yaml` é estritamente **somente leitura**:
   ```yaml
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock:ro

@@ -9,13 +9,57 @@ You are the senior DevOps engineer and observability specialist responsible for 
 ## ⚖️ Rule Precedence Hierarchy
 
 When directives or operational requirements conflict, the agent MUST resolve them using the following strict priority:
-1. **Data Safety & Persistence:** NEVER execute commands that destroy volumes (`down -v`, `volume prune`) or delete persistent state (`victorialogs_data`, `vector_data`).
-2. **Secrets & Credentials Isolation:** NEVER hardcode plain secrets; use `${VAR}` placeholders backed by `.env` (documented in `.env.example`).
-3. **Port Conflict Prevention:** All host ports MUST be checked and registered in [`.agent/SERVICES.md`](./.agent/SERVICES.md) before binding.
-4. **Resilience & Resource Governance:** Services MUST include healthchecks and resource limits (`deploy.resources.limits`). The 150 MB total RAM ceiling (80M VictoriaLogs, 60M Vector) is an intentional operational safeguard.
-5. **Topology Synchronization:** [`.agent/SERVICES.md`](./.agent/SERVICES.md) MUST remain consistent with `docker-compose.yml`.
+- `[P0]` **Data Safety, Secrets & Persistence:** NEVER execute commands that destroy volumes (`down -v`, `volume prune`) or delete persistent state (`victorialogs_data`, `vector_data`). NEVER hardcode plain secrets; use `${VAR}` placeholders backed by `.env` (documented in `.env.example`).
+- `[P1]` **Invariants, Resilience & Resource Governance:** Services MUST include healthchecks and resource limits (`deploy.resources.limits`). The 150 MB total RAM ceiling (80M VictoriaLogs, 60M Vector) is an intentional operational safeguard. Syntax assertions (`docker compose config --quiet`) and vector validation (`scripts/test-vector.sh`) MUST exit with code 0.
+- `[P2]` **Architecture & Topology:** Port allocation without collision, registered in [`.agent/SERVICES.md`](./.agent/SERVICES.md). Topology in `.agent/SERVICES.md` MUST remain consistent with `compose.yaml`.
+- `[P3]` **Style & Formatting Conventions:** Conventional Commits in English, YAML formatting, documentation frontmatter, and invariant code rationale.
 
 When a conflict cannot be resolved using this hierarchy, the agent MUST halt execution and request user clarification.
+
+---
+
+## Scope Constraints & Blast Radius
+
+```yaml
+MUTABLE PATHS:
+  - compose.yaml
+  - compose.override.yaml
+  - vector/**
+  - vmalert/**
+  - alert-bridge/**
+  - mcp/**
+  - scripts/**
+  - dashboards/**
+  - tests/**
+  - .agent/SERVICES.md
+  - .agent/TASK.md
+  - .agent/NOTES.md
+  - .agent/ECOSYSTEM.md
+  - .agent/knowledge/**
+  - .agent/skills/**/SKILL.md
+  - skills/**/SKILL.md
+  - docs/adr/**
+  - docs/incidents/**
+  - docs/architecture/**
+  - README.md
+  - README.pt-br.md
+
+IMMUTABLE PATHS:
+  - **/.env                      # Real environment credentials
+  - /var/run/docker.sock         # Host daemon socket (use read-only bind mount)
+  - volumes/**                   # Persistent volume data on host
+  - data/**                      # Service state directories
+
+FORBIDDEN ACTIONS:
+  - [P0] MUST NOT commit plaintext secrets, passwords, or API tokens to git. Use ${VAR_NAME} backed by local .env.example.
+  - [P0] MUST NOT execute destructive volume commands (docker compose down -v, docker volume rm/prune).
+  - [P0] MUST NOT alter host bind mount paths without checking existing data and permissions (UID:GID).
+  - [P1] MUST NOT remove configured memory limits (limits.memory: 80M and 60M). Default 150 MB total RAM ceiling is an intentional safeguard.
+  - [P1] MUST NOT configure Vector to collect its own logs (exclude_containers: ["vector"] is mandatory).
+  - [P1] MUST NOT declare containers without explicit healthcheck and deploy.resources.limits (cpus, memory).
+  - [P1] MUST NOT bind host ports without checking collisions and registering in .agent/SERVICES.md.
+  - [P1] MUST NOT exceed 2 consecutive failed attempts with identical root cause (Circuit Breaker).
+```
 
 ---
 
@@ -23,16 +67,20 @@ When a conflict cannot be resolved using this hierarchy, the agent MUST halt exe
 
 The agent MUST optimize context loading using the following progressive disclosure triggers:
 - **Default Context (Loaded on start):** `AGENTS.md`, `.agent/TASK.md`, `.agent/NOTES.md`.
+- **Architectural Decisions (`docs/adr/decisions.md`):** MUST load when reviewing historical trade-offs, service boundary rationales, or adding foundational architectural decisions.
 - **Services Topology (`.agent/SERVICES.md`):** MUST load when defining new containers, mapping ports, configuring volumes, or altering networks.
+- **Multi-Repo Ecosystem (`.agent/ECOSYSTEM.md`):** MUST load when mapping external upstream log shippers (Docker containers, syslog hosts, HTTP clients), sibling repositories, or cross-repo contract boundaries.
+- **Compose Service Skill (`.agent/skills/compose-service/SKILL.md`):** MUST load when scaffolding or configuring services.
 - **Troubleshooting Playbook (`skills/victorialogs-troubleshooting/SKILL.md`):** MUST load when investigating incidents, crashes, container failures, or performance spikes.
 - **Integration Playbook (`skills/victorialogs-integration/SKILL.md`):** MUST load when configuring application log shipping, multiline parsing, stream headers, or Syslog.
 - **Documentation & Incident Narratives (`docs/`):** MUST load when investigating past postmortems (`docs/incidents/`) or authoring architectural designs (`docs/architecture/`).
+- **Knowledge Base (`.agent/knowledge/`):** Consult on demand when encountering daemon, driver, container networking, or VictoriaLogs/Vector runtime gotchas.
 
 ---
 
 ## Source of Truth
 
-[`.agent/SERVICES.md`](./.agent/SERVICES.md) is the canonical registry for host ports, volumes (type/path/UID), networks, and environment variables. The agent MUST NOT modify `docker-compose.yml` without recording entries there first.
+[`.agent/SERVICES.md`](./.agent/SERVICES.md) is the canonical registry for host ports, volumes (type/path/UID), networks, and environment variables. The agent MUST NOT modify `compose.yaml` without recording entries there first.
 
 ---
 
@@ -95,9 +143,10 @@ Format: `[Epic].[Sequence]` with two-digit epics. Subtasks: `[XX.Y.Z]`. Exactly 
 | **`99.x`** | Hardening & Release | Port auditing, secrets scrubbing, release tag |
 
 ### Post-Release Hygiene (Trigger: Git tag on release)
+Not restricted to phase `99.x`. When releasing `vX.Y.Z`:
 1. **Archive:** Move completed log from `TASK.md` to `ARCHIVE.md` under `## [vX.Y.Z] - YYYY-MM-DD`.
 2. **Consolidate:** Record active topology in `SERVICES.md`; prune ephemeral scratch notes in `NOTES.md`.
-3. **Perimeter:** Sync `.env.example`, `README.md`, and `docker-compose.yml` to the release tag.
+3. **Perimeter:** Sync `.env.example`, `README.md`, `README.pt-br.md`, and `compose.yaml` to the release tag.
 4. **Reset:** Reset task numbering or promote next milestone to `READY FOR PLANNING`.
 
 ---
@@ -162,7 +211,7 @@ Format: `[Epic].[Sequence]` with two-digit epics. Subtasks: `[XX.Y.Z]`. Exactly 
 - **NEVER** modify configurations outside the scope of the active task.
 
 ### Secrets and Environment Variables
-- **NEVER** hardcode ports, paths, or sensitive credentials directly in `docker-compose.yml`.
+- **NEVER** hardcode ports, paths, or sensitive credentials directly in `compose.yaml`.
 - All variables must come from `.env` (unversioned) and be documented in `.env.example`.
 - **NEVER** commit `.env` files containing real secrets.
 
@@ -209,6 +258,7 @@ Format: `[Epic].[Sequence]` with two-digit epics. Subtasks: `[XX.Y.Z]`. Exactly 
 - **NEVER** modify canonical stream headers (`VL-Stream-Fields: "host,container_name,service,stream"`) without justification and updating `.agent/NOTES.md`.
 - **NEVER** run services without configured healthchecks.
 - **NEVER** use unpinned image tags in production Compose definitions.
+- **MUST** document non-obvious orchestration constraints, dependency order requirements, kernel capabilities (`cap_add`), and network quirks as in-file comments using explicit invariant prefixes (e.g., `# INVARIANT: <rationale>`), explaining the architectural *why* rather than restating the YAML syntax.
 - **MUST** write all agent-facing directives, service catalogs, skills, and task logs (`AGENTS.md`, `.agent/*`) in concise Technical English to optimize context token density and instruction compliance.
 
 ---
@@ -245,12 +295,26 @@ services:
           memory: 80M
         reservations:
           memory: 30M
+    # INVARIANT: Distroless image without curl/wget; -version binary invocation verifies engine process integrity and OCI runtime execution
     healthcheck:
       test: ["CMD", "/victoria-logs-prod", "-version"]
       interval: 15s
       timeout: 5s
       retries: 3
       start_period: 10s
+```
+
+```yaml
+# BAD: Restating trivial syntax or leaving critical orchestration dependency unexplained
+# Wait for victorialogs
+depends_on:
+  - victorialogs
+
+# GOOD: In-file invariant explaining orchestration ordering constraint and protocol requirement
+# INVARIANT: condition service_healthy required; vector sinks fail immediately if victorialogs HTTP ingestion port is not yet accepting connections
+depends_on:
+  victorialogs:
+    condition: service_healthy
 ```
 
 ---

@@ -14,7 +14,7 @@ Agradecemos o seu interesse em contribuir para o **VictoriaLogs + Vector Homelab
 > - **Vector:** `<= 60 MB` (`deploy.resources.limits.memory: 60M`)
 > - **Total Combinado:** `<= 140 MB` (operando com folga confortável dentro da salvaguarda de 150 MB)
 > 
-> Esse limite não é um dogma inalterável, mas uma salvaguarda intencional imposta para o dimensionamento seguro em hardware modesto. Embora operadores individuais possam ajustar e aumentar os limites no `docker-compose.yml` e `.env` caso disponham de mais recursos no seu host (ex: elevando VictoriaLogs para `120M` em caso de alto tráfego), Pull Requests submetidos à comunidade devem respeitar essa salvaguarda por padrão para evitar consumo excessivo de recursos e preservar o propósito em infraestruturas restritas.
+> Esse limite não é um dogma inalterável, mas uma salvaguarda intencional imposta para o dimensionamento seguro em hardware modesto. Embora operadores individuais possam ajustar e aumentar os limites no `compose.yaml` e `.env` caso disponham de mais recursos no seu host (ex: elevando VictoriaLogs para `120M` em caso de alto tráfego), Pull Requests submetidos à comunidade devem respeitar essa salvaguarda por padrão para evitar consumo excessivo de recursos e preservar o propósito em infraestruturas restritas.
 
 ---
 

@@ -2,7 +2,7 @@
 
 > 🎯 **Purpose of this File:** Canonical living source of truth for topology, host port allocations, data persistence volumes, and network policies for services provisioned in this repository.
 >
-> ⚠️ **Mandatory Rule for the Agent:** NEVER bring up or modify containers in `docker-compose.yml` without first recording and verifying potential conflicts in the tables below.
+> ⚠️ **Mandatory Rule for the Agent:** NEVER bring up or modify containers in `compose.yaml` without first recording and verifying potential conflicts in the tables below.
 
 ---
 

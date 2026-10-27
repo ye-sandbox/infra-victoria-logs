@@ -60,7 +60,7 @@ flowchart LR
 
 ```text
 .
-├── docker-compose.yml       # Orquestração com limites de RAM rígidos (140 MB somados)
+├── compose.yaml             # Orquestração com limites de RAM rígidos (140 MB somados)
 ├── vector/
 │   ├── vector.hdd.yaml      # Perfil HD mecânico (buffer em RAM, 2MB batch, filtro de pings)
 │   ├── vector.ssd.yaml      # Perfil SSD/NVMe (buffer em disco, 1MB batch, 100% retenção)
@@ -69,6 +69,7 @@ flowchart LR
 ├── dashboards/
 │   └── grafana-victorialogs.json      # Modelo oficial pré-construído para Grafana (throughput, erros, status)
 ├── docs/
+│   ├── adr/                 # Registro cumulativo de decisões arquiteturais (ADRs)
 │   ├── architecture/        # Templates e topologias de arquitetura
 │   ├── incidents/           # Hub de postmortems, relatórios RCA e rastreador de ações preventivas
 │   ├── proxmox-hardening.md # Guia consolidado de hardening, sysctl e contenção de I/O no Proxmox VE
@@ -117,7 +118,7 @@ flowchart LR
 ├── CONTRIBUTING.md          # Diretrizes de contribuição para a comunidade (salvaguarda de 150 MB RAM)
 ├── SECURITY.md              # Política de reporte responsável de vulnerabilidades
 ├── AGENTS.md                # Diretrizes de engenharia, governança e regras dos agentes
-├── .agent/                  # Documentação de contexto do agente (TASK.md, NOTES.md, ARCHIVE.md, SERVICES.md)
+├── .agent/                  # Documentação de contexto do agente (TASK.md, NOTES.md, ARCHIVE.md, SERVICES.md, ECOSYSTEM.md, knowledge/, skills/)
 │   ├── SERVICES.md          # Catálogo canônico de portas, volumes, redes e saúde dos containers
 │   ├── TASK.md              # Tarefa ativa e backlog ordenado da infraestrutura
 │   ├── NOTES.md             # Decisões arquiteturais, contratos de log e armadilhas técnicas
@@ -436,7 +437,7 @@ UUID=xxxx-xxxx-xxxx  /  ext4  errors=remount-ro,noatime,nodiratime  0  1
 
 ## ⚙️ Limites de Recursos e Tuning
 
-As configurações no [`docker-compose.yml`](./docker-compose.yml) foram ajustadas para estabilidade absoluta em ambientes limitados:
+As configurações no [`compose.yaml`](./compose.yaml) foram ajustadas para estabilidade absoluta em ambientes limitados:
 
 | Serviço | Limite de RAM (Max) | Reserva (Mínima) | CPU Limit |
 |---|---|---|---|

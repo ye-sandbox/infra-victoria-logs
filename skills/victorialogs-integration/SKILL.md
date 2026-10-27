@@ -82,7 +82,7 @@ Canonical sink header: `VL-Stream-Fields: "host,container_name,service,app,env,s
 
 ## 🐳 Pattern 1: Docker Containers via Docker Compose
 
-When creating or editing `docker-compose.yml` for any project:
+When creating or editing `compose.yaml` (or `docker-compose.yml`) for any project:
 
 ```yaml
 services:

@@ -250,9 +250,13 @@ if [[ "${OUTPUT_JSON}" == "false" ]]; then
   echo -e "${BOLD}--- 2. Hardening e Isolamento no Docker Compose ---${NC}"
 fi
 
-COMPOSE_FILE="${ROOT_DIR}/docker-compose.yml"
+COMPOSE_FILE="${ROOT_DIR}/compose.yaml"
 if [[ ! -f "${COMPOSE_FILE}" ]]; then
-  record_result "COMPOSE-FILE" "DockerCompose" "FAIL" "Arquivo docker-compose.yml não encontrado" "Certifique-se de executar no repositório infra-victoria-logs"
+  COMPOSE_FILE="${ROOT_DIR}/docker-compose.yml"
+fi
+
+if [[ ! -f "${COMPOSE_FILE}" ]]; then
+  record_result "COMPOSE-FILE" "DockerCompose" "FAIL" "Arquivo compose.yaml não encontrado" "Certifique-se de executar no repositório infra-victoria-logs"
 else
   # 2.1 Sintaxe do Compose
   COMPOSE_VALID=false
@@ -260,11 +264,11 @@ else
   if command -v docker &>/dev/null; then
     if docker compose -f "${COMPOSE_FILE}" config --quiet &>/dev/null; then
       COMPOSE_VALID=true
-      record_result "COMPOSE-SYNTAX" "DockerCompose" "PASS" "Sintaxe do docker-compose.yml validada com sucesso" ""
+      record_result "COMPOSE-SYNTAX" "DockerCompose" "PASS" "Sintaxe do compose.yaml validada com sucesso" ""
       # Extrair JSON normalizado do Compose
       COMPOSE_JSON=$(docker compose -f "${COMPOSE_FILE}" config --format json 2>/dev/null || true)
     else
-      record_result "COMPOSE-SYNTAX" "DockerCompose" "FAIL" "docker compose config reportou erros na sintaxe do arquivo" "Verifique a formatação do docker-compose.yml"
+      record_result "COMPOSE-SYNTAX" "DockerCompose" "FAIL" "docker compose config reportou erros na sintaxe do arquivo" "Verifique a formatação do compose.yaml"
     fi
   fi
 
@@ -366,7 +370,7 @@ print("true" if (has_vl and has_vec and has_vmalert and has_bridge) else "false"
   if [[ "${HC_OK}" == "true" ]]; then
     record_result "COMPOSE-HEALTHCHECKS" "DockerCompose" "PASS" "Healthchecks configurados para os serviços (victorialogs, vector, vmalert e alert-bridge)" ""
   else
-    record_result "COMPOSE-HEALTHCHECKS" "DockerCompose" "WARN" "Healthcheck ausente em serviços do compose" "Defina blocos de healthcheck no docker-compose.yml"
+    record_result "COMPOSE-HEALTHCHECKS" "DockerCompose" "WARN" "Healthcheck ausente em serviços do compose" "Defina blocos de healthcheck no compose.yaml"
   fi
 
   # 2.6 Política de reinicialização (restart: unless-stopped)
@@ -415,7 +419,7 @@ print("true" if (vl_ro and vec_ro) else "false")
   if [[ "${READ_ONLY_OK}" == "true" ]]; then
     record_result "COMPOSE-READ-ONLY-ROOTFS" "DockerCompose" "PASS" "Containers principais (victorialogs e vector) configurados com sistema de arquivos somente leitura (read_only: true)" ""
   else
-    record_result "COMPOSE-READ-ONLY-ROOTFS" "DockerCompose" "WARN" "Sistema de arquivos somente leitura (read_only: true) ausente em victorialogs ou vector" "Configure 'read_only: true' no docker-compose.yml para endurecimento de segurança"
+    record_result "COMPOSE-READ-ONLY-ROOTFS" "DockerCompose" "WARN" "Sistema de arquivos somente leitura (read_only: true) ausente em victorialogs ou vector" "Configure 'read_only: true' no compose.yaml para endurecimento de segurança"
   fi
 
   # 2.8 Montagem tmpfs para arquivos efêmeros (/tmp)
@@ -449,7 +453,7 @@ print("true" if (vl_tmp and vec_tmp) else "false")
   if [[ "${TMPFS_OK}" == "true" ]]; then
     record_result "COMPOSE-TMPFS-TMP" "DockerCompose" "PASS" "Montagem tmpfs (/tmp) configurada para suportar escritas efêmeras sob rootfs somente leitura" ""
   else
-    record_result "COMPOSE-TMPFS-TMP" "DockerCompose" "WARN" "Montagem tmpfs (/tmp) ausente em containers com read_only ativo" "Configure 'tmpfs: [/tmp]' no docker-compose.yml"
+    record_result "COMPOSE-TMPFS-TMP" "DockerCompose" "WARN" "Montagem tmpfs (/tmp) ausente em containers com read_only ativo" "Configure 'tmpfs: [/tmp]' no compose.yaml"
   fi
 
   # 2.9 Bloqueio de escalonamento de privilégios (security_opt: [no-new-privileges:true])

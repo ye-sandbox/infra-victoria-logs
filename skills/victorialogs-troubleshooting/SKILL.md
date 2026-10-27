@@ -18,7 +18,7 @@ When the user reports an issue ("the API crashed", "the worker stopped", "I'm ge
 ```text
   ┌────────────────────────────────────────────────────────────────────────┐
   │ Step 0: Target Service Identification                                  │
-  │ Inspect docker-compose.yml or run list_streams(time_range="1h")        │
+  │ Inspect compose.yaml or run list_streams(time_range="1h")               │
   └───────────────────────────────────┬────────────────────────────────────┘
                                       │ (e.g. service="payments-api")
                                       ▼

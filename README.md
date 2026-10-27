@@ -60,7 +60,7 @@ flowchart LR
 
 ```text
 .
-├── docker-compose.yml       # Production orchestration with strict RAM limits (140 MB combined)
+├── compose.yaml             # Production orchestration with strict RAM limits (140 MB combined)
 ├── vector/
 │   ├── vector.hdd.yaml      # Spinning disk profile (RAM buffer, 15s batching, noise filtering)
 │   ├── vector.ssd.yaml      # SSD/NVMe profile (disk buffer, 1s batching, full retention)
@@ -69,6 +69,7 @@ flowchart LR
 ├── dashboards/
 │   └── grafana-victorialogs.json      # Official pre-built Grafana dashboard (throughput, errors, status)
 ├── docs/
+│   ├── adr/                 # Architecture Decision Records (ADRs) log
 │   ├── architecture/        # Macro designs and system topology templates
 │   ├── incidents/           # Incident postmortems, RCA reports, and action tracker
 │   ├── proxmox-hardening.md # Hardening, sysctl tuning, and I/O containment guide for Proxmox VE
@@ -117,7 +118,7 @@ flowchart LR
 ├── CONTRIBUTING.md          # Contributor guide and default 150 MB RAM safeguard baseline
 ├── SECURITY.md              # Responsible vulnerability disclosure policy
 ├── AGENTS.md                # AI agent operating rules, engineering standards, and DoD criteria
-├── .agent/                  # Persistent agent tracking files (TASK.md, NOTES.md, ARCHIVE.md, SERVICES.md)
+├── .agent/                  # Persistent agent tracking files (TASK.md, NOTES.md, ARCHIVE.md, SERVICES.md, ECOSYSTEM.md, knowledge/, skills/)
 │   ├── SERVICES.md          # Canonical topology, port registry, and persistence matrix
 │   ├── TASK.md              # Active infrastructure tasks and prioritized backlog
 │   ├── NOTES.md             # Active decisions, contracts, and operational gotchas
@@ -426,7 +427,7 @@ sudo ./scripts/tune-disk-host.sh --remount-noatime /
 
 ## ⚙️ Resource Limits & Sizing
 
-The resource definitions in [`docker-compose.yml`](./docker-compose.yml) guarantee predictable operation on modest homelab hardware:
+The resource definitions in [`compose.yaml`](./compose.yaml) guarantee predictable operation on modest homelab hardware:
 
 | Service | Hard RAM Limit (Max) | Memory Reservation (Min) | CPU Limit |
 |---|---|---|---|

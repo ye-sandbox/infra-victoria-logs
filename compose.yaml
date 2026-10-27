@@ -41,6 +41,7 @@ services:
           cpus: "0.50"
         reservations:
           memory: 30M
+    # INVARIANT: Distroless image without curl/wget; -version binary invocation verifies engine process integrity and OCI runtime execution
     healthcheck:
       test: ["CMD", "/victoria-logs-prod", "-version"]
       interval: 15s
@@ -79,6 +80,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    # INVARIANT: condition service_healthy required; vector sinks fail immediately if victorialogs HTTP ingestion port is not yet accepting connections
     depends_on:
       victorialogs:
         condition: service_healthy
@@ -89,6 +91,7 @@ services:
           cpus: "0.50"
         reservations:
           memory: 20M
+    # INVARIANT: Loopback TCP port probe against Vector HTTP ingestion pipeline
     healthcheck:
       test: ["CMD-SHELL", "nc -z 127.0.0.1 8686 || exit 1"]
       interval: 15s

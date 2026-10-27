@@ -86,7 +86,7 @@ docker compose restart <service>
 ### Permanent Fix
 [Architectural or configuration change implemented to resolve the defect permanently.]
 - **Pull Request / Commit:** [`commit-hash`]
-- **Configuration Delta:** [Summary of changes in docker-compose.yml, vector.yaml, or host scripts]
+- **Configuration Delta:** [Summary of changes in compose.yaml, vector.yaml, or host scripts]
 
 ---
 

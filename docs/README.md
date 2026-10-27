@@ -10,6 +10,7 @@ To maintain strict governance and prevent fragmentation between human operators 
 
 | Directory / Location | Purpose | Target Audience | Example |
 | :--- | :--- | :--- | :--- |
+| **`docs/adr/`** | Historical and cumulative Architectural Decision Records (ADRs) for progressive disclosure. | Human / Agent | Vector compression choice (zstd), MCP Python runtime, retention policy. |
 | **`docs/architecture/`** | Macro decisions, physical/logical network topologies, storage profiles, traffic flows, and evolution roadmaps. | Human / Agent | System topology, storage profile selection (SSD vs HDD), ingestion pipelines. |
 | **`docs/incidents/`** | Postmortems and Root Cause Analysis (RCA) narratives detailing real-world failures, symptom timelines, investigated hypotheses, root causes, remediation, and preventive actions. | Human / Agent | Outage RCA, storage exhaustion recovery, port collision investigation, memory spike triage. |
 | **`docs/host/`** (or `docs/`) | Host OS configuration manuals, system daemon tuning, Proxmox hardening, and maintenance runbooks. | Human / Agent | Proxmox disk scheduler tuning, Docker daemon non-blocking mode, Proxmox security hardening. |
