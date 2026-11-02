@@ -84,5 +84,6 @@ Thumbs.db
 # Agent & local assistant scratch files
 .agent/scratch/
 .gemini/
+.multigravity/
 .claude/
 
