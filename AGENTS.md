@@ -78,6 +78,10 @@ The agent MUST optimize context loading using the following progressive disclosu
 
 ---
 
+
+
+- Interface & UI verification: Read `.agent/skills/interface-testing/SKILL.md` (loaded on-demand exclusively for UI, preview, or frontend component tasks).
+
 ## Source of Truth
 
 [`.agent/SERVICES.md`](./.agent/SERVICES.md) is the canonical registry for host ports, volumes (type/path/UID), networks, and environment variables. The agent MUST NOT modify `compose.yaml` without recording entries there first.
@@ -132,7 +136,7 @@ If an automated command (`docker compose config`, container boot, vector validat
 
 ## Task Numbering (`[XX.Y]`) & Post-Release Hygiene
 
-Format: `[Epic].[Sequence]` with two-digit epics. Subtasks: `[XX.Y.Z]`. Exactly **one** task active in `RUNNING` status.
+Format: `[Epic].[Sequence]` with two-digit epics. Subtasks: `[XX.Y.Z]`. Exactly **one** task active in `.agent/TASK.md`.
 
 | Prefix | Phase | Focus |
 | :---: | :--- | :--- |
@@ -147,7 +151,7 @@ Not restricted to phase `99.x`. When releasing `vX.Y.Z`:
 1. **Archive:** Move completed log from `TASK.md` to `ARCHIVE.md` under `## [vX.Y.Z] - YYYY-MM-DD`.
 2. **Consolidate:** Record active topology in `SERVICES.md`; prune ephemeral scratch notes in `NOTES.md`.
 3. **Perimeter:** Sync `.env.example`, `README.md`, `README.pt-br.md`, and `compose.yaml` to the release tag.
-4. **Reset:** Reset task numbering or promote next milestone to `READY FOR PLANNING`.
+4. **Reset:** Reset task numbering or promote next milestone to the active task.
 
 ---
 
@@ -317,6 +321,17 @@ depends_on:
     condition: service_healthy
 ```
 
+### Commit Messages
+```markdown
+// BAD: Appending AI/agent attribution trailers to commit messages or PR descriptions
+git commit -m "feat(auth): add session refresh" -m "Co-Authored-By: <Agent> <noreply@example.com>"
+// Or PR body containing: "Generated with <Agent>"
+
+// GOOD: Clean commit message and PR description without attribution trailers
+git commit -m "feat(auth): add session refresh"
+```
+
+
 ---
 
 ## Git Conventions
@@ -328,3 +343,14 @@ depends_on:
   - `fix(compose): adjust memory reservation for victorialogs`
   - `chore(deps): bump victorialogs to v1.23.0`
   - `docs(readme): add curl query examples for ai agents`
+- **No Agent Attribution Trailers:** NEVER append `Co-Authored-By`, `Generated with ...`, or similar AI/agent attribution trailers to commit messages or PR descriptions.
+
+## Falsifiable Definition of Done (DoD)
+
+- [ ] Interface & UI verification (if UI affected): passes adaptive protocol (interactive preview/device MCPs within T3 Code; non-blocking headless component/build validation outside T3 Code).
+
+## 2-Tier Execution & Hermetic Skills Contract
+
+- **Tier 1 — Interactive (Default):** Lean `.agent/TASK.md` checklist (`- [ ]` atomic subtasks) validated by the repository's canonical test and build commands.
+- **Tier 2 — Autonomous (`dev-harness` / Parallel Worktrees):** Strict micro-contracts (`files_read`, `files_edit`, `verify`) live inside `.harness/queue/<id>.{md,yaml}` or `harness:ready` GitHub Issues consumed by `dev-harness`, never in `.agent/TASK.md`. Lifecycle hooks in `.agent/hooks/` (`post-worktree-create`, `pre-verify`, `post-worktree-teardown`) apply to both tiers.
+- **Hermetic Skills & Context Contract:** Procedural guidelines and skills must be self-contained within `.agent/skills/` or injected directly into the task dispatch prompt by the orchestrator; never wander the host filesystem for missing skills.

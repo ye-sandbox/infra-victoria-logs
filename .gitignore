@@ -87,3 +87,11 @@ Thumbs.db
 .multigravity/
 .claude/
 
+
+# Agent & dev-harness ephemeral state
+.agent/.cache/
+.worktrees/
+.maestri/
+.harness/queue/done/
+.harness/queue/escalated/
+.harness/worktrees/
